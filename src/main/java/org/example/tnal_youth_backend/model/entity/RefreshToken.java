@@ -1,10 +1,8 @@
 package org.example.tnal_youth_backend.model.entity;
 
-
-
-
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -22,17 +20,27 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    /**
+     * Owner of this refresh token.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /**
+     * Refresh token value stored in database.
+     */
+    @Column(nullable = false, unique = true)
     private UUID token;
 
-    @Column(name = "expires_at")
+    @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
+    @Column(nullable = false)
     private Boolean revoked;
 
-    @Column(name = "created_at")
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
 }

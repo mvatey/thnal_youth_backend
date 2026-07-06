@@ -394,35 +394,35 @@ INSERT INTO users
 )
 VALUES
     (
-        '010000001',
-        'admin',
-        '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi6M6KzJm8D1x8GZFODdgNpTi27C3lG',
+        '081816687',
+        'admin@gmail.com',
+        '$2a$12$V6UoKo9i5rQl7XKvsth48eUWQNzexITv5RiAgu6VKeNLw5xxJ85Ti',
         'ADMIN',
         'ACTIVE',
         'Admin',
         'System Administrator'
     ),
     (
-        '010000002',
-        'branch',
-        '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi6M6KzJm8D1x8GZFODdgNpTi27C3lG',
+        '081816688',
+        'branch@gmail.com',
+        '$2a$12$/BeQowr4GG0xQs37jKz6dOFmKplK0o0B71oYhWUt6CV2hpULVQn6u',
         'BRANCH_LEADER',
         'ACTIVE',
         'Branch Leader',
         'Branch Leader'
     ),
     (
-        '010000003',
-        'secretary',
-        '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi6M6KzJm8D1x8GZFODdgNpTi27C3lG',
+        '010000000',
+        'secretary@gmail.com',
+        '$2a$12$/BeQowr4GG0xQs37jKz6dOFmKplK0o0B71oYhWUt6CV2hpULVQn6u',
         'SECRETARY',
         'ACTIVE',
         'Secretary',
         'Secretary'
     ),
     (
-        '010000004',
-        'member',
+        '010000007',
+        'member@gmail.com',
         '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi6M6KzJm8D1x8GZFODdgNpTi27C3lG',
         'MEMBER',
         'ACTIVE',
