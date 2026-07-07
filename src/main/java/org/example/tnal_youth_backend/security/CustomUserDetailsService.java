@@ -2,8 +2,8 @@ package org.example.tnal_youth_backend.security;
 
 
 
-import org.example.tnal_youth_backend.model.entity.User;
-import org.example.tnal_youth_backend.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;

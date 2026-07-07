@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.security;
 
 
-import org.example.tnal_youth_backend.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
 import lombok.AllArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
