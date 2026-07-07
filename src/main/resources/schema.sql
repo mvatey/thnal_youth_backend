@@ -30,3 +30,48 @@ CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
+
+-- Member 
+
+CREATE TABLE member_positions (
+                                  id SERIAL PRIMARY KEY,
+                                  code VARCHAR(50),
+                                  label_km VARCHAR(100),
+                                  label_en VARCHAR(100),
+                                  description TEXT,
+                                  is_active BOOLEAN,
+                                  sort_order INT,
+                                  created_at TIMESTAMP,
+                                  updated_at TIMESTAMP
+);
+
+CREATE TABLE member_statuses (
+                                 id SERIAL PRIMARY KEY,
+                                 code VARCHAR(50),
+                                 label_km VARCHAR(100),
+                                 label_en VARCHAR(100),
+                                 is_active BOOLEAN,
+                                 sort_order INT,
+                                 created_at TIMESTAMP,
+                                 updated_at TIMESTAMP
+);
+
+CREATE TABLE members (
+                         id SERIAL PRIMARY KEY,
+                         member_no VARCHAR(50) UNIQUE NOT NULL,
+                         user_id BIGINT,
+                         branch_id BIGINT,
+                         position_id BIGINT REFERENCES member_positions(id),
+                         status_id BIGINT REFERENCES member_statuses(id),
+                         full_name_km VARCHAR(100),
+                         full_name_en VARCHAR(100),
+                         gender VARCHAR(20),
+                         date_of_birth DATE,
+                         phone VARCHAR(20),
+                         email VARCHAR(100),
+                         address TEXT,
+                         profile_photo VARCHAR(255),
+                         cv_file VARCHAR(255),
+                         joined_on DATE,
+                         bio TEXT
+);
