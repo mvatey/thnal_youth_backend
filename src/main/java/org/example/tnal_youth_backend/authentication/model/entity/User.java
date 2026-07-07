@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+
 import java.time.OffsetDateTime;
 
 @Entity

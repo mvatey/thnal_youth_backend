@@ -39,7 +39,6 @@ CREATE TYPE user_status AS ENUM
     (
         'ACTIVE',
         'INACTIVE',
-        'LOCKED'
         );
 
 -- ============================================================
@@ -61,41 +60,27 @@ CREATE TYPE user_role AS ENUM
 CREATE TABLE users
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
     phone VARCHAR(20) NOT NULL UNIQUE,
-
     email CITEXT UNIQUE,
-
     password_hash TEXT NOT NULL,
-
     role user_role NOT NULL,
-
     status user_status
         NOT NULL
         DEFAULT 'ACTIVE',
-
     full_name_km TEXT NOT NULL,
-
     full_name_en TEXT,
-
     profile_image TEXT,
-
     failed_login_count INT
         NOT NULL
         DEFAULT 0,
-
     last_login_at TIMESTAMPTZ,
-
     locked_until TIMESTAMPTZ,
-
     created_at TIMESTAMPTZ
         NOT NULL
         DEFAULT NOW(),
-
     updated_at TIMESTAMPTZ
         NOT NULL
         DEFAULT NOW(),
-
     CHECK(phone ~ '^[0-9+() -]{6,20}$')
 );
 
@@ -105,13 +90,10 @@ CREATE TABLE users
 
 CREATE INDEX idx_users_phone
     ON users(phone);
-
 CREATE INDEX idx_users_email
     ON users(email);
-
 CREATE INDEX idx_users_role
     ON users(role);
-
 CREATE INDEX idx_users_status
     ON users(status);
 
@@ -147,27 +129,20 @@ CREATE TYPE otp_channel AS ENUM
 CREATE TABLE password_reset_tokens
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
     user_id BIGINT
         NOT NULL
         REFERENCES users(id)
             ON DELETE CASCADE,
-
     otp_code_hash TEXT
         NOT NULL,
-
     delivery_channel otp_channel
         NOT NULL,
-
     expires_at TIMESTAMPTZ
         NOT NULL,
-
     consumed_at TIMESTAMPTZ,
-
     attempts INT
         NOT NULL
         DEFAULT 0,
-
     created_at TIMESTAMPTZ
         NOT NULL
         DEFAULT NOW()
@@ -187,23 +162,18 @@ CREATE INDEX idx_password_reset_active
 CREATE TABLE refresh_tokens
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
     user_id BIGINT
         NOT NULL
         REFERENCES users(id)
             ON DELETE CASCADE,
-
     token UUID
         NOT NULL
         DEFAULT gen_random_uuid(),
-
     expires_at TIMESTAMPTZ
         NOT NULL,
-
     revoked BOOLEAN
         NOT NULL
         DEFAULT FALSE,
-
     created_at TIMESTAMPTZ
         NOT NULL
         DEFAULT NOW()
@@ -211,7 +181,6 @@ CREATE TABLE refresh_tokens
 
 CREATE UNIQUE INDEX uq_refresh_token
     ON refresh_tokens(token);
-
 CREATE INDEX idx_refresh_user
     ON refresh_tokens(user_id);
 
@@ -222,16 +191,14 @@ DROP TABLE IF EXISTS login_history CASCADE;
 CREATE TABLE login_history
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
     user_id BIGINT
         REFERENCES users(id)
             ON DELETE SET NULL,
-
     login_time TIMESTAMPTZ
         NOT NULL
         DEFAULT NOW(),
 
-    ip_address INET,
+    ip_address VARCHAR(50),
 
     device TEXT,
 
