@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.common.exception;
 
 import org.example.tnal_youth_backend.common.response.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,9 +15,17 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * BusinessException code "UNAUTHENTICATED" is thrown by SecurityUtils when
+     * no principal is in context. That's a 401, not a 400 — keeps the HTTP
+     * contract truthful.
+     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        HttpStatus status = "UNAUTHENTICATED".equals(ex.getCode())
+                ? HttpStatus.UNAUTHORIZED
+                : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status)
                 .body(ApiResponse.error(ex.getCode(), ex.getMessage()));
     }
 
@@ -27,6 +36,13 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("VALIDATION_FAILED", msg));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("DATA_INTEGRITY_VIOLATION",
+                        "Referenced entity not found or a database constraint was violated"));
     }
 
     @ExceptionHandler(AuthenticationException.class)

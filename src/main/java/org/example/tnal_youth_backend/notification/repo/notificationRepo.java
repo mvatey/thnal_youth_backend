@@ -14,6 +14,15 @@ import java.util.List;
 @Mapper
 public interface notificationRepo {
 
+    // ---------- lookup validation ----------
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM notification_types
+        WHERE id = #{typeId} AND is_active = TRUE
+        """)
+    int countActiveType(@Param("typeId") Short typeId);
+
     // ---------- notifications ----------
 
     @Insert("""
@@ -24,12 +33,12 @@ public interface notificationRepo {
             (#{typeId}, #{title}, #{body}, #{linkUrl}, #{programId}, #{branchId},
              #{sentViaInApp}, #{sentViaSms}, #{sentViaEmail}, #{createdBy})
         """)
-    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+    @Options(useGeneratedKeys = true,
+            keyProperty = "id,createdAt",
+            keyColumn = "id,created_at")
     int insertNotification(notificationModel n);
 
     // ---------- recipient fan-out ----------
-    // One statement, one round-trip per target mode. Fewer rows in flight than
-    // per-user inserts; DB does the set expansion.
 
     @Insert("""
         INSERT INTO notification_recipients (notification_id, user_id)
@@ -67,9 +76,13 @@ public interface notificationRepo {
 
     @Insert({
             "<script>",
-            "INSERT INTO notification_recipients (notification_id, user_id) VALUES ",
-            "<foreach collection='userIds' item='uid' separator=','>",
-            "  (#{nid}, #{uid})",
+            "INSERT INTO notification_recipients (notification_id, user_id)",
+            "SELECT #{nid}, u.id",
+            "FROM users u",
+            "WHERE u.status = 'ACTIVE'",
+            "  AND u.id IN",
+            "<foreach collection='userIds' item='uid' open='(' separator=',' close=')'>",
+            "  #{uid}",
             "</foreach>",
             "ON CONFLICT (notification_id, user_id) DO NOTHING",
             "</script>"
@@ -81,10 +94,24 @@ public interface notificationRepo {
 
     @Select("""
         SELECT COUNT(*)
-        FROM notification_recipients
-        WHERE user_id = #{userId} AND read_at IS NULL
+        FROM notification_recipients nr
+        JOIN notifications n ON n.id = nr.notification_id
+        WHERE nr.user_id = #{userId}
+          AND nr.read_at IS NULL
+          AND n.sent_via_in_app = TRUE
         """)
     long countUnread(@Param("userId") Long userId);
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM notification_recipients nr
+        JOIN notifications n ON n.id = nr.notification_id
+        WHERE nr.user_id = #{userId}
+          AND n.sent_via_in_app = TRUE
+          AND (#{onlyUnread}::boolean = FALSE OR nr.read_at IS NULL)
+        """)
+    long countForUser(@Param("userId") Long userId,
+                      @Param("onlyUnread") boolean onlyUnread);
 
     @Select("""
         SELECT
@@ -103,8 +130,9 @@ public interface notificationRepo {
         JOIN notifications      n  ON n.id = nr.notification_id
         JOIN notification_types nt ON nt.id = n.type_id
         WHERE nr.user_id = #{userId}
+          AND n.sent_via_in_app = TRUE
           AND (#{onlyUnread}::boolean = FALSE OR nr.read_at IS NULL)
-        ORDER BY n.created_at DESC
+        ORDER BY n.created_at DESC, n.id DESC
         LIMIT #{limit} OFFSET #{offset}
         """)
     List<notificationDTO> listForUser(@Param("userId") Long userId,

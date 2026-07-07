@@ -3,7 +3,9 @@ package org.example.tnal_youth_backend.notification.service;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
 import org.example.tnal_youth_backend.notification.dto.notificationCreateDTO;
+import org.example.tnal_youth_backend.notification.dto.notificationCreateResultDTO;
 import org.example.tnal_youth_backend.notification.dto.notificationDTO;
+import org.example.tnal_youth_backend.notification.dto.notificationPageDTO;
 import org.example.tnal_youth_backend.notification.model.notificationModel;
 import org.example.tnal_youth_backend.notification.repo.notificationRepo;
 import org.example.tnal_youth_backend.security.SecurityUtils;
@@ -14,14 +16,41 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("java:S101") // project-wide lowercase-first module class naming
 public class notificationService {
 
     private final notificationRepo repo;
 
-    /** Creates a notification and fans it out to recipients in one transaction. */
+    /**
+     * Creates a notification and fans it out to recipients in one transaction.
+     *
+     * SMS / email delivery is NOT dispatched inline — blocking the DB transaction
+     * on a network call is wrong, and rollbacks would fire already-sent messages.
+     * When SMS/email adapters land, publish a Spring event here and consume it in
+     * a @TransactionalEventListener(phase = AFTER_COMMIT).
+     *
+     * Sender attribution lives on notifications.created_by, populated from the
+     * authenticated principal. The notifications table is not in the DB-side
+     * audit_trigger loop, but the row is immutable via the API (no update/delete
+     * endpoint), so created_by is a sufficient trail.
+     */
     @Transactional
-    public Long create(notificationCreateDTO req) {
+    public notificationCreateResultDTO create(notificationCreateDTO req) {
+        // ---- validate at least one delivery channel is enabled ----
+        Boolean inApp = bool(req.getSentViaInApp(), true);
+        Boolean sms   = bool(req.getSentViaSms(),   false);
+        Boolean email = bool(req.getSentViaEmail(), false);
+
+        if (!inApp && !sms && !email) {
+            throw new BusinessException("NOTIF_NO_CHANNEL",
+                    "At least one delivery channel (in-app, SMS, or email) must be enabled");
+        }
+
+        // ---- validate notification type is active ----
+        if (repo.countActiveType(req.getTypeId()) == 0) {
+            throw new BusinessException("NOTIF_TYPE_INACTIVE",
+                    "Notification type " + req.getTypeId() + " does not exist or is inactive");
+        }
+
         Long actorId = SecurityUtils.getCurrentUserId();
 
         notificationModel n = notificationModel.builder()
@@ -31,9 +60,9 @@ public class notificationService {
                 .linkUrl(req.getLinkUrl())
                 .programId(req.getProgramId())
                 .branchId(req.getBranchId())
-                .sentViaInApp(bool(req.getSentViaInApp(), true))
-                .sentViaSms(bool(req.getSentViaSms(), false))
-                .sentViaEmail(bool(req.getSentViaEmail(), false))
+                .sentViaInApp(inApp)
+                .sentViaSms(sms)
+                .sentViaEmail(email)
                 .createdBy(actorId)
                 .build();
 
@@ -43,11 +72,11 @@ public class notificationService {
             throw new BusinessException("NOTIF_INSERT_FAILED", "Failed to persist a notification");
         }
 
-        fanOut(nid, req);
-
-        // Delivery hook: when SMS/email adapters exist, dispatch here based on the sent_via_* flags.
-        // Intentionally not enqueuing yet — no provider wired.
-        return nid;
+        int recipientCount = fanOut(nid, req);
+        // Zero-audience is surfaced to the caller (not thrown) so admins can see
+        // the effect of their target choice without a hard failure on
+        // legitimately-empty branches or programs.
+        return new notificationCreateResultDTO(nid, recipientCount, n.getCreatedAt());
     }
 
     private int fanOut(Long nid, notificationCreateDTO req) {
@@ -83,14 +112,15 @@ public class notificationService {
     }
 
     @Transactional(readOnly = true)
-    public List<notificationDTO> listMine(boolean onlyUnread, int page, int size) {
+    public notificationPageDTO listMine(boolean onlyUnread, int page, int size) {
         int safeSize = Math.clamp(size, 1, 100);
         int safePage = Math.max(page, 0);
-        return repo.listForUser(
-                SecurityUtils.getCurrentUserId(),
-                onlyUnread,
-                safeSize,
-                safePage * safeSize);
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        List<notificationDTO> items = repo.listForUser(userId, onlyUnread, safeSize, safePage * safeSize);
+        long total = repo.countForUser(userId, onlyUnread);
+
+        return new notificationPageDTO(items, total, safePage, safeSize);
     }
 
     @Transactional

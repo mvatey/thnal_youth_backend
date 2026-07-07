@@ -5,7 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.example.tnal_youth_backend.notification.dto.notificationCountDTO;
 import org.example.tnal_youth_backend.notification.dto.notificationCreateDTO;
-import org.example.tnal_youth_backend.notification.dto.notificationDTO;
+import org.example.tnal_youth_backend.notification.dto.notificationCreateResultDTO;
+import org.example.tnal_youth_backend.notification.dto.notificationPageDTO;
 import org.example.tnal_youth_backend.notification.service.notificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,24 +18,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@SuppressWarnings("java:S101")
 public class notificationController {
 
     private final notificationService service;
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Long>> create(@Valid @RequestBody notificationCreateDTO req) {
+    public ResponseEntity<ApiResponse<notificationCreateResultDTO>> create(
+            @Valid @RequestBody notificationCreateDTO req) {
         return ResponseEntity.ok(ApiResponse.ok(service.create(req)));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<List<notificationDTO>>> listMine(
+    public ResponseEntity<ApiResponse<notificationPageDTO>> listMine(
             @RequestParam(defaultValue = "false") boolean onlyUnread,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
