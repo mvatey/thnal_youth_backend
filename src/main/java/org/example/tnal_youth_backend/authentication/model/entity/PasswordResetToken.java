@@ -1,12 +1,11 @@
 package org.example.tnal_youth_backend.authentication.model.entity;
 
 
-
-
-
 import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 
@@ -31,7 +30,8 @@ public class PasswordResetToken {
     private String otpCodeHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "delivery_channel")
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "delivery_channel", columnDefinition = "otp_channel")
     private OtpChannel deliveryChannel;
 
     @Column(name = "expires_at")

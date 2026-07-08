@@ -11,5 +11,6 @@ import lombok.*;
 public class RefreshTokenResponse {
 
     private String accessToken;
+    private String refreshToken;
 
 }
