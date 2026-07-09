@@ -1,17 +1,15 @@
--- Enable UUID generation (only needs to run once per database)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
---- ============================================================
--- CYNA Authentication Module
--- Spring Boot + MyBatis + JWT
+-- ============================================================
+-- TNAL Youth Authentication Module
+-- Spring Boot + JPA + JWT
 -- PostgreSQL 15+
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
--- ============================================
--- CLEAN DATABASE (Development Only)
--- ============================================
+
+-- ============================================================
+-- CLEAN DATABASE - DEVELOPMENT ONLY
+-- ============================================================
 
 DROP TRIGGER IF EXISTS trg_users_audit ON users;
 DROP TRIGGER IF EXISTS trg_users_updated ON users;
@@ -25,35 +23,6 @@ DROP TABLE IF EXISTS refresh_tokens CASCADE;
 DROP TABLE IF EXISTS password_reset_tokens CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
-DROP TYPE IF EXISTS otp_channel CASCADE;
-DROP TYPE IF EXISTS user_role CASCADE;
-DROP TYPE IF EXISTS user_status CASCADE;
-
-CREATE EXTENSION IF NOT EXISTS citext;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
--- ============================================================
--- USER STATUS
--- ============================================================
-
-CREATE TYPE user_status AS ENUM
-    (
-        'ACTIVE',
-        'INACTIVE',
-        'LOCKED'
-        );
-
--- ============================================================
--- SYSTEM ROLES
--- ============================================================
-
-CREATE TYPE user_role AS ENUM
-    (
-        'ADMIN',
-        'BRANCH_LEADER',
-        'SECRETARY',
-        'MEMBER'
-        );
-
 -- ============================================================
 -- USERS
 -- ============================================================
@@ -61,45 +30,38 @@ CREATE TYPE user_role AS ENUM
 CREATE TABLE users
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
     phone VARCHAR(20) NOT NULL UNIQUE,
     email CITEXT UNIQUE,
+
     password_hash TEXT NOT NULL,
-    role user_role NOT NULL,
-    status user_status
-        NOT NULL
-        DEFAULT 'ACTIVE',
+
+    role VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+
     full_name_km TEXT NOT NULL,
     full_name_en TEXT,
     profile_image TEXT,
-    failed_login_count INT
-        NOT NULL
-        DEFAULT 0,
+
+    failed_login_count INT NOT NULL DEFAULT 0,
     last_login_at TIMESTAMPTZ,
     locked_until TIMESTAMPTZ,
-    created_at TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW(),
-    updated_at TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW(),
-    CHECK(phone ~ '^[0-9+() -]{6,20}$')
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CHECK (phone ~ '^[0-9+() -]{6,20}$'),
+    CHECK (role IN ('ADMIN', 'BRANCH_LEADER', 'SECRETARY', 'MEMBER')),
+    CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED'))
 );
 
--- ============================================================
--- INDEXES
--- ============================================================
-
-CREATE INDEX idx_users_phone
-    ON users(phone);
-CREATE INDEX idx_users_email
-    ON users(email);
-CREATE INDEX idx_users_role
-    ON users(role);
-CREATE INDEX idx_users_status
-    ON users(status);
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_status ON users(status);
 
 -- ============================================================
--- UPDATE TIMESTAMP
+-- UPDATED_AT TRIGGER
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -112,41 +74,34 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_users_updated
-    BEFORE UPDATE
-    ON users
+    BEFORE UPDATE ON users
     FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
--- PASSWORD RESET OTP
+-- PASSWORD RESET TOKENS
 -- ============================================================
-
-CREATE TYPE otp_channel AS ENUM
-    (
-        'SMS',
-        'EMAIL'
-        );
 
 CREATE TABLE password_reset_tokens
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT
-        NOT NULL
+
+    user_id BIGINT NOT NULL
         REFERENCES users(id)
             ON DELETE CASCADE,
-    otp_code_hash TEXT
-        NOT NULL,
-    delivery_channel otp_channel
-        NOT NULL,
-    expires_at TIMESTAMPTZ
-        NOT NULL,
+
+    otp_code_hash TEXT NOT NULL,
+
+    delivery_channel VARCHAR(20) NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
     consumed_at TIMESTAMPTZ,
-    attempts INT
-        NOT NULL
-        DEFAULT 0,
-    created_at TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW()
+
+    attempts INT NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CHECK (delivery_channel IN ('SMS', 'EMAIL'))
 );
 
 CREATE INDEX idx_password_reset_user
@@ -163,41 +118,42 @@ CREATE INDEX idx_password_reset_active
 CREATE TABLE refresh_tokens
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT
-        NOT NULL
+
+    user_id BIGINT NOT NULL
         REFERENCES users(id)
             ON DELETE CASCADE,
-    token UUID
-        NOT NULL
-        DEFAULT gen_random_uuid(),
-    expires_at TIMESTAMPTZ
-        NOT NULL,
-    revoked BOOLEAN
-        NOT NULL
-        DEFAULT FALSE,
-    created_at TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW()
+
+    token UUID NOT NULL DEFAULT gen_random_uuid(),
+
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX uq_refresh_token
     ON refresh_tokens(token);
+
 CREATE INDEX idx_refresh_user
     ON refresh_tokens(user_id);
+
+CREATE INDEX idx_refresh_valid
+    ON refresh_tokens(token, revoked, expires_at);
 
 -- ============================================================
 -- LOGIN HISTORY
 -- ============================================================
-DROP TABLE IF EXISTS login_history CASCADE;
+
 CREATE TABLE login_history
 (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
     user_id BIGINT
-        REFERENCES users(id)
-            ON DELETE SET NULL,
-    login_time TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW(),
+                           REFERENCES users(id)
+                               ON DELETE SET NULL,
+
+    login_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     ip_address VARCHAR(50),
 
@@ -205,8 +161,7 @@ CREATE TABLE login_history
 
     browser TEXT,
 
-    success BOOLEAN
-        NOT NULL
+    success BOOLEAN NOT NULL
 );
 
 CREATE INDEX idx_login_user
@@ -215,8 +170,11 @@ CREATE INDEX idx_login_user
 CREATE INDEX idx_login_time
     ON login_history(login_time DESC);
 
+CREATE INDEX idx_login_success
+    ON login_history(success);
+
 -- ============================================================
--- AUDIT LOG
+-- AUDIT LOGS
 -- ============================================================
 
 CREATE TABLE audit_logs
@@ -224,14 +182,12 @@ CREATE TABLE audit_logs
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     user_id BIGINT
-        REFERENCES users(id)
-            ON DELETE SET NULL,
+                           REFERENCES users(id)
+                               ON DELETE SET NULL,
 
-    action TEXT
-        NOT NULL,
+    action TEXT NOT NULL,
 
-    entity TEXT
-        NOT NULL,
+    entity TEXT NOT NULL,
 
     entity_id BIGINT,
 
@@ -241,9 +197,7 @@ CREATE TABLE audit_logs
 
     ip_address INET,
 
-    created_at TIMESTAMPTZ
-        NOT NULL
-        DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_audit_user
@@ -265,16 +219,15 @@ AS $$
 DECLARE
     v_user_id BIGINT;
 BEGIN
-
     BEGIN
         v_user_id :=
-                NULLIF(current_setting('app.current_user_id', TRUE),'')::BIGINT;
+                NULLIF(current_setting('app.current_user_id', TRUE), '')::BIGINT;
     EXCEPTION
         WHEN OTHERS THEN
             v_user_id := NULL;
     END;
 
-    IF TG_OP='INSERT' THEN
+    IF TG_OP = 'INSERT' THEN
 
         INSERT INTO audit_logs
         (
@@ -295,7 +248,7 @@ BEGIN
 
         RETURN NEW;
 
-    ELSIF TG_OP='UPDATE' THEN
+    ELSIF TG_OP = 'UPDATE' THEN
 
         INSERT INTO audit_logs
         (
@@ -340,15 +293,19 @@ BEGIN
         RETURN OLD;
 
     END IF;
-
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_users_audit
-    AFTER INSERT OR UPDATE OR DELETE
-    ON users
+    AFTER INSERT OR UPDATE OR DELETE ON users
     FOR EACH ROW
 EXECUTE FUNCTION audit_trigger();
+
+-- ============================================================
+-- SEED USERS
+-- Password depends on your BCrypt hash.
+-- Keep your current password test value if it already works.
+-- ============================================================
 
 INSERT INTO users
 (
@@ -362,38 +319,13 @@ INSERT INTO users
 )
 VALUES
     (
-        '081816687',
-        'admin@gmail.com',
+        '081816685',
+        'admin1@gmail.com',
         '$2a$12$V6UoKo9i5rQl7XKvsth48eUWQNzexITv5RiAgu6VKeNLw5xxJ85Ti',
         'ADMIN',
         'ACTIVE',
         'Admin',
         'System Administrator'
-    ),
-    (
-        '081816688',
-        'branch@gmail.com',
-        '$2a$12$/BeQowr4GG0xQs37jKz6dOFmKplK0o0B71oYhWUt6CV2hpULVQn6u',
-        'BRANCH_LEADER',
-        'ACTIVE',
-        'Branch Leader',
-        'Branch Leader'
-    ),
-    (
-        '010000000',
-        'secretary@gmail.com',
-        '$2a$12$/BeQowr4GG0xQs37jKz6dOFmKplK0o0B71oYhWUt6CV2hpULVQn6u',
-        'SECRETARY',
-        'ACTIVE',
-        'Secretary',
-        'Secretary'
-    ),
-    (
-        '010000007',
-        'member@gmail.com',
-        '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi6M6KzJm8D1x8GZFODdgNpTi27C3lG',
-        'MEMBER',
-        'ACTIVE',
-        'Member',
-        'Member'
     );
+
+SELECT * From users;

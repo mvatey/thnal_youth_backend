@@ -15,9 +15,9 @@ public class RefreshTokenCleanupService {
 
     private final RefreshTokenRepository refreshTokenRepository;
 
-    @Scheduled(cron = "0 0 3 * * *") // every day at 3 AM
+    @Scheduled(cron = "0 0 3 * * *")
     public void cleanupExpiredTokens() {
-        refreshTokenRepository.deleteExpiredOrRevoked(OffsetDateTime.now());
-        log.info("Expired/revoked refresh tokens cleaned up at {}", OffsetDateTime.now());
+        int deleted = refreshTokenRepository.deleteExpiredOrRevoked(OffsetDateTime.now());
+        log.info("Cleaned up {} expired/revoked refresh tokens", deleted);
     }
 }

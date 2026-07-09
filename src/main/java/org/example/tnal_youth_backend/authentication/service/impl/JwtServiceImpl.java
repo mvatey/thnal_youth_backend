@@ -1,7 +1,6 @@
 package org.example.tnal_youth_backend.authentication.service.impl;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
@@ -10,72 +9,76 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Service
 public class JwtServiceImpl implements JwtService {
 
     @Value("${jwt.secret}")
-    private String secret;
+    private String jwtSecret;
 
-    @Value("${jwt.expiration}")
-    private long expirationMs;
+    @Value("${jwt.access-expiration}")
+    private long accessExpirationMs;
 
-    private static final String ISSUER = "tnal-youth-backend";
+    @Value("${jwt.issuer}")
+    private String issuer;
 
-    private SecretKey key;
-
-    private SecretKey getKey() {
-        if (key == null) {
-            byte[] decodedKey = Base64.getDecoder().decode(secret);
-            key = Keys.hmacShaKeyFor(decodedKey);
-        }
-        return key;
-    }
+    @Value("${jwt.audience}")
+    private String audience;
 
     @Override
     public String generateToken(User user) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + expirationMs);
+        Date expiration = new Date(now.getTime() + accessExpirationMs);
 
         return Jwts.builder()
-                .id(UUID.randomUUID().toString())
                 .subject(user.getPhone())
-                .issuer(ISSUER)
+                .issuer(issuer)
+                .audience().add(audience).and()
+                .id(UUID.randomUUID().toString())
+                .issuedAt(now)
+                .expiration(expiration)
+                .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
                 .claim("type", "ACCESS")
-                .issuedAt(now)
-                .expiration(expiry)
-                .signWith(getKey())
+                .signWith(getSigningKey())
                 .compact();
     }
 
     @Override
     public String extractUsername(String token) {
-        return extractClaims(token).getSubject();
+        return extractClaim(token, Claims::getSubject);
     }
 
     @Override
     public boolean isTokenValid(String token, User user) {
-        return extractUsername(token).equals(user.getPhone()) && !isTokenExpired(token);
+        String username = extractUsername(token);
+
+        return username.equals(user.getPhone())
+                && !isTokenExpired(token)
+                && "ACCESS".equals(extractClaim(token, claims -> claims.get("type", String.class)));
     }
 
-    @Override
-    public boolean isTokenExpired(String token) {
-        return extractClaims(token).getExpiration().before(new Date());
+    private boolean isTokenExpired(String token) {
+        return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
-    private Claims extractClaims(String token) {
-        try {
-            return Jwts.parser()
-                    .verifyWith(getKey())
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-        } catch (ExpiredJwtException ex) {
-            return ex.getClaims();
-        }
+    private <T> T extractClaim(String token, Function<Claims, T> resolver) {
+        Claims claims = Jwts.parser()
+                .verifyWith(getSigningKey())
+                .requireIssuer(issuer)
+                .requireAudience(audience)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return resolver.apply(claims);
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 }

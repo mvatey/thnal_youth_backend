@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
-
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,10 +8,12 @@ import lombok.Setter;
 @Setter
 public class ResetPasswordRequest {
 
-    @NotBlank
+    @NotBlank(message = "Phone or email is required")
+    private String phoneOrEmail;
+
+    @NotBlank(message = "OTP is required")
     private String otp;
 
-    @NotBlank
+    @NotBlank(message = "New password is required")
     private String newPassword;
-
 }

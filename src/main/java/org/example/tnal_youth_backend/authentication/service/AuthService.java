@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.authentication.model.request.RefreshTokenR
 import org.example.tnal_youth_backend.authentication.model.response.ApiResponse;
 import org.example.tnal_youth_backend.authentication.model.response.LoginResponse;
 import org.example.tnal_youth_backend.authentication.model.response.RefreshTokenResponse;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 
 public interface AuthService {
 
@@ -15,4 +16,5 @@ public interface AuthService {
 
     ApiResponse logout(RefreshTokenRequest request);
 
+    UserProfileResponse getCurrentUser();
 }

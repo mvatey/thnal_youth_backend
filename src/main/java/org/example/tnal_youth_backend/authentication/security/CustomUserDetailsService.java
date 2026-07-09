@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.security;
+package org.example.tnal_youth_backend.authentication.security;
 
 
 

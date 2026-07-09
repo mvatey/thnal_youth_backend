@@ -1,16 +1,12 @@
 package org.example.tnal_youth_backend.authentication.model.entity;
 
-
-import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
-import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-import org.jspecify.annotations.Nullable;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
 
 import java.time.OffsetDateTime;
 import java.util.Collection;
@@ -39,13 +35,10 @@ public class User implements UserDetails {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false, columnDefinition = "user_role")
+    @Column(nullable = false)
     private UserRole role;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(columnDefinition = "user_status")
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
@@ -76,16 +69,28 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        return List.of(
+                new SimpleGrantedAuthority("ROLE_" + role.name())
+        );
     }
 
     @Override
-    public @Nullable String getPassword() {
-        return "";
+    public String getPassword() {
+        return passwordHash;
     }
 
     @Override
     public String getUsername() {
-        return "";
+        return phone;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return status != UserStatus.LOCKED;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return status == UserStatus.ACTIVE;
     }
 }

@@ -12,13 +12,16 @@ import org.example.tnal_youth_backend.authentication.model.request.RefreshTokenR
 import org.example.tnal_youth_backend.authentication.model.response.ApiResponse;
 import org.example.tnal_youth_backend.authentication.model.response.LoginResponse;
 import org.example.tnal_youth_backend.authentication.model.response.RefreshTokenResponse;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.authentication.repository.LoginHistoryRepository;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.authentication.service.AuthService;
 import org.example.tnal_youth_backend.authentication.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -140,6 +143,22 @@ public class AuthServiceImpl implements AuthService {
         return ApiResponse.builder()
                 .success(true)
                 .message("Logged out successfully")
+                .build();
+    }
+
+    @Override
+    public UserProfileResponse getCurrentUser() {
+
+        User user = SecurityUtil.getCurrentUser();
+
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .fullNameKm(user.getFullNameKm())
+                .fullNameEn(user.getFullNameEn())
+                .profileImage(user.getProfileImage())
+                .role(user.getRole())
                 .build();
     }
 
