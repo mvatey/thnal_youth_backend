@@ -193,4 +193,13 @@ CREATE TABLE member_family (
                                email VARCHAR(100),
                                occupation VARCHAR(100)
 );
-
+-- member_work_history.sql
+CREATE TABLE member_work_history (
+                                     id SERIAL PRIMARY KEY,
+                                     member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                     organization VARCHAR(150) NOT NULL,
+                                     position_title VARCHAR(100) NOT NULL,
+                                     start_date DATE,
+                                     end_date DATE,
+                                     description TEXT
+);
