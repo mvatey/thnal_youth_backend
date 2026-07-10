@@ -203,3 +203,23 @@ CREATE TABLE member_work_history (
                                      end_date DATE,
                                      description TEXT
 );
+
+-- member_training
+CREATE TABLE member_training (
+                                 id SERIAL PRIMARY KEY,
+                                 member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                 institution_en VARCHAR(150) NOT NULL,
+                                 institution_kh VARCHAR(150),
+                                 province_en VARCHAR(100),
+                                 province_kh VARCHAR(100),
+                                 country_en VARCHAR(100),
+                                 country_kh VARCHAR(100),
+                                 degree_en VARCHAR(100),
+                                 degree_kh VARCHAR(100),
+                                 link VARCHAR(255), -- តំណរភ្ជាប់
+                                 start_date DATE,
+                                 end_date DATE,
+                                 description_en TEXT,
+                                 description_kh TEXT
+);
+
