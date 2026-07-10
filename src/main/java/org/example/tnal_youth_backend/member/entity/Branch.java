@@ -17,10 +17,6 @@ public class Branch {
     @Column(name="name_en")
     private String nameEn;
 
-    @Column(name="name_kh", nullable = false)
-    private String nameKm;
-
-    private String address;
-    private String phone;
-    private String email;
+    @Column(name="name_kh")
+    private String nameKh;
 }

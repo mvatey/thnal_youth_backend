@@ -8,15 +8,18 @@ import java.time.LocalDateTime;
 @Table(name = "member_statuses")
 @Data
 public class MemberStatus {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false)
     private String code;
-    private String labelKm;
+
+    private String labelKh;
     private String labelEn;
-    private boolean isActive;
-    private int sortOrder;
-    private LocalDateTime createdAt = LocalDateTime.now();
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private Boolean isActive;
+
+    // ✅ Add sortOrder
+    private Integer sortOrder;
 }
+
+

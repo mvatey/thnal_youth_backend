@@ -8,3 +8,4 @@ import java.util.Optional;
 public interface MemberPositionRepository extends JpaRepository<MemberPosition, Long> {
     Optional<MemberPosition> findByCode(String code);
 }
+

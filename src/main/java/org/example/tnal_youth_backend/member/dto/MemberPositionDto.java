@@ -4,11 +4,11 @@ import lombok.Data;
 
 @Data
 public class MemberPositionDto {
-    private Long id;
     private String code;
-    private String labelKm;
+    private String labelKh;
     private String labelEn;
     private String description;
-    private boolean isActive;
-    private int sortOrder;
+    private Boolean isActive;
+    private Integer sortOrder;
 }
+

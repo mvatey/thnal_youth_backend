@@ -14,16 +14,7 @@ public class MemberDto {
         private String email;
         private String address;
         private String bio;
-
         private String branchCode;
-        private String branchName;
-
-        //  Add these
         private String positionCode;
         private String statusCode;
-
-        // Optional: keep names if you want to show labels in responses
-        private String positionName;
-        private String statusName;
 }
-
