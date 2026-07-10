@@ -181,3 +181,16 @@ VALUES
     (1, (SELECT id FROM public.family_relations WHERE code='SPOUSE'), 'ប្រពន្ធ សុខ សាន', 'Spouse Sok San', '1988-01-01', 'Teacher', '098765432', 'Phnom Penh', (SELECT id FROM public.life_statuses WHERE code='ALIVE'), 'Supportive partner')
 ON CONFLICT DO NOTHING;
 
+-- Family records
+
+CREATE TABLE member_family (
+                               id SERIAL PRIMARY KEY,
+                               member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                               relation VARCHAR(50) NOT NULL,
+                               full_name_en VARCHAR(100),
+                               full_name_kh VARCHAR(100),
+                               phone VARCHAR(20),
+                               email VARCHAR(100),
+                               occupation VARCHAR(100)
+);
+
