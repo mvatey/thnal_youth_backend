@@ -236,4 +236,11 @@ CREATE TABLE member_skills (
                                skill VARCHAR(100),
                                cultural_level VARCHAR(100)
 );
-
+-- Member languages
+CREATE TABLE member_languages (
+                                  id SERIAL PRIMARY KEY,
+                                  member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                  language_en VARCHAR(100) NOT NULL,
+                                  language_kh VARCHAR(100),
+                                  proficiency_level VARCHAR(50)
+);
