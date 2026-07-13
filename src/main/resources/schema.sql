@@ -274,3 +274,16 @@ CREATE TABLE member_credentials (
                                     description_en TEXT,
                                     description_kh TEXT
 );
+
+
+CREATE TABLE member_payments (
+                                 id SERIAL PRIMARY KEY,
+                                 member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                 payment_type VARCHAR(100),
+                                 amount DECIMAL(10,2),
+                                 payment_date DATE,
+                                 payment_status VARCHAR(50),
+                                 payment_method VARCHAR(50),
+                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
