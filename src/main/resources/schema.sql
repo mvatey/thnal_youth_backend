@@ -244,3 +244,20 @@ CREATE TABLE member_languages (
                                   language_kh VARCHAR(100),
                                   proficiency_level VARCHAR(50)
 );
+-- Political affiliations
+CREATE TABLE member_political_affiliations (
+                                               id SERIAL PRIMARY KEY,
+                                               member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                               party_name_en VARCHAR(150) NOT NULL,
+                                               party_name_kh VARCHAR(150),
+                                               role_en VARCHAR(100),
+                                               role_kh VARCHAR(100),
+                                               country_en VARCHAR(100),
+                                               country_kh VARCHAR(100),
+                                               appointment_code VARCHAR(100),
+                                               workplace_en VARCHAR(150),
+                                               workplace_kh VARCHAR(150),
+                                               start_date DATE,
+                                               end_date DATE
+);
+
