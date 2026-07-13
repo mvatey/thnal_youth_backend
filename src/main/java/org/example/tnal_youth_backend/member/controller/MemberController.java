@@ -6,10 +6,7 @@ import org.example.tnal_youth_backend.member.service.MemberService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/members")
@@ -24,4 +21,3 @@ public class MemberController {
     @PutMapping("/{id}") public Member update(@PathVariable Long id, @RequestBody MemberDto dto) { return service.updateMember(id, dto); }
     @DeleteMapping("/{id}") public ResponseEntity<Void> delete(@PathVariable Long id) { service.deleteMember(id); return ResponseEntity.noContent().build(); }
 }
-

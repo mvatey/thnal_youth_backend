@@ -17,4 +17,9 @@ public class MemberDto {
         private String branchCode;
         private String positionCode;
         private String statusCode;
+
+        // Extra fields
+        private String profilePhoto;
+        private String cvFile;
+        private LocalDate membershipExpiry;
 }

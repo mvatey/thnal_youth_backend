@@ -35,18 +35,24 @@ CREATE TRIGGER trg_users_updated_at
 CREATE TABLE members (
                          id SERIAL PRIMARY KEY,
                          member_no VARCHAR(50) UNIQUE NOT NULL,
-                         branch_id BIGINT NOT NULL,
-                         position_id BIGINT,
-                         status_id BIGINT,
-                         full_name_en VARCHAR(100),
-                         full_name_kh VARCHAR(100),
-                         gender VARCHAR(10),
+                         branch_id BIGINT NOT NULL REFERENCES branches(id),
+                         position_id BIGINT REFERENCES member_positions(id),
+                         status_id BIGINT REFERENCES member_statuses(id),
+                         full_name_en VARCHAR(255),
+                         full_name_kh VARCHAR(255),
+                         gender VARCHAR(50),
                          date_of_birth DATE,
-                         phone VARCHAR(20),
-                         email VARCHAR(100),
-                         address TEXT,
-                         bio TEXT
+                         phone VARCHAR(50),
+                         email VARCHAR(255),
+                         address VARCHAR(255),
+                         bio TEXT,
+                         profile_photo VARCHAR(255),
+                         cv_file VARCHAR(255),
+                         membership_expiry DATE,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 
 CREATE TABLE member_positions (

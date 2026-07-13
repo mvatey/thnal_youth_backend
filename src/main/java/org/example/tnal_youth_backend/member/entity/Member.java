@@ -3,7 +3,7 @@ package org.example.tnal_youth_backend.member.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "members")
@@ -32,4 +32,11 @@ public class Member {
     private String email;
     private String address;
     private String bio;
+
+    private String profilePhoto;
+    private String cvFile;
+
+    private LocalDate membershipExpiry;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
