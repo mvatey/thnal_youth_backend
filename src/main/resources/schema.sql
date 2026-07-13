@@ -222,4 +222,18 @@ CREATE TABLE member_training (
                                  description_en TEXT,
                                  description_kh TEXT
 );
+--  Skills
+
+CREATE TABLE member_skills (
+                               id SERIAL PRIMARY KEY,
+                               member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                               language_en VARCHAR(100) NOT NULL,
+                               language_kh VARCHAR(100),
+                               listening_level VARCHAR(50),
+                               reading_level VARCHAR(50),
+                               speaking_level VARCHAR(50),
+                               writing_level VARCHAR(50),
+                               skill VARCHAR(100),
+                               cultural_level VARCHAR(100)
+);
 
