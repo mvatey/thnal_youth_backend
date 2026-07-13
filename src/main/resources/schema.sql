@@ -261,3 +261,16 @@ CREATE TABLE member_political_affiliations (
                                                end_date DATE
 );
 
+CREATE TABLE member_credentials (
+                                    id SERIAL PRIMARY KEY,
+                                    member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                                    credential_name_en VARCHAR(150) NOT NULL,
+                                    credential_name_kh VARCHAR(150),
+                                    issued_by_en VARCHAR(150),
+                                    issued_by_kh VARCHAR(150),
+                                    issue_date DATE,
+                                    expiry_date DATE,
+                                    certificate_number VARCHAR(100),
+                                    description_en TEXT,
+                                    description_kh TEXT
+);
