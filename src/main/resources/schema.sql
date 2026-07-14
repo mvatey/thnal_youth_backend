@@ -53,6 +53,13 @@ CREATE TABLE members (
                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Account
+CREATE TABLE member_accounts (
+                                 id SERIAL PRIMARY KEY,
+                                 member_id BIGINT NOT NULL UNIQUE REFERENCES members(id) ON DELETE CASCADE,
+                                 username VARCHAR(100) UNIQUE NOT NULL,
+                                 password_hash VARCHAR(255) NOT NULL
+);
 
 
 CREATE TABLE member_positions (
