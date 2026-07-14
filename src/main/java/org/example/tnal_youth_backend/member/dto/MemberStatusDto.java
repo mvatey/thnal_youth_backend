@@ -8,6 +8,5 @@ public class MemberStatusDto {
     private String labelKh;
     private String labelEn;
     private Boolean isActive;
-    private Integer sortOrder; // ✅ include this
+    private Integer sortOrder; // include this
 }
-
