@@ -14,9 +14,13 @@ public class MemberTrainingDto {
     private String countryKh;
     private String degreeEn;
     private String degreeKh;
-    private String link; // តំណរភ្ជាប់
+    private String link;
     private LocalDate startDate;
     private LocalDate endDate;
     private String descriptionEn;
     private String descriptionKh;
+
+    // NEW: major/field of study
+    private String majorEn;
+    private String majorKh;
 }

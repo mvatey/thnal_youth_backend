@@ -33,6 +33,24 @@ public class MemberCredentialService {
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
         MemberCredential credential = new MemberCredential();
+        mapDtoToCredential(credential, dto, member);
+        return credentialRepository.save(credential);
+    }
+
+    public MemberCredential updateCredential(Long id, MemberCredentialDto dto) {
+        MemberCredential credential = getCredentialById(id);
+        Member member = memberRepository.findById(dto.getMemberId())
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+
+        mapDtoToCredential(credential, dto, member);
+        return credentialRepository.save(credential);
+    }
+
+    public void deleteCredential(Long id) {
+        credentialRepository.deleteById(id);
+    }
+
+    private void mapDtoToCredential(MemberCredential credential, MemberCredentialDto dto, Member member) {
         credential.setMember(member);
         credential.setCredentialNameEn(dto.getCredentialNameEn());
         credential.setCredentialNameKh(dto.getCredentialNameKh());
@@ -43,25 +61,6 @@ public class MemberCredentialService {
         credential.setCertificateNumber(dto.getCertificateNumber());
         credential.setDescriptionEn(dto.getDescriptionEn());
         credential.setDescriptionKh(dto.getDescriptionKh());
-
-        return credentialRepository.save(credential);
-    }
-
-    public MemberCredential updateCredential(Long id, MemberCredentialDto dto) {
-        MemberCredential credential = getCredentialById(id);
-        credential.setCredentialNameEn(dto.getCredentialNameEn());
-        credential.setCredentialNameKh(dto.getCredentialNameKh());
-        credential.setIssuedByEn(dto.getIssuedByEn());
-        credential.setIssuedByKh(dto.getIssuedByKh());
-        credential.setIssueDate(dto.getIssueDate());
-        credential.setExpiryDate(dto.getExpiryDate());
-        credential.setCertificateNumber(dto.getCertificateNumber());
-        credential.setDescriptionEn(dto.getDescriptionEn());
-        credential.setDescriptionKh(dto.getDescriptionKh());
-        return credentialRepository.save(credential);
-    }
-
-    public void deleteCredential(Long id) {
-        credentialRepository.deleteById(id);
+        credential.setFileUrl(dto.getFileUrl()); // NEW
     }
 }

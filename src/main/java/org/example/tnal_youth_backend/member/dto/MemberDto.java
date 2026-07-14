@@ -14,15 +14,16 @@ public class MemberDto {
         private String email;
         private String address;
         private String bio;
+
         private String branchCode;
         private String positionCode;
         private String statusCode;
 
-        // Extra fields
         private String profilePhoto;
         private String cvFile;
         private LocalDate membershipExpiry;
 
-        // New field
-        private String level; // values: ក, ខ, គ, ឃ, ង, ច
+        private String level;       // values: ក, ខ, គ, ឃ, ង, ច
+        private String groupCode;   // NEW: matches UI
+        private LocalDate joinDate; // NEW: matches UI
 }

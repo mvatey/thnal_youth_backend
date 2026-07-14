@@ -85,8 +85,10 @@ public class MemberService {
         member.setProfilePhoto(dto.getProfilePhoto());
         member.setCvFile(dto.getCvFile());
         member.setMembershipExpiry(dto.getMembershipExpiry());
-
-        // New field mapping
         member.setLevel(dto.getLevel());
+
+        // NEW fields
+        member.setGroupCode(dto.getGroupCode());
+        member.setJoinDate(dto.getJoinDate());
     }
 }

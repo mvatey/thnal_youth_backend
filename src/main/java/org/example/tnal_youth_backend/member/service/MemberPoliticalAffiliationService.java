@@ -14,7 +14,8 @@ public class MemberPoliticalAffiliationService {
     private final MemberPoliticalAffiliationRepository affiliationRepository;
     private final MemberRepository memberRepository;
 
-    public MemberPoliticalAffiliationService(MemberPoliticalAffiliationRepository affiliationRepository, MemberRepository memberRepository) {
+    public MemberPoliticalAffiliationService(MemberPoliticalAffiliationRepository affiliationRepository,
+                                             MemberRepository memberRepository) {
         this.affiliationRepository = affiliationRepository;
         this.memberRepository = memberRepository;
     }
@@ -33,6 +34,26 @@ public class MemberPoliticalAffiliationService {
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
         MemberPoliticalAffiliation affiliation = new MemberPoliticalAffiliation();
+        mapDtoToAffiliation(affiliation, dto, member);
+        return affiliationRepository.save(affiliation);
+    }
+
+    public MemberPoliticalAffiliation updateAffiliation(Long id, MemberPoliticalAffiliationDto dto) {
+        MemberPoliticalAffiliation affiliation = getAffiliationById(id);
+        Member member = memberRepository.findById(dto.getMemberId())
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+
+        mapDtoToAffiliation(affiliation, dto, member);
+        return affiliationRepository.save(affiliation);
+    }
+
+    public void deleteAffiliation(Long id) {
+        affiliationRepository.deleteById(id);
+    }
+
+    private void mapDtoToAffiliation(MemberPoliticalAffiliation affiliation,
+                                     MemberPoliticalAffiliationDto dto,
+                                     Member member) {
         affiliation.setMember(member);
         affiliation.setPartyNameEn(dto.getPartyNameEn());
         affiliation.setPartyNameKh(dto.getPartyNameKh());
@@ -45,27 +66,6 @@ public class MemberPoliticalAffiliationService {
         affiliation.setWorkplaceKh(dto.getWorkplaceKh());
         affiliation.setStartDate(dto.getStartDate());
         affiliation.setEndDate(dto.getEndDate());
-
-        return affiliationRepository.save(affiliation);
-    }
-
-    public MemberPoliticalAffiliation updateAffiliation(Long id, MemberPoliticalAffiliationDto dto) {
-        MemberPoliticalAffiliation affiliation = getAffiliationById(id);
-        affiliation.setPartyNameEn(dto.getPartyNameEn());
-        affiliation.setPartyNameKh(dto.getPartyNameKh());
-        affiliation.setRoleEn(dto.getRoleEn());
-        affiliation.setRoleKh(dto.getRoleKh());
-        affiliation.setCountryEn(dto.getCountryEn());
-        affiliation.setCountryKh(dto.getCountryKh());
-        affiliation.setAppointmentCode(dto.getAppointmentCode());
-        affiliation.setWorkplaceEn(dto.getWorkplaceEn());
-        affiliation.setWorkplaceKh(dto.getWorkplaceKh());
-        affiliation.setStartDate(dto.getStartDate());
-        affiliation.setEndDate(dto.getEndDate());
-        return affiliationRepository.save(affiliation);
-    }
-
-    public void deleteAffiliation(Long id) {
-        affiliationRepository.deleteById(id);
+        affiliation.setStatus(dto.getStatus()); // NEW field
     }
 }

@@ -7,3 +7,4 @@ import java.util.List;
 public interface MemberCredentialRepository extends JpaRepository<MemberCredential, Long> {
     List<MemberCredential> findByMemberId(Long memberId);
 }
+

@@ -10,10 +10,12 @@ import java.time.LocalDateTime;
 public class MemberPosition {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true, nullable = false) private String code;
+
+    @Column(unique = true, nullable = false)
+    private String code;
+
     private String labelKh;
     private String labelEn;
-    private String description;
     private Boolean isActive;
     private Integer sortOrder;
 }

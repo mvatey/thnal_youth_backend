@@ -15,4 +15,8 @@ public class MemberCredentialDto {
     private String certificateNumber;
     private String descriptionEn;
     private String descriptionKh;
+
+    // NEW: for uploaded certificate/document
+    private String fileUrl;
 }
+

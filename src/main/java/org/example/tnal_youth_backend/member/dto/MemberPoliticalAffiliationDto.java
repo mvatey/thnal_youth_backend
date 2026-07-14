@@ -17,4 +17,8 @@ public class MemberPoliticalAffiliationDto {
     private String workplaceKh;
     private LocalDate startDate;
     private LocalDate endDate;
+
+    // NEW: active/inactive status
+    private String status;
 }
+

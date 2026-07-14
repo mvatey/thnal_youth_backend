@@ -40,6 +40,8 @@ public class MemberPaymentService {
         payment.setPaymentDate(dto.getPaymentDate());
         payment.setPaymentStatus(dto.getPaymentStatus());
         payment.setPaymentMethod(dto.getPaymentMethod());
+        payment.setBankType(dto.getBankType());          // NEW
+        payment.setTransactionId(dto.getTransactionId()); // NEW
         payment.setCreatedAt(LocalDateTime.now());
         payment.setUpdatedAt(LocalDateTime.now());
 
@@ -53,6 +55,8 @@ public class MemberPaymentService {
         payment.setPaymentDate(dto.getPaymentDate());
         payment.setPaymentStatus(dto.getPaymentStatus());
         payment.setPaymentMethod(dto.getPaymentMethod());
+        payment.setBankType(dto.getBankType());          // NEW
+        payment.setTransactionId(dto.getTransactionId()); // NEW
         payment.setUpdatedAt(LocalDateTime.now());
         return paymentRepository.save(payment);
     }

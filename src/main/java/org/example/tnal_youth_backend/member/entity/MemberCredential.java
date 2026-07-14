@@ -8,39 +8,22 @@ import java.time.LocalDate;
 @Table(name = "member_credentials")
 @Data
 public class MemberCredential {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Link to Member
-    @ManyToOne
-    @JoinColumn(name = "member_id", nullable = false)
+    @ManyToOne @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Column(name = "credential_name_en", nullable = false)
     private String credentialNameEn;
-
-    @Column(name = "credential_name_kh")
     private String credentialNameKh;
-
-    @Column(name = "issued_by_en")
     private String issuedByEn;
-
-    @Column(name = "issued_by_kh")
     private String issuedByKh;
-
-    @Column(name = "issue_date")
     private LocalDate issueDate;
-
-    @Column(name = "expiry_date")
     private LocalDate expiryDate;
-
-    @Column(name = "certificate_number")
     private String certificateNumber;
-
-    @Column(name = "description_en")
     private String descriptionEn;
-
-    @Column(name = "description_kh")
     private String descriptionKh;
+
+    // NEW
+    private String fileUrl;
 }

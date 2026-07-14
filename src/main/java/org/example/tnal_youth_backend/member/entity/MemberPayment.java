@@ -13,7 +13,6 @@ public class MemberPayment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Link to Member
     @ManyToOne
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
@@ -33,9 +32,12 @@ public class MemberPayment {
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "bank_type")       // NEW: matches UI
+    private String bankType;
 
-    @Column(name = "updated_at")
+    @Column(name = "transaction_id")  // NEW: useful for tracking
+    private String transactionId;
+
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

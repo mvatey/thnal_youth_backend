@@ -9,38 +9,36 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/member-credentials")
+@RequestMapping("/api/credentials")
 public class MemberCredentialController {
+    private final MemberCredentialService credentialService;
 
-    private final MemberCredentialService service;
-
-    public MemberCredentialController(MemberCredentialService service) {
-        this.service = service;
+    public MemberCredentialController(MemberCredentialService credentialService) {
+        this.credentialService = credentialService;
     }
 
     @GetMapping("/member/{memberId}")
     public List<MemberCredential> getCredentialsByMember(@PathVariable Long memberId) {
-        return service.getCredentialsByMember(memberId);
+        return credentialService.getCredentialsByMember(memberId);
     }
 
     @GetMapping("/{id}")
     public MemberCredential getCredentialById(@PathVariable Long id) {
-        return service.getCredentialById(id);
+        return credentialService.getCredentialById(id);
     }
 
     @PostMapping
     public MemberCredential createCredential(@RequestBody MemberCredentialDto dto) {
-        return service.createCredential(dto);
+        return credentialService.createCredential(dto);
     }
 
     @PutMapping("/{id}")
     public MemberCredential updateCredential(@PathVariable Long id, @RequestBody MemberCredentialDto dto) {
-        return service.updateCredential(id, dto);
+        return credentialService.updateCredential(id, dto);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCredential(@PathVariable Long id) {
-        service.deleteCredential(id);
-        return ResponseEntity.noContent().build();
+    public void deleteCredential(@PathVariable Long id) {
+        credentialService.deleteCredential(id);
     }
 }

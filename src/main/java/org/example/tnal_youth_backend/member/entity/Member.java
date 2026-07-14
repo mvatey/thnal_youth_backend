@@ -37,10 +37,12 @@ public class Member {
     private String cvFile;
 
     private LocalDate membershipExpiry;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private LocalDate joinDate;       // NEW: matches UI
+    private String groupCode;         // NEW: matches UI
 
-    // New field
     @Column(nullable = false)
     private String level; // values: ក, ខ, គ, ឃ, ង, ច
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

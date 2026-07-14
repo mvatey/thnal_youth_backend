@@ -11,4 +11,8 @@ public class MemberPaymentDto {
     private LocalDate paymentDate;
     private String paymentStatus;
     private String paymentMethod;
+
+    private String bankType;       // NEW: matches UI
+    private String transactionId;  // NEW: useful for tracking
 }
+

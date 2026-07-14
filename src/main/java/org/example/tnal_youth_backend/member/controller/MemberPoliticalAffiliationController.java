@@ -9,38 +9,38 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/member-political-affiliations")
+@RequestMapping("/api/affiliations")
 public class MemberPoliticalAffiliationController {
+    private final MemberPoliticalAffiliationService affiliationService;
 
-    private final MemberPoliticalAffiliationService service;
-
-    public MemberPoliticalAffiliationController(MemberPoliticalAffiliationService service) {
-        this.service = service;
+    public MemberPoliticalAffiliationController(MemberPoliticalAffiliationService affiliationService) {
+        this.affiliationService = affiliationService;
     }
 
     @GetMapping("/member/{memberId}")
     public List<MemberPoliticalAffiliation> getAffiliationsByMember(@PathVariable Long memberId) {
-        return service.getAffiliationsByMember(memberId);
+        return affiliationService.getAffiliationsByMember(memberId);
     }
 
     @GetMapping("/{id}")
     public MemberPoliticalAffiliation getAffiliationById(@PathVariable Long id) {
-        return service.getAffiliationById(id);
+        return affiliationService.getAffiliationById(id);
     }
 
     @PostMapping
     public MemberPoliticalAffiliation createAffiliation(@RequestBody MemberPoliticalAffiliationDto dto) {
-        return service.createAffiliation(dto);
+        return affiliationService.createAffiliation(dto);
     }
 
     @PutMapping("/{id}")
-    public MemberPoliticalAffiliation updateAffiliation(@PathVariable Long id, @RequestBody MemberPoliticalAffiliationDto dto) {
-        return service.updateAffiliation(id, dto);
+    public MemberPoliticalAffiliation updateAffiliation(@PathVariable Long id,
+                                                        @RequestBody MemberPoliticalAffiliationDto dto) {
+        return affiliationService.updateAffiliation(id, dto);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAffiliation(@PathVariable Long id) {
-        service.deleteAffiliation(id);
-        return ResponseEntity.noContent().build();
+    public void deleteAffiliation(@PathVariable Long id) {
+        affiliationService.deleteAffiliation(id);
     }
 }
+

@@ -14,6 +14,11 @@ public class MemberPositionService {
         this.positionRepository = positionRepository;
     }
 
-    public List<MemberPosition> getAllPositions() { return positionRepository.findAll(); }
-    public MemberPosition createPosition(MemberPosition position) { return positionRepository.save(position); }
+    public List<MemberPosition> getAllPositions() {
+        return positionRepository.findAll();
+    }
+
+    public MemberPosition createPosition(MemberPosition position) {
+        return positionRepository.save(position);
+    }
 }
