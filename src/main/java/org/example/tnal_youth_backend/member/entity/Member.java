@@ -39,4 +39,8 @@ public class Member {
     private LocalDate membershipExpiry;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // New field
+    @Column(nullable = false)
+    private String level; // values: ក, ខ, គ, ឃ, ង, ច
 }

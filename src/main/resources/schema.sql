@@ -50,7 +50,10 @@ CREATE TABLE members (
                          cv_file VARCHAR(255),
                          membership_expiry DATE,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    --New field for Level (កាំ)
+                         level VARCHAR(10) NOT NULL DEFAULT 'ក'
 );
 
 -- Account

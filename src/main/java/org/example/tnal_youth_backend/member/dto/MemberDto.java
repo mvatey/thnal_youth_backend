@@ -22,4 +22,7 @@ public class MemberDto {
         private String profilePhoto;
         private String cvFile;
         private LocalDate membershipExpiry;
+
+        // New field
+        private String level; // values: ក, ខ, គ, ឃ, ង, ច
 }
