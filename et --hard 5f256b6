@@ -1,0 +1,18 @@
+[33mb205bd4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/member_account[m[33m, [m[1;31morigin/feature/member_account[m[33m)[m update
+[33m5f256b6[m Update member API
+[33m8b9c8b6[m Add member account
+[33mf06011d[m[33m ([m[1;31morigin/feature/member_payments[m[33m, [m[1;32mfeature/member_payments[m[33m)[m Updaet member feature
+[33me6d6ef9[m Add Payment Feature
+[33m0b98cba[m[33m ([m[1;31morigin/feature/member_credentials[m[33m, [m[1;32mfeature/member_credentials[m[33m)[m Add member credentials feature
+[33m258c760[m[33m ([m[1;31morigin/feature/MemberPoliticalAffiation[m[33m, [m[1;32mfeature/MemberPoliticalAffiation[m[33m)[m Add PoliticalAffiation feature
+[33mb1af5e5[m[33m ([m[1;31morigin/feature/member_languages[m[33m, [m[1;32mfeature/member_languages[m[33m)[m Add member languages feature
+[33mee33552[m[33m ([m[1;31morigin/feature/member_skills[m[33m, [m[1;32mfeature/member_skills[m[33m)[m Add new member Skills feature
+[33m112454b[m[33m ([m[1;31morigin/feature/member_training[m[33m, [m[1;32mfeature/member_training[m[33m)[m Add new feature member skill
+[33m7c34413[m[33m ([m[1;31morigin/feature/member_work_history[m[33m, [m[1;32mfeature/member_work_history[m[33m)[m Add new feature member work history
+[33m6d031e1[m[33m ([m[1;31morigin/feature/member_family[m[33m, [m[1;32mfeature/member_family[m[33m)[m Add new member_family
+[33m2b30141[m[33m ([m[1;31morigin/feature/member[m[33m, [m[1;31morigin/feature/branch-management[m[33m, [m[1;32mfeature/branch-management[m[33m)[m Update member API logic
+[33md060283[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Implement member feature (Members , Position and Status)
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m)[m structure
+[33m0752632[m[33m ([m[1;31morigin/release/v1.0[m[33m, [m[1;31morigin/develop[m[33m)[m message
+[33mfee5788[m Initial commit
+[33mc8e54d9[m Initial commit
