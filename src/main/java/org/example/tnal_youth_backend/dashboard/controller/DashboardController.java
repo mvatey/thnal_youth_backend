@@ -1,8 +1,8 @@
 package org.example.tnal_youth_backend.dashboard.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.dashboard.dto.DashboardSummaryResponse;
 import org.example.tnal_youth_backend.dashboard.service.DashboardService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +22,8 @@ public class DashboardController {
             @DateTimeFormat(pattern = "yyyy-MM")
             YearMonth month
     ) {
-        YearMonth selectedMonth =
-                month != null ? month : YearMonth.now();
-
         DashboardSummaryResponse response =
-                dashboardService.getSummary(selectedMonth);
+                dashboardService.getSummary(month);
 
         return ResponseEntity.ok(response);
     }

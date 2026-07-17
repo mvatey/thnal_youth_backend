@@ -1,4 +1,9 @@
 package org.example.tnal_youth_backend.dashboard.dto;
 
-public class DashboardBranchResponse {
+public record DashboardBranchResponse(
+        Long id,
+        String nameKm,
+        String nameEn,
+        Long parentBranchId
+) {
 }
