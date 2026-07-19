@@ -30,17 +30,30 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/swagger-ui/**",
+                                "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/api/auth/**",
                                 "/error"
                         ).permitAll()
-                        .requestMatchers("/api/auth/me").authenticated()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/branch/**").hasAnyRole("ADMIN", "BRANCH_LEADER")
-                        .requestMatchers("/api/secretary/**").hasAnyRole("ADMIN", "SECRETARY")
-                        .requestMatchers("/api/member/**").hasAnyRole("ADMIN", "BRANCH_LEADER", "SECRETARY", "MEMBER")
-                        .anyRequest().authenticated()
 
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/logout",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
+                        ).permitAll()
+
+                        .requestMatchers("/api/auth/me").authenticated()
+
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/branch/**")
+                        .hasAnyRole("ADMIN", "BRANCH_LEADER")
+                        .requestMatchers("/api/secretary/**")
+                        .hasAnyRole("ADMIN", "SECRETARY")
+                        .requestMatchers("/api/member/**")
+                        .hasAnyRole("ADMIN", "BRANCH_LEADER", "SECRETARY", "MEMBER")
+
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(
                         jwtAuthenticationFilter,
