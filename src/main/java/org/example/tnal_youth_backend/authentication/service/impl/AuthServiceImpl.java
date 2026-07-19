@@ -7,12 +7,8 @@ import org.example.tnal_youth_backend.authentication.model.entity.RefreshToken;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
-import org.example.tnal_youth_backend.authentication.model.request.LoginRequest;
-import org.example.tnal_youth_backend.authentication.model.request.RefreshTokenRequest;
-import org.example.tnal_youth_backend.authentication.model.response.ApiResponse;
-import org.example.tnal_youth_backend.authentication.model.response.LoginResponse;
-import org.example.tnal_youth_backend.authentication.model.response.RefreshTokenResponse;
-import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
+import org.example.tnal_youth_backend.authentication.model.request.*;
+import org.example.tnal_youth_backend.authentication.model.response.*;
 import org.example.tnal_youth_backend.authentication.repository.LoginHistoryRepository;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -21,7 +17,6 @@ import org.example.tnal_youth_backend.authentication.service.AuthService;
 import org.example.tnal_youth_backend.authentication.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -160,6 +155,21 @@ public class AuthServiceImpl implements AuthService {
                 .profileImage(user.getProfileImage())
                 .role(user.getRole())
                 .build();
+    }
+
+    @Override
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        return null;
+    }
+
+    @Override
+    public VerifyOtpResponse verifyOtp(VerifyOtpRequest request) {
+        return null;
+    }
+
+    @Override
+    public ApiResponse resetPassword(ResetPasswordRequest request) {
+        return null;
     }
 
     // ------------------------------------------------------------------

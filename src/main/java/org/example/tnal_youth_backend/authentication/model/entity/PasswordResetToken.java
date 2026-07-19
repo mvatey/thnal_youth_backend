@@ -1,11 +1,8 @@
 package org.example.tnal_youth_backend.authentication.model.entity;
 
-
-import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
 
 import java.time.OffsetDateTime;
 
@@ -13,35 +10,47 @@ import java.time.OffsetDateTime;
 @Table(name = "password_reset_tokens")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "otp_code_hash")
+    @Column(name = "otp_code_hash", nullable = false)
     private String otpCodeHash;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "delivery_channel", columnDefinition = "otp_channel")
+    @Column(name = "delivery_channel", nullable = false, length = 20)
     private OtpChannel deliveryChannel;
 
-    @Column(name = "expires_at")
+    @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
     @Column(name = "consumed_at")
     private OffsetDateTime consumedAt;
 
-    private Integer attempts;
+    @Column(name = "attempts", nullable = false)
+    @Builder.Default
+    private Integer attempts = 0;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = OffsetDateTime.now();
+        }
+
+        if (attempts == null) {
+            attempts = 0;
+        }
+    }
 }

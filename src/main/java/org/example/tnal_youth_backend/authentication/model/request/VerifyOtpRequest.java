@@ -7,15 +7,15 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ForgotPasswordRequest {
+public class VerifyOtpRequest {
 
     @NotBlank(message = "Phone or email is required")
     private String phoneOrEmail;
 
-    @NotBlank(message = "Delivery channel is required")
+    @NotBlank(message = "OTP is required")
     @Pattern(
-            regexp = "(?i)EMAIL|SMS",
-            message = "Delivery channel must be EMAIL or SMS"
+            regexp = "\\d{6}",
+            message = "OTP must contain exactly 6 digits"
     )
-    private String deliveryChannel;
+    private String otp;
 }

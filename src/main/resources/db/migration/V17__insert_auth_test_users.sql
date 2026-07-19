@@ -69,4 +69,5 @@ VALUES
         NOW(),
         NOW()
     )
+
 ON CONFLICT DO NOTHING;
