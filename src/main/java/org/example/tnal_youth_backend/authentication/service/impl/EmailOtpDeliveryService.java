@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.authentication.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.authentication.service.OtpDeliveryService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Service("emailOtpDeliveryService")
 @RequiredArgsConstructor
+@Slf4j
 public class EmailOtpDeliveryService implements OtpDeliveryService {
 
     private final JavaMailSender mailSender;
@@ -25,11 +27,29 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
             String destination,
             String otpCode
     ) {
-        SimpleMailMessage message = new SimpleMailMessage();
+        if (destination == null || destination.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Email destination is required"
+            );
+        }
+
+        if (otpCode == null || otpCode.isBlank()) {
+            throw new IllegalArgumentException(
+                    "OTP code is required"
+            );
+        }
+
+        String normalizedDestination =
+                destination.trim().toLowerCase();
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
 
         message.setFrom(fromAddress);
-        message.setTo(destination);
-        message.setSubject("TNAL Youth Cambodia password reset code");
+        message.setTo(normalizedDestination);
+        message.setSubject(
+                "TNAL Youth Cambodia password reset code"
+        );
 
         message.setText(
                 """
@@ -42,7 +62,9 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
                 This code expires in %d minutes.
 
                 Do not share this code with anyone.
-                If you did not request a password reset, you can ignore this email.
+
+                If you did not request a password reset,
+                you can safely ignore this email.
 
                 TNAL Youth
                 """.formatted(
@@ -52,12 +74,41 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
         );
 
         try {
+            log.info(
+                    "Attempting OTP email delivery to {}",
+                    maskEmail(normalizedDestination)
+            );
+
             mailSender.send(message);
+
+            log.info(
+                    "OTP email sent successfully to {}",
+                    maskEmail(normalizedDestination)
+            );
+
         } catch (MailException exception) {
+            log.error(
+                    "Failed to send OTP email to {}",
+                    maskEmail(normalizedDestination),
+                    exception
+            );
+
             throw new IllegalStateException(
                     "Unable to send password reset email",
                     exception
             );
         }
+    }
+
+    private String maskEmail(String email) {
+        int atIndex = email.indexOf("@");
+
+        if (atIndex <= 1) {
+            return "***";
+        }
+
+        return email.charAt(0)
+                + "***"
+                + email.substring(atIndex);
     }
 }

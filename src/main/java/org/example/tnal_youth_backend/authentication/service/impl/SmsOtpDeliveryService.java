@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.example.tnal_youth_backend.authentication.util.PhoneNumberUtil;
 
 import java.util.Map;
 
@@ -60,7 +61,7 @@ public class SmsOtpDeliveryService implements OtpDeliveryService {
             String otpCode
     ) {
         String normalizedDestination =
-                normalizeDestination(destination);
+                PhoneNumberUtil.toSmsFormat(destination);
 
         String content = """
                 TNAL Youth verification code: #ma#%s#ma#

@@ -29,18 +29,24 @@ public class OtpSenderImpl implements OtpSender {
             String destination,
             String otpCode
     ) {
-        switch (channel) {
-            case EMAIL ->
-                    emailOtpDeliveryService.sendOtp(
-                            destination,
-                            otpCode
-                    );
-
-            case SMS ->
-                    smsOtpDeliveryService.sendOtp(
-                            destination,
-                            otpCode
-                    );
+        if (channel == OtpChannel.EMAIL) {
+            emailOtpDeliveryService.sendOtp(
+                    destination,
+                    otpCode
+            );
+            return;
         }
+
+        if (channel == OtpChannel.SMS) {
+            smsOtpDeliveryService.sendOtp(
+                    destination,
+                    otpCode
+            );
+            return;
+        }
+
+        throw new IllegalArgumentException(
+                "Unsupported OTP delivery channel"
+        );
     }
 }
