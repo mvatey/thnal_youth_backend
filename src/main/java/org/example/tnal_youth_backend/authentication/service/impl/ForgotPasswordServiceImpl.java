@@ -90,7 +90,7 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
 
         User user = optionalUser.get();
 
-        String status = user.getAccountStatus().getCode();
+        String status = user.getStatus().name();
 
         if (!"ACTIVE".equals(status)
                 && !"LOCKED".equals(status)) {

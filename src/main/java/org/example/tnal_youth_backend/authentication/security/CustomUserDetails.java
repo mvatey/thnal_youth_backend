@@ -18,15 +18,15 @@ public class CustomUserDetails implements UserDetails {
     public Collection<SimpleGrantedAuthority> getAuthorities() {
 
         if (user.getRole() == null
-                || user.getRole().getCode() == null
-                || user.getRole().getCode().isBlank()) {
+                || user.getRole().name() == null
+                || user.getRole().name().isBlank()) {
 
             return List.of();
         }
 
         return List.of(
                 new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().getCode()
+                        "ROLE_" + user.getRole().name()
                 )
         );
     }
@@ -74,9 +74,9 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
 
-        return user.getAccountStatus() != null
+        return user.getStatus() != null
                 && "ACTIVE".equals(
-                user.getAccountStatus().getCode()
+                user.getStatus().name()
         );
     }
 }

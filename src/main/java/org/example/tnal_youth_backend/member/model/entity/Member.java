@@ -54,7 +54,10 @@ public class Member {
     )
     private String phone;
 
-    @Column(name = "email")
+    @Column(
+            name = "email",
+            columnDefinition = "citext"
+    )
     private String email;
 
     @Column(

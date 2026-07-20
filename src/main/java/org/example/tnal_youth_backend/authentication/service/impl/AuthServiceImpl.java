@@ -307,7 +307,7 @@ public class AuthServiceImpl implements AuthService {
         String roleCode = null;
 
         if (user.getRole() != null) {
-            roleCode = user.getRole().getCode();
+            user.getRole().name();
         }
 
         /*
@@ -375,9 +375,9 @@ public class AuthServiceImpl implements AuthService {
     // =========================================================
 
     private boolean isActive(User user) {
-        return user.getAccountStatus() != null
+        return user.getStatus() != null
                 && ACTIVE_ACCOUNT_STATUS.equals(
-                user.getAccountStatus().getCode()
+                user.getStatus().name()
         );
     }
 
@@ -547,7 +547,7 @@ public class AuthServiceImpl implements AuthService {
         String roleCode = null;
 
         if (user.getRole() != null) {
-            roleCode = user.getRole().getCode();
+            roleCode = user.getRole().name();
         }
 
         /*

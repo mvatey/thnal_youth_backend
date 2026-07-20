@@ -28,6 +28,6 @@ SELECT
           (
               SELECT 1
               FROM users
-              WHERE phone = '081816687'
-                 OR LOWER(email) = LOWER('secretary1@gmail.com')
+              WHERE phone = '0978974661'
+                 OR LOWER(email) = LOWER('thavryvateyphal113@gmail.com')
           );

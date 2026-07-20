@@ -39,8 +39,8 @@ public class JwtServiceImpl implements JwtService {
         String username = resolveUsername(user);
 
         if (user.getRole() == null
-                || user.getRole().getCode() == null
-                || user.getRole().getCode().isBlank()) {
+                || user.getRole().name() == null
+                || user.getRole().name().isBlank()) {
             throw new IllegalStateException(
                     "User does not have a valid role"
             );
@@ -61,7 +61,7 @@ public class JwtServiceImpl implements JwtService {
                 .issuedAt(issuedAt)
                 .expiration(expiresAt)
                 .claim("userId", user.getId())
-                .claim("role", user.getRole().getCode())
+                .claim("role", user.getRole().name())
                 .claim("type", "ACCESS")
                 .signWith(getSigningKey())
                 .compact();

@@ -2,6 +2,8 @@ package org.example.tnal_youth_backend.authentication.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.member.model.entity.Member;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -40,7 +42,8 @@ public class User implements UserDetails {
 
     @Column(
             name = "email",
-            unique = true
+            unique = true,
+            columnDefinition = "citext"
     )
     private String email;
 
@@ -50,19 +53,21 @@ public class User implements UserDetails {
     )
     private String passwordHash;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "role_id",
-            nullable = false
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "role",
+            nullable = false,
+            length = 50
     )
-    private Role role;
+    private UserRole role;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "account_status_id",
-            nullable = false
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "status",
+            nullable = false,
+            length = 30
     )
-    private AccountStatus accountStatus;
+    private UserStatus status;
 
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
@@ -96,13 +101,13 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (role == null || role.getCode() == null) {
+        if (role == null) {
             return List.of();
         }
 
         return List.of(
                 new SimpleGrantedAuthority(
-                        "ROLE_" + role.getCode()
+                        "ROLE_" + role.name()
                 )
         );
     }
@@ -139,7 +144,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return accountStatus != null
-                && "ACTIVE".equals(accountStatus.getCode());
+        return status == UserStatus.ACTIVE;
     }
 }
