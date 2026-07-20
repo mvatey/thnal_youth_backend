@@ -1,0 +1,34 @@
+[33mcff8bb8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/dashboard[m[33m, [m[1;31morigin/feature/dashboard[m[33m)[m HEAD@{0}: commit (merge): merging with auth
+[33md7eaa18[m HEAD@{1}: reset: moving to HEAD
+[33md7eaa18[m HEAD@{2}: checkout: moving from develop to feature/dashboard
+[33mcdd35f7[m[33m ([m[1;31morigin/develop[m[33m, [m[1;32mdevelop[m[33m)[m HEAD@{3}: commit: new db
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{4}: checkout: moving from feature/dashboard to develop
+[33md7eaa18[m HEAD@{5}: commit: migration
+[33m6e3d2b8[m HEAD@{6}: checkout: moving from develop to feature/dashboard
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{7}: checkout: moving from feature/dashboard to develop
+[33m6e3d2b8[m HEAD@{8}: commit: adding flyway
+[33m8bd6fe3[m HEAD@{9}: merge feature/authentication: Merge made by the 'ort' strategy.
+[33m6474f94[m HEAD@{10}: checkout: moving from feature/dashbaord to feature/dashboard
+[33m2f59a01[m[33m ([m[1;31morigin/feature/activity[m[33m, [m[1;32mfeature/dashbaord[m[33m, [m[1;32mfeature/activity[m[33m)[m HEAD@{11}: checkout: moving from feature/dashboard to feature/dashbaord
+[33m6474f94[m HEAD@{12}: commit: start
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{13}: checkout: moving from feature/my-new-branch to feature/dashboard
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{14}: checkout: moving from develop to feature/my-new-branch
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{15}: checkout: moving from feature/dashbaord to develop
+[33m2f59a01[m[33m ([m[1;31morigin/feature/activity[m[33m, [m[1;32mfeature/dashbaord[m[33m, [m[1;32mfeature/activity[m[33m)[m HEAD@{16}: checkout: moving from feature/activity to feature/dashbaord
+[33m2f59a01[m[33m ([m[1;31morigin/feature/activity[m[33m, [m[1;32mfeature/dashbaord[m[33m, [m[1;32mfeature/activity[m[33m)[m HEAD@{17}: checkout: moving from feature/activity to feature/activity
+[33m2f59a01[m[33m ([m[1;31morigin/feature/activity[m[33m, [m[1;32mfeature/dashbaord[m[33m, [m[1;32mfeature/activity[m[33m)[m HEAD@{18}: checkout: moving from feature/authentication to feature/activity
+[33mfb8518a[m[33m ([m[1;32mfeature/authentication[m[33m)[m HEAD@{19}: checkout: moving from feature/notification to feature/authentication
+[33m04e033e[m[33m ([m[1;31morigin/feature/notification[m[33m, [m[1;32mfeature/notification[m[33m)[m HEAD@{20}: reset: moving to HEAD
+[33m04e033e[m[33m ([m[1;31morigin/feature/notification[m[33m, [m[1;32mfeature/notification[m[33m)[m HEAD@{21}: checkout: moving from feature/authentication to feature/notification
+[33mfb8518a[m[33m ([m[1;32mfeature/authentication[m[33m)[m HEAD@{22}: checkout: moving from feature/member to feature/authentication
+[33md060283[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mfeature/member[m[33m)[m HEAD@{23}: reset: moving to HEAD
+[33md060283[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mfeature/member[m[33m)[m HEAD@{24}: reset: moving to HEAD~1
+[33m2b30141[m[33m ([m[1;31morigin/feature/member[m[33m, [m[1;31morigin/feature/branch-management[m[33m)[m HEAD@{25}: reset: moving to HEAD
+[33m2b30141[m[33m ([m[1;31morigin/feature/member[m[33m, [m[1;31morigin/feature/branch-management[m[33m)[m HEAD@{26}: checkout: moving from main to feature/member
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{27}: checkout: moving from develop to main
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{28}: checkout: moving from main to develop
+[33m626f6fb[m[33m ([m[1;31morigin/feature/donation[m[33m, [m[1;32mmain[m[33m, [m[1;32mfeature/my-new-branch[m[33m)[m HEAD@{29}: commit: structure
+[33m0752632[m[33m ([m[1;31morigin/release/v1.0[m[33m)[m HEAD@{30}: commit: message
+[33mfee5788[m HEAD@{31}: commit: Initial commit
+[33mc8e54d9[m HEAD@{32}: Branch: renamed refs/heads/master to refs/heads/main
+[33mc8e54d9[m HEAD@{34}: commit (initial): Initial commit

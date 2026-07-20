@@ -44,8 +44,8 @@ VALUES
         NOW()
     ),
     (
-        '081816687',
-        'secretary1@gmail.com',
+        '0978974661',
+        'thavryvateyphal113@gmail.com',
         '$2a$12$V6UoKo9i5rQl7XKvsth48eUWQNzexITv5RiAgu6VKeNLw5xxJ85Ti',
         'SECRETARY',
         'ACTIVE',

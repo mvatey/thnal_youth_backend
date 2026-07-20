@@ -82,8 +82,10 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
 
         User user = optionalUser.get();
 
-        if (user.getStatus() != UserStatus.ACTIVE
-                && user.getStatus() != UserStatus.LOCKED) {
+        String status = user.getAccountStatus().getCode();
+
+        if (!"ACTIVE".equals(status)
+                && !"LOCKED".equals(status)) {
             return genericOtpResponse();
         }
 
@@ -221,7 +223,6 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
                 passwordEncoder.encode(request.getNewPassword())
         );
 
-        user.setStatus(UserStatus.ACTIVE);
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 

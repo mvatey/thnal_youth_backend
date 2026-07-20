@@ -2,8 +2,7 @@ package org.example.tnal_youth_backend.authentication.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
-import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.member.model.entity.Member;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,52 +24,86 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "member_id",
+            unique = true
+    )
+    private Member member;
+
+    @Column(
+            name = "phone",
+            unique = true,
+            length = 30
+    )
     private String phone;
 
-    @Column(unique = true)
+    @Column(
+            name = "email",
+            unique = true
+    )
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(
+            name = "password_hash",
+            nullable = false
+    )
     private String passwordHash;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserRole role;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "role_id",
+            nullable = false
+    )
+    private Role role;
 
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private UserStatus status = UserStatus.ACTIVE;
-
-    @Column(name = "full_name_km", nullable = false)
-    private String fullNameKm;
-
-    @Column(name = "full_name_en")
-    private String fullNameEn;
-
-    @Column(name = "profile_image")
-    private String profileImage;
-
-    @Column(name = "failed_login_count")
-    @Builder.Default
-    private Integer failedLoginCount = 0;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "account_status_id",
+            nullable = false
+    )
+    private AccountStatus accountStatus;
 
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 
+    @Column(
+            name = "failed_login_count",
+            nullable = false
+    )
+    @Builder.Default
+    private Integer failedLoginCount = 0;
+
     @Column(name = "locked_until")
     private OffsetDateTime lockedUntil;
 
-    @Column(name = "created_at", updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
+    @Column(
+            name = "created_at",
+            nullable = false,
+            updatable = false
+    )
     private OffsetDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
     private OffsetDateTime updatedAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (role == null || role.getCode() == null) {
+            return List.of();
+        }
+
         return List.of(
-                new SimpleGrantedAuthority("ROLE_" + role.name())
+                new SimpleGrantedAuthority(
+                        "ROLE_" + role.getCode()
+                )
         );
     }
 
@@ -81,16 +114,32 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
+        if (email != null && !email.isBlank()) {
+            return email;
+        }
+
         return phone;
     }
 
     @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
     public boolean isAccountNonLocked() {
-        return status != UserStatus.LOCKED;
+        return lockedUntil == null
+                || lockedUntil.isBefore(OffsetDateTime.now());
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
     }
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
+        return accountStatus != null
+                && "ACTIVE".equals(accountStatus.getCode());
     }
 }

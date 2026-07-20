@@ -18,15 +18,23 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
+
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
                 )
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -43,18 +51,40 @@ public class SecurityConfig {
                                 "/api/auth/reset-password"
                         ).permitAll()
 
-                        .requestMatchers("/api/auth/me").authenticated()
+                        .requestMatchers(
+                                "/api/users/me"
+                        ).authenticated()
 
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/branch/**")
-                        .hasAnyRole("ADMIN", "BRANCH_LEADER")
-                        .requestMatchers("/api/secretary/**")
-                        .hasAnyRole("ADMIN", "SECRETARY")
-                        .requestMatchers("/api/member/**")
-                        .hasAnyRole("ADMIN", "BRANCH_LEADER", "SECRETARY", "MEMBER")
+                        .requestMatchers(
+                                "/api/admin/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                "/api/branch/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "BRANCH_LEADER"
+                        )
+
+                        .requestMatchers(
+                                "/api/secretary/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "SECRETARY"
+                        )
+
+                        .requestMatchers(
+                                "/api/member/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "BRANCH_LEADER",
+                                "SECRETARY",
+                                "MEMBER"
+                        )
 
                         .anyRequest().authenticated()
                 )
+
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

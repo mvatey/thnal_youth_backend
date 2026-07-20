@@ -5,10 +5,17 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.LoginHistory;
 import org.example.tnal_youth_backend.authentication.model.entity.RefreshToken;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
-import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
-import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
-import org.example.tnal_youth_backend.authentication.model.request.*;
-import org.example.tnal_youth_backend.authentication.model.response.*;
+import org.example.tnal_youth_backend.authentication.model.request.ForgotPasswordRequest;
+import org.example.tnal_youth_backend.authentication.model.request.LoginRequest;
+import org.example.tnal_youth_backend.authentication.model.request.RefreshTokenRequest;
+import org.example.tnal_youth_backend.authentication.model.request.ResetPasswordRequest;
+import org.example.tnal_youth_backend.authentication.model.request.VerifyOtpRequest;
+import org.example.tnal_youth_backend.authentication.model.response.ApiResponse;
+import org.example.tnal_youth_backend.authentication.model.response.ForgotPasswordResponse;
+import org.example.tnal_youth_backend.authentication.model.response.LoginResponse;
+import org.example.tnal_youth_backend.authentication.model.response.RefreshTokenResponse;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
+import org.example.tnal_youth_backend.authentication.model.response.VerifyOtpResponse;
 import org.example.tnal_youth_backend.authentication.repository.LoginHistoryRepository;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -32,108 +39,255 @@ public class AuthServiceImpl implements AuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCK_DURATION_MINUTES = 15;
 
+    private static final String ACTIVE_ACCOUNT_STATUS = "ACTIVE";
+
+    private static final String FAILURE_ACCOUNT_LOCKED =
+            "ACCOUNT_LOCKED";
+
+    private static final String FAILURE_ACCOUNT_INACTIVE =
+            "ACCOUNT_INACTIVE";
+
+    private static final String FAILURE_INVALID_CREDENTIALS =
+            "INVALID_CREDENTIALS";
+
     private final UserRepository userRepository;
+
     private final RefreshTokenRepository refreshTokenRepository;
+
     private final LoginHistoryRepository loginHistoryRepository;
 
     private final PasswordEncoder passwordEncoder;
+
     private final JwtService jwtService;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMs;
 
+    // =========================================================
+    // LOGIN
+    // =========================================================
+
     @Override
     @Transactional
-    public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+    public LoginResponse login(
+            LoginRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        validateLoginRequest(request);
 
-        User user = userRepository.findByPhone(request.getPhoneOrEmail())
-                .or(() -> userRepository.findByEmail(request.getPhoneOrEmail()))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "User not found"));
+        String identifier =
+                request.getPhoneOrEmail().trim();
+
+        User user = userRepository
+                .findByEmailOrPhone(identifier, identifier)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Invalid phone/email or password"
+                        )
+                );
 
         unlockIfExpired(user);
 
-        if (user.getStatus() == UserStatus.LOCKED) {
-            recordLoginHistory(user, httpRequest, false);
+        if (isCurrentlyLocked(user)) {
+            recordLoginHistory(
+                    user,
+                    identifier,
+                    httpRequest,
+                    false,
+                    FAILURE_ACCOUNT_LOCKED
+            );
+
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Account is locked. Try again after " + user.getLockedUntil());
+                    "Account is locked. Try again after "
+                            + user.getLockedUntil()
+            );
         }
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            recordLoginHistory(user, httpRequest, false);
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not active");
-        }
+        if (!isActive(user)) {
+            recordLoginHistory(
+                    user,
+                    identifier,
+                    httpRequest,
+                    false,
+                    FAILURE_ACCOUNT_INACTIVE
+            );
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            handleFailedLogin(user);
-            recordLoginHistory(user, httpRequest, false);
             throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "Invalid phone/email or password");
+                    HttpStatus.FORBIDDEN,
+                    "User account is not active"
+            );
+        }
+
+        boolean passwordMatches =
+                passwordEncoder.matches(
+                        request.getPassword(),
+                        user.getPasswordHash()
+                );
+
+        if (!passwordMatches) {
+            handleFailedLogin(user);
+
+            recordLoginHistory(
+                    user,
+                    identifier,
+                    httpRequest,
+                    false,
+                    FAILURE_INVALID_CREDENTIALS
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid phone/email or password"
+            );
         }
 
         handleSuccessfulLogin(user);
-        recordLoginHistory(user, httpRequest, true);
 
-        String accessToken = jwtService.generateToken(user);
-        RefreshToken refreshToken = createRefreshToken(user);
+        recordLoginHistory(
+                user,
+                identifier,
+                httpRequest,
+                true,
+                null
+        );
 
-        return buildLoginResponse(user, accessToken, refreshToken);
+        String accessToken =
+                jwtService.generateToken(user);
+
+        RefreshToken refreshToken =
+                createRefreshToken(user);
+
+        return buildLoginResponse(
+                user,
+                accessToken,
+                refreshToken
+        );
     }
+
+    // =========================================================
+    // REFRESH TOKEN
+    // =========================================================
 
     @Override
     @Transactional
-    public RefreshTokenResponse refresh(RefreshTokenRequest request) {
+    public RefreshTokenResponse refresh(
+            RefreshTokenRequest request
+    ) {
+        validateRefreshTokenRequest(request);
 
-        UUID tokenValue = parseToken(request.getRefreshToken());
+        UUID tokenValue =
+                parseToken(request.getRefreshToken());
 
-        RefreshToken existing = refreshTokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+        RefreshToken existing =
+                refreshTokenRepository
+                        .findByToken(tokenValue)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Invalid refresh token"
+                                )
+                        );
 
-        if (Boolean.TRUE.equals(existing.getRevoked())) {
+        if (existing.getRevokedAt() != null) {
             throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "Refresh token has been revoked");
+                    HttpStatus.UNAUTHORIZED,
+                    "Refresh token has been revoked"
+            );
         }
 
-        if (existing.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            existing.setRevoked(true);
+        OffsetDateTime now =
+                OffsetDateTime.now();
+
+        if (existing.getExpiresAt()
+                .isBefore(now)) {
+
+            existing.setRevokedAt(now);
+
             refreshTokenRepository.save(existing);
+
             throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "Refresh token has expired");
+                    HttpStatus.UNAUTHORIZED,
+                    "Refresh token has expired"
+            );
         }
 
         User user = existing.getUser();
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not active");
+        if (user == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Refresh token user was not found"
+            );
         }
 
-        // Rotation: old token is burned the moment it's used
-        existing.setRevoked(true);
+        unlockIfExpired(user);
+
+        if (isCurrentlyLocked(user)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "User account is locked"
+            );
+        }
+
+        if (!isActive(user)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "User account is not active"
+            );
+        }
+
+        /*
+         * Refresh-token rotation:
+         * revoke the old token and create a new token.
+         */
+        existing.setRevokedAt(now);
+
         refreshTokenRepository.save(existing);
 
-        String newAccessToken = jwtService.generateToken(user);
-        RefreshToken newRefreshToken = createRefreshToken(user);
+        String newAccessToken =
+                jwtService.generateToken(user);
+
+        RefreshToken newRefreshToken =
+                createRefreshToken(user);
 
         return RefreshTokenResponse.builder()
                 .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken.getToken().toString())
+                .refreshToken(
+                        newRefreshToken
+                                .getToken()
+                                .toString()
+                )
                 .build();
     }
 
+    // =========================================================
+    // LOGOUT
+    // =========================================================
+
     @Override
     @Transactional
-    public ApiResponse logout(RefreshTokenRequest request) {
+    public ApiResponse logout(
+            RefreshTokenRequest request
+    ) {
+        validateRefreshTokenRequest(request);
 
-        UUID tokenValue = parseToken(request.getRefreshToken());
+        UUID tokenValue =
+                parseToken(request.getRefreshToken());
 
-        refreshTokenRepository.findByToken(tokenValue).ifPresent(existing -> {
-            if (!Boolean.TRUE.equals(existing.getRevoked())) {
-                existing.setRevoked(true);
-                refreshTokenRepository.save(existing);
-            }
-        });
+        refreshTokenRepository
+                .findByToken(tokenValue)
+                .ifPresent(existing -> {
+
+                    if (existing.getRevokedAt() == null) {
+                        existing.setRevokedAt(
+                                OffsetDateTime.now()
+                        );
+
+                        refreshTokenRepository.save(existing);
+                    }
+                });
 
         return ApiResponse.builder()
                 .success(true)
@@ -141,61 +295,131 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    @Override
-    public UserProfileResponse getCurrentUser() {
+    // =========================================================
+    // CURRENT USER
+    // =========================================================
 
+    @Override
+    @Transactional(readOnly = true)
+    public UserProfileResponse getCurrentUser() {
         User user = SecurityUtil.getCurrentUser();
 
+        String roleCode = null;
+
+        if (user.getRole() != null) {
+            roleCode = user.getRole().getCode();
+        }
+
+        /*
+         * Member fields are temporarily null because Member.java
+         * does not exist yet.
+         *
+         * Later:
+         * users.member_id -> members.id
+         * members.profile_photo_id -> files.id
+         */
         return UserProfileResponse.builder()
                 .id(user.getId())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .fullNameKm(user.getFullNameKm())
-                .fullNameEn(user.getFullNameEn())
-                .profileImage(user.getProfileImage())
-                .role(user.getRole())
+                .fullNameKm(null)
+                .fullNameEn(null)
+                .profileImage(null)
+                .role(roleCode)
                 .build();
     }
 
+    // =========================================================
+    // PASSWORD RESET
+    // =========================================================
+
     @Override
-    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
-        return null;
+    public ForgotPasswordResponse forgotPassword(
+            ForgotPasswordRequest request
+    ) {
+        /*
+         * Keep your existing forgot-password implementation here.
+         * It was not included in the provided code.
+         */
+        throw new UnsupportedOperationException(
+                "Forgot password is not implemented yet"
+        );
     }
 
     @Override
-    public VerifyOtpResponse verifyOtp(VerifyOtpRequest request) {
-        return null;
+    public VerifyOtpResponse verifyOtp(
+            VerifyOtpRequest request
+    ) {
+        /*
+         * Keep your existing OTP verification implementation here.
+         */
+        throw new UnsupportedOperationException(
+                "OTP verification is not implemented yet"
+        );
     }
 
     @Override
-    public ApiResponse resetPassword(ResetPasswordRequest request) {
-        return null;
+    public ApiResponse resetPassword(
+            ResetPasswordRequest request
+    ) {
+        /*
+         * Keep your existing password-reset implementation here.
+         */
+        throw new UnsupportedOperationException(
+                "Password reset is not implemented yet"
+        );
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
+    // =========================================================
+    // ACCOUNT HELPERS
+    // =========================================================
+
+    private boolean isActive(User user) {
+        return user.getAccountStatus() != null
+                && ACTIVE_ACCOUNT_STATUS.equals(
+                user.getAccountStatus().getCode()
+        );
+    }
+
+    private boolean isCurrentlyLocked(User user) {
+        return user.getLockedUntil() != null
+                && user.getLockedUntil()
+                .isAfter(OffsetDateTime.now());
+    }
 
     private void unlockIfExpired(User user) {
-        if (user.getStatus() == UserStatus.LOCKED
-                && user.getLockedUntil() != null
-                && user.getLockedUntil().isBefore(OffsetDateTime.now())) {
+        OffsetDateTime lockedUntil =
+                user.getLockedUntil();
 
-            user.setStatus(UserStatus.ACTIVE);
+        if (lockedUntil != null
+                && !lockedUntil.isAfter(
+                OffsetDateTime.now()
+        )) {
+
             user.setLockedUntil(null);
             user.setFailedLoginCount(0);
+
             userRepository.save(user);
         }
     }
 
     private void handleFailedLogin(User user) {
-        int attempts = user.getFailedLoginCount() == null ? 0 : user.getFailedLoginCount();
+        int attempts =
+                user.getFailedLoginCount() == null
+                        ? 0
+                        : user.getFailedLoginCount();
+
         attempts++;
+
         user.setFailedLoginCount(attempts);
 
         if (attempts >= MAX_FAILED_ATTEMPTS) {
-            user.setStatus(UserStatus.LOCKED);
-            user.setLockedUntil(OffsetDateTime.now().plusMinutes(LOCK_DURATION_MINUTES));
+            user.setLockedUntil(
+                    OffsetDateTime.now()
+                            .plusMinutes(
+                                    LOCK_DURATION_MINUTES
+                            )
+            );
         }
 
         userRepository.save(user);
@@ -204,69 +428,194 @@ public class AuthServiceImpl implements AuthService {
     private void handleSuccessfulLogin(User user) {
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
-        user.setLastLoginAt(OffsetDateTime.now());
-        if (user.getStatus() == UserStatus.LOCKED) {
-            user.setStatus(UserStatus.ACTIVE);
-        }
+        user.setLastLoginAt(
+                OffsetDateTime.now()
+        );
+
         userRepository.save(user);
     }
 
-    private RefreshToken createRefreshToken(User user) {
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .token(UUID.randomUUID())
-                .expiresAt(OffsetDateTime.now().plusSeconds(refreshExpirationMs / 1000))
-                .revoked(false)
-                .build();
+    // =========================================================
+    // REFRESH TOKEN HELPERS
+    // =========================================================
 
-        return refreshTokenRepository.save(refreshToken);
-    }
+    private RefreshToken createRefreshToken(
+            User user
+    ) {
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
-    private void recordLoginHistory(User user, HttpServletRequest httpRequest, boolean success) {
-        LoginHistory history = LoginHistory.builder()
-                .user(user)
-                .loginTime(OffsetDateTime.now())
-                .ipAddress(extractIp(httpRequest))
-                .browser(httpRequest.getHeader("User-Agent"))
-                .device(extractDevice(httpRequest))
-                .success(success)
-                .build();
+        RefreshToken refreshToken =
+                RefreshToken.builder()
+                        .user(user)
+                        .token(UUID.randomUUID())
+                        .expiresAt(
+                                now.plusSeconds(
+                                        refreshExpirationMs / 1000
+                                )
+                        )
+                        .revokedAt(null)
+                        .build();
 
-        loginHistoryRepository.save(history);
-    }
-
-    private String extractIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
-
-    private String extractDevice(HttpServletRequest request) {
-        String userAgent = request.getHeader("User-Agent");
-        if (userAgent == null) return "Unknown";
-        String ua = userAgent.toLowerCase();
-        if (ua.contains("mobile")) return "Mobile";
-        if (ua.contains("tablet")) return "Tablet";
-        return "Desktop";
+        return refreshTokenRepository.save(
+                refreshToken
+        );
     }
 
     private UUID parseToken(String token) {
         try {
             return UUID.fromString(token);
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid token format"
+            );
         }
     }
 
-    private LoginResponse buildLoginResponse(User user, String accessToken, RefreshToken refreshToken) {
+    // =========================================================
+    // LOGIN HISTORY
+    // =========================================================
+
+    private void recordLoginHistory(
+            User user,
+            String loginIdentifier,
+            HttpServletRequest request,
+            boolean success,
+            String failureReason
+    ) {
+        LoginHistory history =
+                LoginHistory.builder()
+                        .user(user)
+                        .loginIdentifier(
+                                loginIdentifier
+                        )
+                        .success(success)
+                        .failureReason(
+                                failureReason
+                        )
+                        .ipAddress(
+                                extractIp(request)
+                        )
+                        .userAgent(
+                                request.getHeader(
+                                        "User-Agent"
+                                )
+                        )
+                        .build();
+
+        loginHistoryRepository.save(history);
+    }
+
+    private String extractIp(
+            HttpServletRequest request
+    ) {
+        String forwardedFor =
+                request.getHeader(
+                        "X-Forwarded-For"
+                );
+
+        if (forwardedFor != null
+                && !forwardedFor.isBlank()) {
+
+            return forwardedFor
+                    .split(",")[0]
+                    .trim();
+        }
+
+        String realIp =
+                request.getHeader("X-Real-IP");
+
+        if (realIp != null
+                && !realIp.isBlank()) {
+
+            return realIp.trim();
+        }
+
+        return request.getRemoteAddr();
+    }
+
+    // =========================================================
+    // RESPONSE BUILDERS
+    // =========================================================
+
+    private LoginResponse buildLoginResponse(
+            User user,
+            String accessToken,
+            RefreshToken refreshToken
+    ) {
+        String roleCode = null;
+
+        if (user.getRole() != null) {
+            roleCode = user.getRole().getCode();
+        }
+
+        /*
+         * fullName is temporarily null until Member.java exists.
+         *
+         * Later:
+         * user.getMember().getFullNameEn()
+         */
         return LoginResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken().toString())
+                .refreshToken(
+                        refreshToken
+                                .getToken()
+                                .toString()
+                )
                 .userId(user.getId())
-                .fullName(user.getFullNameEn())
-                .role(UserRole.valueOf(user.getRole().name()))
+                .fullName(null)
+                .role(roleCode)
                 .build();
+    }
+
+    // =========================================================
+    // REQUEST VALIDATION
+    // =========================================================
+
+    private void validateLoginRequest(
+            LoginRequest request
+    ) {
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Login request is required"
+            );
+        }
+
+        if (request.getPhoneOrEmail() == null
+                || request.getPhoneOrEmail()
+                .isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Phone number or email is required"
+            );
+        }
+
+        if (request.getPassword() == null
+                || request.getPassword()
+                .isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password is required"
+            );
+        }
+    }
+
+    private void validateRefreshTokenRequest(
+            RefreshTokenRequest request
+    ) {
+        if (request == null
+                || request.getRefreshToken() == null
+                || request.getRefreshToken()
+                .isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Refresh token is required"
+            );
+        }
     }
 }
