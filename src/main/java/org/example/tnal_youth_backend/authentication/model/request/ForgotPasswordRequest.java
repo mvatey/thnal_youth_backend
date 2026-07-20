@@ -1,9 +1,10 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
 
 @Getter
 @Setter
@@ -12,10 +13,7 @@ public class ForgotPasswordRequest {
     @NotBlank(message = "Phone or email is required")
     private String phoneOrEmail;
 
-    @NotBlank(message = "Delivery channel is required")
-    @Pattern(
-            regexp = "(?i)EMAIL|SMS",
-            message = "Delivery channel must be EMAIL or SMS"
-    )
-    private String deliveryChannel;
+    @NotNull(message = "Delivery channel is required")
+    private OtpChannel deliveryChannel;
+
 }

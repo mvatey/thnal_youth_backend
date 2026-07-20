@@ -1,7 +1,5 @@
 package org.example.tnal_youth_backend.authentication.service.impl;
 
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.PasswordResetToken;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
@@ -15,6 +13,7 @@ import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepo
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.ForgotPasswordService;
 import org.example.tnal_youth_backend.authentication.service.OtpSender;
+import org.example.tnal_youth_backend.authentication.util.PhoneNumberUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,8 +38,6 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     private final PasswordEncoder passwordEncoder;
     private final OtpSender otpSender;
 
-
-
     @Value("${otp.expire-minutes:5}")
     private long otpExpireMinutes;
 
@@ -64,16 +61,27 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     @Transactional
     public ApiResponse forgotPassword(ForgotPasswordRequest request) {
 
-        String phoneOrEmail = request.getPhoneOrEmail().trim();
+        validateForgotPasswordRequest(request);
+
+        String submittedIdentifier =
+                request.getPhoneOrEmail().trim();
+
+        OtpChannel channel =
+                request.getDeliveryChannel();
+
+        String lookupIdentifier =
+                normalizeIdentifierForLookup(
+                        submittedIdentifier,
+                        channel
+                );
 
         Optional<User> optionalUser =
                 userRepository.findByEmailOrPhone(
-                        phoneOrEmail,
-                        phoneOrEmail
+                        lookupIdentifier,
+                        lookupIdentifier
                 );
 
         /*
-         * Production security:
          * Do not reveal whether an account exists.
          */
         if (optionalUser.isEmpty()) {
@@ -87,44 +95,45 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
             return genericOtpResponse();
         }
 
-        OtpChannel channel = determineChannel(phoneOrEmail);
-        String destination = resolveDestination(user, channel);
+        String destination =
+                resolveDestination(user, channel);
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         validateCooldown(user.getId(), now);
         validateHourlyLimit(user.getId(), now);
         validateDailyLimit(user.getId(), now);
 
         /*
-         * Invalidate all older active OTPs before creating a new one.
+         * Invalidate previous active OTPs before issuing a new one.
          */
         passwordResetTokenRepository
                 .invalidateAllUnconsumedTokensForUser(
                         user.getId(),
                         now
                 );
-        String plainOtp = generateOtp();
 
-        PasswordResetToken token = PasswordResetToken.builder()
-                .user(user)
-                .otpCodeHash(passwordEncoder.encode(plainOtp))
-                .deliveryChannel(channel)
-                .expiresAt(now.plusMinutes(otpExpireMinutes))
-                .consumedAt(null)
-                .attempts(0)
-                .createdAt(now)
-                .build();
+        String plainOtp =
+                generateOtp();
+
+        PasswordResetToken token =
+                PasswordResetToken.builder()
+                        .user(user)
+                        .otpCodeHash(
+                                passwordEncoder.encode(plainOtp)
+                        )
+                        .deliveryChannel(channel)
+                        .expiresAt(
+                                now.plusMinutes(otpExpireMinutes)
+                        )
+                        .consumedAt(null)
+                        .attempts(0)
+                        .createdAt(now)
+                        .build();
 
         passwordResetTokenRepository.save(token);
 
-        /*
-         * The delivery implementation chooses:
-         * - EmailOtpDeliveryService
-         * - SmsOtpDeliveryService
-         *
-         * Do not print the OTP in production logs.
-         */
         otpSender.send(
                 channel,
                 destination,
@@ -142,20 +151,34 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     @Transactional
     public ApiResponse resetPassword(ResetPasswordRequest request) {
 
-        String phoneOrEmail = request.getPhoneOrEmail().trim();
+        validateResetPasswordRequest(request);
 
-        User user = userRepository.findByEmailOrPhone(
-                        phoneOrEmail,
-                        phoneOrEmail
-                )
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.BAD_REQUEST,
-                                "Invalid or expired password reset request"
-                        )
+        String submittedIdentifier =
+                request.getPhoneOrEmail().trim();
+
+        OtpChannel channel =
+                determineChannel(submittedIdentifier);
+
+        String lookupIdentifier =
+                normalizeIdentifierForLookup(
+                        submittedIdentifier,
+                        channel
                 );
 
-        OffsetDateTime now = OffsetDateTime.now();
+        User user =
+                userRepository.findByEmailOrPhone(
+                                lookupIdentifier,
+                                lookupIdentifier
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Invalid or expired password reset request"
+                                )
+                        );
+
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         PasswordResetToken token =
                 passwordResetTokenRepository
@@ -170,55 +193,25 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
                                 )
                         );
 
-        int attempts = token.getAttempts() == null
-                ? 0
-                : token.getAttempts();
+        verifyOtpAttemptsAvailable(token, now);
 
-        if (attempts >= maxOtpAttempts) {
-            token.setConsumedAt(now);
-            passwordResetTokenRepository.save(token);
-
-            throw new ResponseStatusException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "Maximum OTP verification attempts reached"
-            );
-        }
-
-        boolean otpMatches = passwordEncoder.matches(
-                request.getOtp(),
-                token.getOtpCodeHash()
-        );
+        boolean otpMatches =
+                passwordEncoder.matches(
+                        request.getOtp().trim(),
+                        token.getOtpCodeHash()
+                );
 
         if (!otpMatches) {
-            int updatedAttempts = attempts + 1;
-
-            token.setAttempts(updatedAttempts);
-
-            /*
-             * Disable the token when the final attempt is used.
-             */
-            if (updatedAttempts >= maxOtpAttempts) {
-                token.setConsumedAt(now);
-            }
-
-            passwordResetTokenRepository.save(token);
-
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    updatedAttempts >= maxOtpAttempts
-                            ? "Maximum OTP verification attempts reached"
-                            : "Invalid OTP"
-            );
+            registerInvalidOtpAttempt(token, now);
         }
 
-        /*
-         * Mark OTP consumed before completing the password reset.
-         */
         token.setConsumedAt(now);
         passwordResetTokenRepository.save(token);
 
         user.setPasswordHash(
-                passwordEncoder.encode(request.getNewPassword())
+                passwordEncoder.encode(
+                        request.getNewPassword()
+                )
         );
 
         user.setStatus(UserStatus.ACTIVE);
@@ -228,7 +221,7 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
         userRepository.save(user);
 
         /*
-         * Revoke/remove all sessions after password reset.
+         * End all existing refresh-token sessions.
          */
         refreshTokenRepository.deleteByUser(user);
 
@@ -239,7 +232,114 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     }
 
     // =========================================================
-    // RATE-LIMIT VALIDATION
+    // REQUEST VALIDATION
+    // =========================================================
+
+    private void validateForgotPasswordRequest(
+            ForgotPasswordRequest request
+    ) {
+        if (request == null
+                || request.getPhoneOrEmail() == null
+                || request.getPhoneOrEmail().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Phone number or email is required"
+            );
+        }
+
+        if (request.getDeliveryChannel() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Delivery channel is required"
+            );
+        }
+    }
+
+    private void validateResetPasswordRequest(
+            ResetPasswordRequest request
+    ) {
+        if (request == null
+                || request.getPhoneOrEmail() == null
+                || request.getPhoneOrEmail().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Phone number or email is required"
+            );
+        }
+
+        if (request.getOtp() == null
+                || request.getOtp().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "OTP is required"
+            );
+        }
+
+        if (request.getNewPassword() == null
+                || request.getNewPassword().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+    }
+
+    // =========================================================
+    // OTP VERIFICATION
+    // =========================================================
+
+    private void verifyOtpAttemptsAvailable(
+            PasswordResetToken token,
+            OffsetDateTime now
+    ) {
+        int attempts =
+                token.getAttempts() == null
+                        ? 0
+                        : token.getAttempts();
+
+        if (attempts >= maxOtpAttempts) {
+            token.setConsumedAt(now);
+            passwordResetTokenRepository.save(token);
+
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Maximum OTP verification attempts reached"
+            );
+        }
+    }
+
+    private void registerInvalidOtpAttempt(
+            PasswordResetToken token,
+            OffsetDateTime now
+    ) {
+        int currentAttempts =
+                token.getAttempts() == null
+                        ? 0
+                        : token.getAttempts();
+
+        int updatedAttempts =
+                currentAttempts + 1;
+
+        token.setAttempts(updatedAttempts);
+
+        if (updatedAttempts >= maxOtpAttempts) {
+            token.setConsumedAt(now);
+        }
+
+        passwordResetTokenRepository.save(token);
+
+        throw new ResponseStatusException(
+                updatedAttempts >= maxOtpAttempts
+                        ? HttpStatus.TOO_MANY_REQUESTS
+                        : HttpStatus.UNAUTHORIZED,
+                updatedAttempts >= maxOtpAttempts
+                        ? "Maximum OTP verification attempts reached"
+                        : "Invalid OTP"
+        );
+    }
+
+    // =========================================================
+    // RATE LIMITS
     // =========================================================
 
     private void validateCooldown(
@@ -255,13 +355,14 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
                                     .plusSeconds(otpCooldownSeconds);
 
                     if (now.isBefore(nextAllowedTime)) {
-                        long secondsRemaining = Math.max(
-                                1,
-                                Duration.between(
-                                        now,
-                                        nextAllowedTime
-                                ).getSeconds()
-                        );
+                        long secondsRemaining =
+                                Math.max(
+                                        1,
+                                        Duration.between(
+                                                now,
+                                                nextAllowedTime
+                                        ).getSeconds()
+                                );
 
                         throw new ResponseStatusException(
                                 HttpStatus.TOO_MANY_REQUESTS,
@@ -312,19 +413,33 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     }
 
     // =========================================================
-    // OTP AND DESTINATION HELPERS
+    // IDENTIFIER AND CHANNEL
     // =========================================================
 
-    private String generateOtp() {
-        int number = SECURE_RANDOM.nextInt(1_000_000);
-        return String.format("%06d", number);
-    }
-
-    private OtpChannel determineChannel(String phoneOrEmail) {
+    private OtpChannel determineChannel(
+            String phoneOrEmail
+    ) {
         return phoneOrEmail.contains("@")
                 ? OtpChannel.EMAIL
                 : OtpChannel.SMS;
     }
+
+    private String normalizeIdentifierForLookup(
+            String identifier,
+            OtpChannel channel
+    ) {
+        if (channel == OtpChannel.EMAIL) {
+            return identifier
+                    .trim()
+                    .toLowerCase();
+        }
+
+        return PhoneNumberUtil.toDatabaseFormat(identifier);
+    }
+
+    // =========================================================
+    // DELIVERY DESTINATION
+    // =========================================================
 
     private String resolveDestination(
             User user,
@@ -339,7 +454,9 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
                 );
             }
 
-            return user.getEmail().trim();
+            return user.getEmail()
+                    .trim()
+                    .toLowerCase();
         }
 
         if (user.getPhone() == null
@@ -350,28 +467,22 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
             );
         }
 
-        return normalizeCambodianPhone(user.getPhone());
+        return PhoneNumberUtil.toSmsFormat(
+                user.getPhone()
+        );
     }
 
-    private String normalizeCambodianPhone(String phone) {
+    // =========================================================
+    // OTP GENERATION AND RESPONSE
+    // =========================================================
 
-        String cleaned = phone.replaceAll("[^0-9+]", "");
+    private String generateOtp() {
+        int number =
+                SECURE_RANDOM.nextInt(1_000_000);
 
-        if (cleaned.startsWith("+855")) {
-            return cleaned;
-        }
-
-        if (cleaned.startsWith("855")) {
-            return "+" + cleaned;
-        }
-
-        if (cleaned.startsWith("0")) {
-            return "+855" + cleaned.substring(1);
-        }
-
-        throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Invalid Cambodian phone number"
+        return String.format(
+                "%06d",
+                number
         );
     }
 
