@@ -5,6 +5,7 @@ import org.example.tnal_youth_backend.activity.model.entity.ActivitySector;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityStatus;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityType;
 import org.example.tnal_youth_backend.activity.model.request.CreateActivityRequest;
+import org.example.tnal_youth_backend.activity.model.response.ActivityListItemResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ public class ActivityMapper {
             ActivityType type,
             ActivitySector sector,
             ActivityStatus status,
+            Boolean publicActivity,
             Long createdBy
     ) {
         return Activity.builder()
@@ -26,7 +28,7 @@ public class ActivityMapper {
                 .sector(sector)
                 .status(status)
                 .branchId(request.getBranchId())
-                .publicActivity(request.getPublicActivity())
+                .publicActivity(publicActivity)
                 .startsAt(request.getStartsAt())
                 .endsAt(request.getEndsAt())
                 .provinceId(request.getProvinceId())
@@ -129,5 +131,24 @@ public class ActivityMapper {
         return trimmed.isEmpty()
                 ? null
                 : trimmed;
+    }
+
+    public ActivityListItemResponse toListItemResponse(
+            Activity activity
+    ) {
+        return ActivityListItemResponse.builder()
+                .id(activity.getId())
+                .titleKm(activity.getTitleKm())
+                .titleEn(activity.getTitleEn())
+                .type(toLookupResponse(activity.getType()))
+                .sector(toLookupResponse(activity.getSector()))
+                .status(toLookupResponse(activity.getStatus()))
+                .branchId(activity.getBranchId())
+                .publicActivity(activity.getPublicActivity())
+                .startsAt(activity.getStartsAt())
+                .endsAt(activity.getEndsAt())
+                .locationName(activity.getLocationName())
+                .capacity(activity.getCapacity())
+                .build();
     }
 }

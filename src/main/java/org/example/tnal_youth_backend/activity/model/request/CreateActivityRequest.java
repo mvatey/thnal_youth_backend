@@ -41,8 +41,7 @@ public class CreateActivityRequest {
     @NotNull(message = "Branch is required")
     private Long branchId;
 
-    @NotNull(message = "Public activity setting is required")
-    private Boolean publicActivity;
+    
 
     @NotNull(message = "Activity start time is required")
     @Future(message = "Activity start time must be in the future")
