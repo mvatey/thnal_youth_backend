@@ -1,12 +1,8 @@
 package org.example.tnal_youth_backend.authentication.service;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.example.tnal_youth_backend.authentication.model.request.LoginRequest;
-import org.example.tnal_youth_backend.authentication.model.request.RefreshTokenRequest;
-import org.example.tnal_youth_backend.authentication.model.response.ApiResponse;
-import org.example.tnal_youth_backend.authentication.model.response.LoginResponse;
-import org.example.tnal_youth_backend.authentication.model.response.RefreshTokenResponse;
-import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
+import org.example.tnal_youth_backend.authentication.model.request.*;
+import org.example.tnal_youth_backend.authentication.model.response.*;
 
 public interface AuthService {
 
@@ -17,4 +13,16 @@ public interface AuthService {
     ApiResponse logout(RefreshTokenRequest request);
 
     UserProfileResponse getCurrentUser();
+
+    ForgotPasswordResponse forgotPassword(
+            ForgotPasswordRequest request
+    );
+
+    VerifyOtpResponse verifyOtp(
+            VerifyOtpRequest request
+    );
+
+    ApiResponse resetPassword(
+            ResetPasswordRequest request
+    );
 }

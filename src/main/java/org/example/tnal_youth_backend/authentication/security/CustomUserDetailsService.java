@@ -1,11 +1,11 @@
 package org.example.tnal_youth_backend.authentication.security;
 
-
-
+import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.*;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,18 +15,15 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String phone)
+    public UserDetails loadUserByUsername(String phoneOrEmail)
             throws UsernameNotFoundException {
 
         User user = userRepository
-                .findByPhone(phone)
+                .findByEmailOrPhone(phoneOrEmail, phoneOrEmail)
                 .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found"));
-
-
+                        new UsernameNotFoundException("User not found")
+                );
 
         return new CustomUserDetails(user);
-
     }
-
 }

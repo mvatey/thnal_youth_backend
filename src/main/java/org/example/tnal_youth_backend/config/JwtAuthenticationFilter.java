@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.example.tnal_youth_backend.authentication.service.JwtService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -38,25 +39,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-        String phone = jwtService.extractUsername(token);
 
-        if (phone != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            User user = userRepository.findByPhone(phone).orElse(null);
+        try {
+            String phoneOrEmail = jwtService.extractUsername(token);
 
-            if (user != null && jwtService.isTokenValid(token, user)) {
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                user,
-                                null,
-                                user.getAuthorities()
-                        );
+            if (phoneOrEmail != null
+                    && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                User user = userRepository
+                        .findByEmailOrPhone(phoneOrEmail, phoneOrEmail)
+                        .orElse(null);
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (user != null && jwtService.isTokenValid(token, user)) {
+
+                    CustomUserDetails userDetails =
+                            new CustomUserDetails(user);
+
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+                }
             }
+
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
