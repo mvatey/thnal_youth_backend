@@ -114,7 +114,6 @@ CREATE TABLE login_history (
 
                                failure_reason VARCHAR(100),
 
-                               ip_address INET,
                                user_agent TEXT,
 
                                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -172,7 +171,6 @@ CREATE TABLE audit_logs (
                             before_data JSONB,
                             after_data JSONB,
 
-                            ip_address INET,
                             user_agent TEXT,
 
                             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
