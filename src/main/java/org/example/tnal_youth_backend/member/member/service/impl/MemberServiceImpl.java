@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.member.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
@@ -32,6 +33,7 @@ import java.util.Locale;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
     private final MemberStatusRepository memberStatusRepository;
     private final MemberLevelRepository memberLevelRepository;
     private final ReligionRepository religionRepository;
@@ -261,7 +263,18 @@ public class MemberServiceImpl implements MemberService {
         );
 
         try {
-            memberRepository.saveAndFlush(member);
+            Member savedMember =
+                    memberRepository.saveAndFlush(member);
+
+            /*
+             * Keep the linked login account email synchronized
+             * with the member profile email.
+             */
+            userRepository.findByMemberId(savedMember.getId())
+                    .ifPresent(user -> {
+                        user.setEmail(savedMember.getEmail());
+                        userRepository.saveAndFlush(user);
+                    });
 
             Member detailedMember =
                     findDetailedMember(id);

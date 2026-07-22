@@ -19,22 +19,23 @@ public interface UserRepository
 
     Optional<User> findByEmailIgnoreCase(String email);
 
-    /*
-     * Used by JwtAuthenticationFilter,
-     * AuthServiceImpl and ForgotPasswordServiceImpl.
-     */
     Optional<User> findByEmailOrPhone(
             String email,
             String phone
     );
 
-    /*
-     * You can keep this existing method if another class uses it.
-     */
     Optional<User> findByPhoneOrEmailIgnoreCase(
             String phone,
             String email
     );
+
+    /*
+     * Member account relationship
+     */
+
+    Optional<User> findByMemberId(Long memberId);
+
+    boolean existsByMemberId(Long memberId);
 
     /*
      * Create validation

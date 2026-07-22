@@ -25,13 +25,31 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    /*
+     * Links this login account to a member profile.
+     *
+     * Existing authentication test accounts may keep this value null.
+     */
+    @Column(
+            name = "member_id",
+            unique = true
+    )
+    private Long memberId;
+
+    @Column(
+            nullable = false,
+            unique = true,
+            length = 20
+    )
     private String phone;
 
     @Column(unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(
+            name = "password_hash",
+            nullable = false
+    )
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
@@ -42,7 +60,10 @@ public class User implements UserDetails {
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    @Column(name = "full_name_km", nullable = false)
+    @Column(
+            name = "full_name_km",
+            nullable = false
+    )
     private String fullNameKm;
 
     @Column(name = "full_name_en")
@@ -61,16 +82,47 @@ public class User implements UserDetails {
     @Column(name = "locked_until")
     private OffsetDateTime lockedUntil;
 
-    @Column(name = "created_at", updatable = false)
+    @Column(
+            name = "created_at",
+            updatable = false
+    )
     private OffsetDateTime createdAt;
 
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
+    @PrePersist
+    protected void onCreate() {
+        OffsetDateTime now = OffsetDateTime.now();
+
+        if (createdAt == null) {
+            createdAt = now;
+        }
+
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+
+        if (failedLoginCount == null) {
+            failedLoginCount = 0;
+        }
+
+        if (status == null) {
+            status = UserStatus.ACTIVE;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = OffsetDateTime.now();
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(
-                new SimpleGrantedAuthority("ROLE_" + role.name())
+                new SimpleGrantedAuthority(
+                        "ROLE_" + role.name()
+                )
         );
     }
 
