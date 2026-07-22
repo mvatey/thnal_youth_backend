@@ -25,8 +25,51 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional(readOnly = true)
     public List<ActivityResponse> getAllActivities() {
+
         return activityRepository
                 .findAllByOrderByStartsAtDescIdDesc()
+                .stream()
+                .map(activityMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityResponse> searchActivities(
+            String search
+    ) {
+        String normalizedSearch = trimToNull(search);
+
+        if (normalizedSearch == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Search value is required"
+            );
+        }
+
+        return activityRepository
+                .searchByTitle(normalizedSearch)
+                .stream()
+                .map(activityMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityResponse> filterActivitiesByType(
+            Short typeId
+    ) {
+        if (typeId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity type ID is required"
+            );
+        }
+
+        return activityRepository
+                .findAllByTypeIdOrderByStartsAtDescIdDesc(
+                        typeId
+                )
                 .stream()
                 .map(activityMapper::toResponse)
                 .toList();
@@ -54,7 +97,9 @@ public class ActivityServiceImpl implements ActivityService {
                                 "Khmer activity title"
                         )
                 )
-                .titleEn(trimToNull(request.titleEn()))
+                .titleEn(
+                        trimToNull(request.titleEn())
+                )
                 .description(
                         trimToNull(request.description())
                 )
@@ -75,7 +120,9 @@ public class ActivityServiceImpl implements ActivityService {
                 .locationName(
                         trimToNull(request.locationName())
                 )
-                .address(trimToNull(request.address()))
+                .address(
+                        trimToNull(request.address())
+                )
                 .googleMapUrl(
                         trimToNull(request.googleMapUrl())
                 )
@@ -150,13 +197,14 @@ public class ActivityServiceImpl implements ActivityService {
         );
 
         activity.setCapacity(request.capacity());
+
         activity.setCoverImageId(
                 request.coverImageId()
         );
 
         /*
-         * created_by is intentionally not updated.
-         * It records who originally created the activity.
+         * createdById is intentionally not updated.
+         * It records the original creator of the activity.
          */
 
         try {
@@ -186,7 +234,8 @@ public class ActivityServiceImpl implements ActivityService {
                     Cannot delete this activity because it is being \
                     used by participants, expenses, photos, donations, \
                     documents, or another database record.
-                    """
+                    """,
+                    exception
             );
         }
     }
@@ -211,6 +260,13 @@ public class ActivityServiceImpl implements ActivityService {
     private void validateRequest(
             ActivityRequest request
     ) {
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity request is required"
+            );
+        }
+
         if (request.startsAt() != null
                 && request.endsAt() != null
                 && !request.endsAt()
@@ -274,9 +330,14 @@ public class ActivityServiceImpl implements ActivityService {
     databaseConstraintException(
             DataIntegrityViolationException exception
     ) {
+        Throwable mostSpecificCause =
+                exception.getMostSpecificCause();
+
         String databaseMessage =
-                exception.getMostSpecificCause()
-                        .getMessage();
+                mostSpecificCause != null
+                        && mostSpecificCause.getMessage() != null
+                        ? mostSpecificCause.getMessage()
+                        : "Unknown database constraint error";
 
         return new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
@@ -287,7 +348,8 @@ public class ActivityServiceImpl implements ActivityService {
                 created_by reference existing records.
 
                 Database message: %s
-                """.formatted(databaseMessage)
+                """.formatted(databaseMessage),
+                exception
         );
     }
 }

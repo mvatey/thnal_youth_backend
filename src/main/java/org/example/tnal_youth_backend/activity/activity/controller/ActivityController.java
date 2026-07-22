@@ -18,12 +18,47 @@ public class ActivityController {
 
     private final ActivityService activityService;
 
+    /*
+     * Get all activities.
+     *
+     * GET /api/activities
+     */
     @GetMapping
     public ResponseEntity<List<ActivityResponse>>
     getAllActivities() {
 
         return ResponseEntity.ok(
                 activityService.getAllActivities()
+        );
+    }
+
+    /*
+     * Search activities by Khmer or English title.
+     *
+     * GET /api/activities/search?search=យុវជន
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<ActivityResponse>>
+    searchActivities(
+            @RequestParam String search
+    ) {
+        return ResponseEntity.ok(
+                activityService.searchActivities(search)
+        );
+    }
+
+    /*
+     * Filter activities by activity type.
+     *
+     * GET /api/activities/filter-by-type?typeId=1
+     */
+    @GetMapping("/filter-by-type")
+    public ResponseEntity<List<ActivityResponse>>
+    filterActivitiesByType(
+            @RequestParam Short typeId
+    ) {
+        return ResponseEntity.ok(
+                activityService.filterActivitiesByType(typeId)
         );
     }
 
@@ -47,8 +82,7 @@ public class ActivityController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(
-                        activityService
-                                .createActivity(request)
+                        activityService.createActivity(request)
                 );
     }
 

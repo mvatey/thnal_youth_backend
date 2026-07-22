@@ -66,4 +66,35 @@ public interface MemberRepository
             ORDER BY m.createdAt DESC
             """)
     List<Member> findAllDetailed();
+
+    /*
+     * Count members whose member status code is INACTIVE.
+     */
+    @Query("""
+            SELECT COUNT(m)
+            FROM Member m
+            JOIN m.status status
+            WHERE UPPER(status.code) = 'INACTIVE'
+            """)
+    long countInactiveMembers();
+
+    /*
+     * A leader is a member linked to a User account whose role is
+     * BRANCH_LEADER.
+     *
+     * Relationship:
+     * users.member_id -> members.id
+     */
+    @Query(
+            value = """
+                    SELECT COUNT(DISTINCT u.member_id)
+                    FROM users u
+                    INNER JOIN members m
+                        ON m.id = u.member_id
+                    WHERE UPPER(u.role) = 'BRANCH_LEADER'
+                      AND u.member_id IS NOT NULL
+                    """,
+            nativeQuery = true
+    )
+    long countLeaderMembers();
 }

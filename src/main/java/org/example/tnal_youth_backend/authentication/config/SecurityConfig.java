@@ -46,12 +46,27 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/me").authenticated()
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
                         .requestMatchers("/api/branch/**")
                         .hasAnyRole("ADMIN", "BRANCH_LEADER")
+
                         .requestMatchers("/api/secretary/**")
                         .hasAnyRole("ADMIN", "SECRETARY")
+
+                        .requestMatchers("/api/members/**")
+                        .hasAnyRole(
+                                "ADMIN",
+                                "BRANCH_LEADER",
+                                "SECRETARY"
+                        )
+
                         .requestMatchers("/api/member/**")
-                        .hasAnyRole("ADMIN", "BRANCH_LEADER", "SECRETARY", "MEMBER")
+                        .hasAnyRole(
+                                "ADMIN",
+                                "BRANCH_LEADER",
+                                "SECRETARY",
+                                "MEMBER"
+                        )
 
                         .anyRequest().authenticated()
                 )

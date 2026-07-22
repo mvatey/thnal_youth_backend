@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequ
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
@@ -44,6 +45,26 @@ public class MemberServiceImpl implements MemberService {
                 .stream()
                 .map(memberMapper::toListResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberSummaryResponse getMemberSummary() {
+
+        long totalMembers =
+                memberRepository.count();
+
+        long inactiveMembers =
+                memberRepository.countInactiveMembers();
+
+        long leaders =
+                memberRepository.countLeaderMembers();
+
+        return new MemberSummaryResponse(
+                totalMembers,
+                inactiveMembers,
+                leaders
+        );
     }
 
     @Override

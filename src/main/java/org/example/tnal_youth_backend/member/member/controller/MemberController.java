@@ -6,9 +6,11 @@ import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequ
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +26,20 @@ public class MemberController {
     public ResponseEntity<List<MemberListResponse>> getAllMembers() {
         return ResponseEntity.ok(
                 memberService.getAllMembers()
+        );
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberSummaryResponse> getMemberSummary() {
+        return ResponseEntity.ok(
+                memberService.getMemberSummary()
         );
     }
 

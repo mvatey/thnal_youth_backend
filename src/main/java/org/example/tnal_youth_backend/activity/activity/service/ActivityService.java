@@ -9,7 +9,17 @@ public interface ActivityService {
 
     List<ActivityResponse> getAllActivities();
 
-    ActivityResponse getActivityById(Long id);
+    List<ActivityResponse> searchActivities(
+            String search
+    );
+
+    List<ActivityResponse> filterActivitiesByType(
+            Short typeId
+    );
+
+    ActivityResponse getActivityById(
+            Long id
+    );
 
     ActivityResponse createActivity(
             ActivityRequest request
@@ -20,5 +30,7 @@ public interface ActivityService {
             ActivityRequest request
     );
 
-    void deleteActivity(Long id);
+    void deleteActivity(
+            Long id
+    );
 }

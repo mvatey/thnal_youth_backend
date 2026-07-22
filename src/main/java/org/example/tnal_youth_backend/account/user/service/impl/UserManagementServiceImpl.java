@@ -8,27 +8,30 @@ import org.example.tnal_youth_backend.account.user.mapper.UserMapper;
 import org.example.tnal_youth_backend.account.user.service.UserManagementService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
-import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserManagementServiceImpl
         implements UserManagementService {
 
     private final UserRepository userRepository;
-    private final MemberRepository memberRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    /*
+     * ==========================================================
+     * GET ALL USERS
+     * ==========================================================
+     */
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
 
         return userRepository
@@ -38,74 +41,73 @@ public class UserManagementServiceImpl
                 .toList();
     }
 
+    /*
+     * ==========================================================
+     * GET USER BY ID
+     * ==========================================================
+     */
+
     @Override
-    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
 
-        User user = findUser(id);
+        User user = findUserById(id);
 
         return userMapper.toResponse(user);
     }
+
+    /*
+     * ==========================================================
+     * CREATE USER
+     * ==========================================================
+     */
 
     @Override
     @Transactional
     public UserResponse createUser(
             CreateUserRequest request
     ) {
-        String phone = normalizePhone(
-                request.phone()
-        );
+        String phone = normalize(request.phone());
+        String email = normalizeEmail(request.email());
 
-        String email = normalizeEmail(
-                request.email()
-        );
-
-        validateMemberExists(
-                request.memberId()
-        );
-
-        validateCreateDuplicates(
-                request.memberId(),
-                phone,
-                email
-        );
-
-        validateCreatedBy(
-                request.createdById()
-        );
+        validatePhoneOrEmail(phone, email);
+        validatePhoneForCreate(phone);
+        validateEmailForCreate(email);
 
         User user = User.builder()
-                .memberId(request.memberId())
                 .phone(phone)
                 .email(email)
-
-                /*
-                 * Temporary plain-text storage for development only.
-                 * Replace with BCrypt encoding when Authentication
-                 * is integrated.
-                 */
-                .passwordHash(request.password())
-
-                .roleId(request.roleId())
-                .accountStatusId(
-                        request.accountStatusId()
+                .passwordHash(
+                        passwordEncoder.encode(
+                                request.password()
+                        )
+                )
+                .role(request.role())
+                .status(request.status())
+                .fullNameKm(
+                        requireText(
+                                request.fullNameKm(),
+                                "Khmer full name is required"
+                        )
+                )
+                .fullNameEn(
+                        normalize(request.fullNameEn())
+                )
+                .profileImage(
+                        normalize(request.profileImage())
                 )
                 .failedLoginCount(0)
-                .createdById(
-                        request.createdById()
-                )
                 .build();
 
-        try {
-            User savedUser =
-                    userRepository.saveAndFlush(user);
+        User savedUser = userRepository.save(user);
 
-            return userMapper.toResponse(savedUser);
-
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException(exception);
-        }
+        return userMapper.toResponse(savedUser);
     }
+
+    /*
+     * ==========================================================
+     * UPDATE USER
+     * ==========================================================
+     */
 
     @Override
     @Transactional
@@ -113,251 +115,206 @@ public class UserManagementServiceImpl
             Long id,
             UpdateUserRequest request
     ) {
-        User user = findUser(id);
+        User user = findUserById(id);
 
-        String phone = normalizePhone(
-                request.phone()
-        );
+        String phone = normalize(request.phone());
+        String email = normalizeEmail(request.email());
 
-        String email = normalizeEmail(
-                request.email()
-        );
-
-        validateMemberExists(
-                request.memberId()
-        );
-
-        validateUpdateDuplicates(
-                id,
-                request.memberId(),
-                phone,
-                email
-        );
-
-        user.setMemberId(
-                request.memberId()
-        );
+        validatePhoneOrEmail(phone, email);
+        validatePhoneForUpdate(phone, id);
+        validateEmailForUpdate(email, id);
 
         user.setPhone(phone);
         user.setEmail(email);
+        user.setRole(request.role());
+        user.setStatus(request.status());
 
-        user.setRoleId(
-                request.roleId()
+        user.setFullNameKm(
+                requireText(
+                        request.fullNameKm(),
+                        "Khmer full name is required"
+                )
         );
 
-        user.setAccountStatusId(
-                request.accountStatusId()
+        user.setFullNameEn(
+                normalize(request.fullNameEn())
         );
 
-        if (request.password() != null
-                && !request.password().isBlank()) {
+        user.setProfileImage(
+                normalize(request.profileImage())
+        );
 
-            /*
-             * Temporary plain-text storage for development only.
-             */
-            user.setPasswordHash(
-                    request.password()
-            );
-        }
+        User savedUser = userRepository.save(user);
 
-        try {
-            User updatedUser =
-                    userRepository.saveAndFlush(user);
-
-            return userMapper.toResponse(updatedUser);
-
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException(exception);
-        }
+        return userMapper.toResponse(savedUser);
     }
+
+    /*
+     * ==========================================================
+     * DELETE USER
+     * ==========================================================
+     */
 
     @Override
     @Transactional
     public void deleteUser(Long id) {
 
-        User user = findUser(id);
+        User user = findUserById(id);
 
-        try {
-            userRepository.delete(user);
-            userRepository.flush();
-
-        } catch (DataIntegrityViolationException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    """
-                    Cannot delete this user because the user is \
-                    referenced by activities, participants, files, \
-                    audit records, tokens, or other data.
-                    """
-            );
-        }
+        userRepository.delete(user);
     }
 
-    private User findUser(Long id) {
+    /*
+     * ==========================================================
+     * FIND USER
+     * ==========================================================
+     */
+
+    private User findUserById(Long id) {
 
         if (id == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+            throw new IllegalArgumentException(
                     "User ID is required"
             );
         }
 
-        return userRepository.findById(id)
+        return userRepository
+                .findById(id)
                 .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "User not found with ID: " + id
+                        new IllegalArgumentException(
+                                "User not found with id: " + id
                         )
                 );
     }
 
-    private void validateMemberExists(
-            Long memberId
-    ) {
-        if (memberId == null) {
-            return;
-        }
+    /*
+     * ==========================================================
+     * VALIDATE PHONE OR EMAIL
+     * ==========================================================
+     */
 
-        if (!memberRepository.existsById(memberId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Member not found with ID: " + memberId
-            );
-        }
-    }
-
-    private void validateCreatedBy(
-            Long createdById
-    ) {
-        if (createdById == null) {
-            return;
-        }
-
-        if (!userRepository.existsById(createdById)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Creator user not found with ID: "
-                            + createdById
-            );
-        }
-    }
-
-    private void validateCreateDuplicates(
-            Long memberId,
+    private void validatePhoneOrEmail(
             String phone,
             String email
     ) {
+        if (phone == null && email == null) {
+            throw new IllegalArgumentException(
+                    "At least one phone number or email is required"
+            );
+        }
+    }
+
+    /*
+     * ==========================================================
+     * CREATE VALIDATION
+     * ==========================================================
+     */
+
+    private void validatePhoneForCreate(String phone) {
+
+        if (phone == null) {
+            return;
+        }
+
         if (userRepository.existsByPhone(phone)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Phone is already used"
-            );
-        }
-
-        if (email != null
-                && userRepository
-                .existsByEmailIgnoreCase(email)) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Email is already used"
-            );
-        }
-
-        if (memberId != null
-                && userRepository
-                .existsByMemberId(memberId)) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Member already has a user account"
+            throw new IllegalArgumentException(
+                    "Phone number is already being used"
             );
         }
     }
 
-    private void validateUpdateDuplicates(
-            Long userId,
-            Long memberId,
+    private void validateEmailForCreate(String email) {
+
+        if (email == null) {
+            return;
+        }
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new IllegalArgumentException(
+                    "Email is already being used"
+            );
+        }
+    }
+
+    /*
+     * ==========================================================
+     * UPDATE VALIDATION
+     * ==========================================================
+     */
+
+    private void validatePhoneForUpdate(
             String phone,
-            String email
+            Long userId
     ) {
+        if (phone == null) {
+            return;
+        }
+
         if (userRepository.existsByPhoneAndIdNot(
                 phone,
                 userId
         )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Phone is already used"
+            throw new IllegalArgumentException(
+                    "Phone number is already being used"
             );
         }
+    }
 
-        if (email != null
-                && userRepository
+    private void validateEmailForUpdate(
+            String email,
+            Long userId
+    ) {
+        if (email == null) {
+            return;
+        }
+
+        if (userRepository
                 .existsByEmailIgnoreCaseAndIdNot(
                         email,
                         userId
                 )) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Email is already used"
-            );
-        }
-
-        if (memberId != null
-                && userRepository
-                .existsByMemberIdAndIdNot(
-                        memberId,
-                        userId
-                )) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Member already has a user account"
+            throw new IllegalArgumentException(
+                    "Email is already being used"
             );
         }
     }
 
-    private String normalizePhone(String phone) {
+    /*
+     * ==========================================================
+     * NORMALIZATION
+     * ==========================================================
+     */
 
-        if (phone == null || phone.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Phone is required"
-            );
+    private String normalize(String value) {
+
+        if (value == null || value.isBlank()) {
+            return null;
         }
 
-        return phone.trim();
+        return value.trim();
     }
 
     private String normalizeEmail(String email) {
 
-        if (email == null || email.isBlank()) {
+        String normalizedEmail = normalize(email);
+
+        if (normalizedEmail == null) {
             return null;
         }
 
-        return email
-                .trim()
-                .toLowerCase(Locale.ROOT);
+        return normalizedEmail.toLowerCase(Locale.ROOT);
     }
 
-    private ResponseStatusException
-    databaseConstraintException(
-            DataIntegrityViolationException exception
+    private String requireText(
+            String value,
+            String errorMessage
     ) {
-        String databaseMessage =
-                exception.getMostSpecificCause()
-                        .getMessage();
+        String normalizedValue = normalize(value);
 
-        return new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                """
-                User could not be saved. Check that member_id, \
-                role_id, account_status_id, and created_by \
-                reference existing records.
+        if (normalizedValue == null) {
+            throw new IllegalArgumentException(errorMessage);
+        }
 
-                Database message: %s
-                """.formatted(databaseMessage)
-        );
+        return normalizedValue;
     }
 }

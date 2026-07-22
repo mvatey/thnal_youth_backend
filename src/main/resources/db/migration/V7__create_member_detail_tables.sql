@@ -1,22 +1,32 @@
 --35. member_family
 CREATE TABLE member_family (
                                id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
                                member_id BIGINT NOT NULL,
+
                                relationship VARCHAR(20) NOT NULL,
+
                                full_name_km VARCHAR(255) NOT NULL,
                                full_name_en VARCHAR(255),
+
                                date_of_birth DATE,
                                occupation VARCHAR(255),
+
                                life_status VARCHAR(20),
+
                                address VARCHAR(255),
+
                                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
                                CONSTRAINT fk_member_family_member
                                    FOREIGN KEY (member_id)
                                        REFERENCES members(id)
                                        ON DELETE CASCADE,
+
                                CONSTRAINT chk_member_family_name
                                    CHECK (BTRIM(full_name_km) <> ''),
+
                                CONSTRAINT chk_member_family_relationship
                                    CHECK (
                                        relationship IN (
@@ -25,6 +35,7 @@ CREATE TABLE member_family (
                                                         'SPOUSE'
                                            )
                                        ),
+
                                CONSTRAINT chk_member_family_life_status
                                    CHECK (
                                        life_status IS NULL

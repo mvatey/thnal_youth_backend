@@ -16,7 +16,25 @@ public record UpdateMyAccountRequest(
                 max = 255,
                 message = "Email must not exceed 255 characters"
         )
-        String email
+        String email,
+
+        @Size(
+                max = 255,
+                message = "Khmer full name must not exceed 255 characters"
+        )
+        String fullNameKm,
+
+        @Size(
+                max = 255,
+                message = "English full name must not exceed 255 characters"
+        )
+        String fullNameEn,
+
+        @Size(
+                max = 500,
+                message = "Profile image path must not exceed 500 characters"
+        )
+        String profileImage
 
 ) {
 }

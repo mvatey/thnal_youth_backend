@@ -1,18 +1,16 @@
 package org.example.tnal_youth_backend.account.user.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 
 public record UpdateUserRequest(
 
-        @JsonProperty("member_id")
-        @Positive(message = "Member ID must be positive")
-        Long memberId,
-
-        @NotBlank(message = "Phone is required")
-        @Pattern(
-                regexp = "^[0-9+() -]{6,30}$",
-                message = "Phone format is invalid"
+        @Size(
+                max = 30,
+                message = "Phone must not exceed 30 characters"
         )
         String phone,
 
@@ -23,21 +21,29 @@ public record UpdateUserRequest(
         )
         String email,
 
+        @NotNull(message = "Role is required")
+        UserRole role,
+
+        @NotNull(message = "Status is required")
+        UserStatus status,
+
         @Size(
-                min = 8,
-                max = 100,
-                message = "Password must contain between 8 and 100 characters"
+                max = 255,
+                message = "Khmer full name must not exceed 255 characters"
         )
-        String password,
+        String fullNameKm,
 
-        @JsonProperty("role_id")
-        @NotNull(message = "Role ID is required")
-        @Positive(message = "Role ID must be positive")
-        Short roleId,
+        @Size(
+                max = 255,
+                message = "English full name must not exceed 255 characters"
+        )
+        String fullNameEn,
 
-        @JsonProperty("account_status_id")
-        @NotNull(message = "Account status ID is required")
-        @Positive(message = "Account status ID must be positive")
-        Short accountStatusId
+        @Size(
+                max = 500,
+                message = "Profile image must not exceed 500 characters"
+        )
+        String profileImage
+
 ) {
 }
