@@ -38,3 +38,6 @@ build/
 *.xml
 *.jar
 *.jar.original
+
+notification_context/
+donation_context/
