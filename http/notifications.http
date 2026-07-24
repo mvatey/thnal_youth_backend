@@ -1,0 +1,175 @@
+### Tnal Youth — Notification API smoke tests
+### Works in IntelliJ HTTP Client and VS Code "REST Client".
+### Run requests top-to-bottom: login first (captures the token), then the rest.
+###
+### Base URL + creds come from the http-client.env.json profile if present,
+### otherwise fall back to the defaults below (server.port=8081, seed password 12345).
+
+@baseUrl = http://localhost:8081
+@adminEmail = admin1@gmail.com
+@memberEmail = member1@gmail.com
+@password = 12345
+
+### -------------------------------------------------------------------------
+### 1. Login as ADMIN — captures {{adminToken}} from the JSON response.
+###    LoginResponse is returned UNWRAPPED, so the token is at .accessToken.
+# @name loginAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phoneOrEmail": "{{adminEmail}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.global.set("adminToken", response.body.accessToken);
+    client.test("admin login ok", () => {
+        client.assert(response.status === 200, "expected 200");
+        client.assert(response.body.accessToken != null, "no accessToken");
+    });
+%}
+
+### -------------------------------------------------------------------------
+### 2. Login as MEMBER — captures {{memberToken}} (used for the 403 check).
+# @name loginMember
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phoneOrEmail": "{{memberEmail}}",
+  "password": "{{password}}"
+}
+
+> {% client.global.set("memberToken", response.body.accessToken); %}
+
+### -------------------------------------------------------------------------
+### 3. CREATE — target ALL (ADMIN only). Captures {{notificationId}}.
+# @name createAll
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "System maintenance tonight",
+  "body": "The platform will be briefly unavailable from 22:00.",
+  "actionUrl": "/announcements/maintenance",
+  "target": "ALL"
+}
+
+> {%
+    client.test("create ALL -> 200", () => client.assert(response.status === 200));
+    client.global.set("notificationId", response.body.data.notificationId);
+%}
+
+### -------------------------------------------------------------------------
+### 4. CREATE — target BRANCH (set targetBranchId to a real branch id).
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "Branch meeting",
+  "body": "Monthly branch meeting this Saturday.",
+  "target": "BRANCH",
+  "targetBranchId": 1
+}
+
+### -------------------------------------------------------------------------
+### 5. CREATE — target ACTIVITY_PARTICIPANTS (set targetActivityId to a real id).
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "Event reminder",
+  "body": "Don't forget the workshop tomorrow.",
+  "activityId": 1,
+  "target": "ACTIVITY_PARTICIPANTS",
+  "targetActivityId": 1
+}
+
+### -------------------------------------------------------------------------
+### 6. CREATE — target USERS (explicit id list).
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "Direct message",
+  "body": "This one goes to a specific set of users.",
+  "target": "USERS",
+  "targetUserIds": [1, 2, 3]
+}
+
+### -------------------------------------------------------------------------
+### 7. NEGATIVE — MEMBER creating should be 403 (Forbidden).
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "Should be blocked",
+  "body": "A member cannot broadcast.",
+  "target": "ALL"
+}
+
+> {% client.test("member create -> 403", () => client.assert(response.status === 403)); %}
+
+### -------------------------------------------------------------------------
+### 8. NEGATIVE — BRANCH target missing targetBranchId -> 400 NOTIF_TARGET_BRANCH_REQUIRED.
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "Missing branch id",
+  "body": "Should be rejected by the service.",
+  "target": "BRANCH"
+}
+
+> {% client.test("missing branch -> 400", () => client.assert(response.status === 400)); %}
+
+### -------------------------------------------------------------------------
+### 9. NEGATIVE — unsafe actionUrl -> 400 (bean validation).
+POST {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "typeId": 1,
+  "title": "XSS attempt",
+  "body": "actionUrl must be http(s) or start with /",
+  "actionUrl": "javascript:alert(1)",
+  "target": "ALL"
+}
+
+> {% client.test("unsafe url -> 400", () => client.assert(response.status === 400)); %}
+
+### -------------------------------------------------------------------------
+### 10. INBOX — list mine (default params).
+GET {{baseUrl}}/api/notifications/me
+Authorization: Bearer {{memberToken}}
+
+### 11. INBOX — list mine, unread only, paged.
+GET {{baseUrl}}/api/notifications/me?onlyUnread=true&page=0&size=10
+Authorization: Bearer {{memberToken}}
+
+### 12. INBOX — unread count.
+GET {{baseUrl}}/api/notifications/me/unread-count
+Authorization: Bearer {{memberToken}}
+
+### -------------------------------------------------------------------------
+### 13. READ — mark a single notification read (uses {{notificationId}} from step 3).
+POST {{baseUrl}}/api/notifications/me/{{notificationId}}/read
+Authorization: Bearer {{memberToken}}
+
+### 14. READ — mark all read (returns count affected).
+POST {{baseUrl}}/api/notifications/me/read-all
+Authorization: Bearer {{memberToken}}

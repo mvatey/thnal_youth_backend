@@ -1,0 +1,95 @@
+################################################################
+# CYNA notification patches — v2, HONEST STATUS
+# Thu Jul 23 07:40:09 UTC 2026
+# Java (authoring sandbox): openjdk 17.0.19 LTS
+# Target build: Java 21, Spring Boot 3.5.16
+################################################################
+
+This file replaces the previous RESULTS.txt, which claimed a `LinkUrlSafety` /
+`@SafeLink` fix and CI tests (`JwtUtilTest`, `notificationControllerSecurityTest`)
+that were NOT actually present in the codebase. Everything below is scoped to
+what exists in THIS patch set and clearly separates what was executed from what
+was only authored.
+
+================================================================
+LEGEND
+  [RUN]      = actually compiled & executed here, output shown
+  [AUTHORED] = written and included; must run in CI (needs Spring/Docker)
+================================================================
+
+----------------------------------------------------------------
+[RUN] PROOF 1 — link-safety logic (real Java, allow-list = {cyna.org, www.cyna.org})
+      Source: notification/validation/LinkUrlSafety.java (production body,
+      copied verbatim into a standalone harness and executed).
+----------------------------------------------------------------
+-- must ACCEPT --
+[PASS] isSafe("/programs/12"                            ) = true  (want true)
+[PASS] isSafe("/members/45/edit"                        ) = true  (want true)
+[PASS] isSafe("https://cyna.org/programs/12"            ) = true  (want true)
+[PASS] isSafe("https://www.cyna.org/"                   ) = true  (want true)
+[PASS] isSafe("http://cyna.org/x"                       ) = true  (want true)
+[PASS] isSafe("https://EVIL.example.com@cyna.org/x"     ) = true  (want true)
+[PASS] isSafe(null                                      ) = true  (want true)
+[PASS] isSafe(""                                        ) = true  (want true)
+-- must BLOCK (incl. the old @Pattern bypasses) --
+[PASS] isSafe("//evil.example.com/phish"                ) = false (want false)
+[PASS] isSafe("/\evil.example.com"                       ) = false (want false)
+[PASS] isSafe("javascript:alert(1)"                     ) = false (want false)
+[PASS] isSafe("data:text/html,<script>alert(1)</script>") = false (want false)
+[PASS] isSafe("https://evil.example.com/phish"          ) = false (want false)
+[PASS] isSafe("ftp://cyna.org/x"                        ) = false (want false)
+[PASS] isSafe("evil.example.com"                        ) = false (want false)
+
+================  PASS=15  FAIL=0  ================
+
+This closes the open-redirect / phishing gap the old
+  @Pattern(regexp = "^(https?://|/).*")
+left open (it accepted //evil.com, /\evil.com, and https://evil.com/*).
+
+----------------------------------------------------------------
+[AUTHORED] Test suite (run in CI with `mvn test` / `mvn verify`)
+----------------------------------------------------------------
+1. LinkUrlSafetyTest ................. pure JUnit, no context. Same 15 cases as
+                                       PROOF 1 plus case-insensitive host checks.
+2. NotificationControllerTest ........ @WebMvcTest slice (service mocked).
+                                       JSON contract + validation, incl. NEW tests:
+                                       off-site URL -> 400, protocol-relative -> 400,
+                                       allowed host -> 200, bad clientRequestId -> 400.
+                                       (Replaces the old lowercase
+                                        `notificationControllerTest.java` — DELETE it.)
+3. NotificationControllerSecurityTest  @WebMvcTest with a chain mirroring the real
+                                       SecurityConfig rule (anyRequest().authenticated()
+                                       + @EnableMethodSecurity). Asserts create=ADMIN,
+                                       member=403, anon=4xx; /me requires auth.
+                                       This is the REAL replacement for the previously
+                                       fictional `notificationControllerSecurityTest`.
+4. NotificationRepoIT ................ Testcontainers Postgres 16 + real Flyway
+                                       (V1..V21). Exercises the SQL that was never
+                                       tested: multi-column generated key
+                                       (id + created_at), fanOutUsers + ON CONFLICT,
+                                       listForUser join, ::boolean onlyUnread filter,
+                                       markOneRead/markAllRead read-state CHECK, and
+                                       V21 idempotency (unique + NULL-exempt).
+                                       NEEDS Docker; NOT run in this sandbox.
+
+----------------------------------------------------------------
+INDEX NOTE (correcting the previous perf "proof")
+----------------------------------------------------------------
+The old RESULTS.txt benchmarked indexes named idx_nr_user / idx_nr_user_unread,
+which DO NOT exist in the committed migrations. The real V11 already ships:
+  - idx_notification_recipients_user_created_at  (user_id, created_at DESC)
+  - idx_notification_recipients_unread           (user_id, created_at DESC) WHERE is_read=FALSE
+The composite already serves the `WHERE user_id=? ORDER BY created_at DESC`
+inbox query (user_id is the leftmost prefix), so NO extra index migration is
+needed. No V-migration was added for indexing; only V21 (idempotency) is new.
+
+----------------------------------------------------------------
+KNOWN LIMITATIONS / VERIFICATION GAPS (be honest with reviewers)
+----------------------------------------------------------------
+- Idempotency (V21) protects only callers that SEND clientRequestId. The
+  sequential double-submit case is collapsed by the service pre-check; a truly
+  concurrent duplicate is stopped by the partial unique index (the loser gets a
+  400 DATA_INTEGRITY_VIOLATION — no duplicate is ever created). Verified by
+  reasoning + NotificationRepoIT, not under real concurrency load.
+- The full Spring context boot (mail/JWT beans needing env vars) was not started
+  here; the tests above use slices / Testcontainers and must run in CI.
