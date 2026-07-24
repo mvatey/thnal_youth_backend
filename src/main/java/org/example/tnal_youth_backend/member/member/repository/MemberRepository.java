@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.member.repository;
 
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -58,6 +59,7 @@ public interface MemberRepository
     @EntityGraph(attributePaths = {
             "status",
             "level",
+            "religion",
             "profilePhoto"
     })
     @Query("""
@@ -68,7 +70,36 @@ public interface MemberRepository
     List<Member> findAllDetailed();
 
     /*
-     * Count members whose member status code is INACTIVE.
+     * ==========================================================
+     * MEMBER SUMMARY
+     * ==========================================================
+     */
+    
+    long countByGender(
+            Gender gender
+    );
+
+    /*
+     * Count members by the code stored in religions.code.
+     *
+     * Relationship:
+     *
+     * members.religion_id -> religions.id
+     */
+    @Query("""
+            SELECT COUNT(m)
+            FROM Member m
+            JOIN m.religion religion
+            WHERE UPPER(religion.code) =
+                  UPPER(:religionCode)
+            """)
+    long countByReligionCode(
+            @Param("religionCode")
+            String religionCode
+    );
+
+    /*
+     * Existing summary query retained for possible future use.
      */
     @Query("""
             SELECT COUNT(m)
@@ -83,6 +114,7 @@ public interface MemberRepository
      * BRANCH_LEADER.
      *
      * Relationship:
+     *
      * users.member_id -> members.id
      */
     @Query(

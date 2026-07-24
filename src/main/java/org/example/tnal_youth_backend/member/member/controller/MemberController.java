@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.member.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+//@Tag(name = "Member Page")
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
 public class MemberController {

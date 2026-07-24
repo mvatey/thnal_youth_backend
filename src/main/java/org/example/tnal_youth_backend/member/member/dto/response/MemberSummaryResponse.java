@@ -4,13 +4,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record MemberSummaryResponse(
 
-        @JsonProperty("total_members")
-        long totalMembers,
+        @JsonProperty("male_members")
+        long maleMembers,
 
-        @JsonProperty("inactive_members")
-        long inactiveMembers,
+        @JsonProperty("female_members")
+        long femaleMembers,
 
-        @JsonProperty("leaders")
-        long leaders
+        /*
+         * The frontend can display this card as "Monk".
+         */
+        @JsonProperty("monk_members")
+        long monkMembers,
+
+        @JsonProperty("buddhist_members")
+        long buddhistMembers,
+
+        @JsonProperty("islam_members")
+        long islamMembers
 ) {
 }

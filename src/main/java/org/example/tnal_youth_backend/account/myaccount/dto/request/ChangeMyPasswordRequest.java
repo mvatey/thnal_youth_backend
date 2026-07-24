@@ -12,7 +12,8 @@ public record ChangeMyPasswordRequest(
         @Size(
                 min = 8,
                 max = 100,
-                message = "New password must contain between 8 and 100 characters"
+                message =
+                        "New password must contain between 8 and 100 characters"
         )
         String newPassword,
 

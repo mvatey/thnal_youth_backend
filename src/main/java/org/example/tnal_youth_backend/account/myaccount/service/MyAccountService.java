@@ -15,6 +15,4 @@ public interface MyAccountService {
     void changeMyPassword(
             ChangeMyPasswordRequest request
     );
-
-    void deactivateMyAccount();
 }
