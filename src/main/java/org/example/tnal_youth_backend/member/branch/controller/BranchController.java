@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.branch.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
@@ -15,6 +16,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/branches")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Branch"
+)
 public class BranchController {
 
     private final BranchService branchService;

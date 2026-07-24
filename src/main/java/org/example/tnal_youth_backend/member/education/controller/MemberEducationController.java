@@ -18,6 +18,10 @@ import java.util.List;
         "/api/members/{memberId}/education"
 )
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Educate",
+        description = "Manage educate for a selected member"
+)
 public class MemberEducationController {
 
     private final MemberEducationService educationService;

@@ -14,7 +14,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/activities")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - activities",
+        name = "A. My Account - activities",
         description = " កម្មវិធី (my - account ) "
 )
 public class MyActivityController {

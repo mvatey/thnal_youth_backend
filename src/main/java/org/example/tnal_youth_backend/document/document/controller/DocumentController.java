@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.document.document.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
@@ -14,6 +15,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Documents"
+)
 public class DocumentController {
 
     private final DocumentService documentService;

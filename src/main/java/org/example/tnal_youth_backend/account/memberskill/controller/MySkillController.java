@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/skills")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Skills",
+        name = "A. My Account - Skills",
         description = "ជំនាញ ( My-Account )"
 )
 public class MySkillController {

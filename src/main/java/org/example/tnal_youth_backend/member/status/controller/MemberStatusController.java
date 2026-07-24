@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.status.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusRequest;
@@ -14,6 +15,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/member-statuses")
 @RequiredArgsConstructor
+@Tag(
+        name = "C. Member Page - Member-Status"
+)
 public class MemberStatusController {
 
     private final MemberStatusService memberStatusService;

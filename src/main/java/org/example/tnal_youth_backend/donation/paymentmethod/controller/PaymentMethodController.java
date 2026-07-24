@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.donation.paymentmethod.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.donation.paymentmethod.dto.PaymentMethodResponse;
 import org.example.tnal_youth_backend.donation.paymentmethod.service.PaymentMethodService;
@@ -11,6 +12,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/payment-methods")
 @RequiredArgsConstructor
+@Tag(
+        name = "C. Member Page - Payment-methods"
+)
 public class PaymentMethodController {
 
     private final PaymentMethodService paymentMethodService;

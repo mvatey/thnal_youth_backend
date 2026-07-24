@@ -16,6 +16,9 @@ import java.util.List;
 //@Tag(name = "Member Page")
 @RequestMapping("/api/members/{memberId}/skills")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - skills"
+)
 public class MemberSkillController {
 
     private final MemberSkillService skillService;

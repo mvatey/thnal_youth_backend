@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.activity.status.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.status.dto.response.ActivityStatusResponse;
 import org.example.tnal_youth_backend.activity.status.service.ActivityStatusService;
@@ -11,6 +12,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/activity-statuses")
 @RequiredArgsConstructor
+@Tag(
+        name = "C. Member Page - Activity-status-types"
+)
 public class ActivityStatusController {
 
     private final ActivityStatusService activityStatusService;

@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/education")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Education",
+        name = "A. My Account - Education",
         description = "ការអប់រំ ( My-Account )"
 )
 public class MyEducationController {

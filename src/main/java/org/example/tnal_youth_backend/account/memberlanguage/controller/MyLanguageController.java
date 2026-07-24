@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/languages")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Languages",
+        name = "A. My Account - Languages",
         description = "ភាសា ( My-Account )"
 )
 public class MyLanguageController {

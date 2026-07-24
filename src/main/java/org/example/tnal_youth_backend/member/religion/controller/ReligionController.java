@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.religion.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.religion.dto.ReligionRequest;
@@ -14,6 +15,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/religions")
 @RequiredArgsConstructor
+@Tag(
+        name = "C. Member Page - religions"
+)
 public class ReligionController {
 
     private final ReligionService religionService;

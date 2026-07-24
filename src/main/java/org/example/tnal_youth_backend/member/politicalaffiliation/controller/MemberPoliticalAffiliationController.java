@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.politicalaffiliation.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.politicalaffiliation.dto.request.MemberPoliticalAffiliationRequest;
@@ -16,6 +17,9 @@ import java.util.List;
         "/api/members/{memberId}/political-affiliations"
 )
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Political-affiliations"
+)
 public class MemberPoliticalAffiliationController {
 
     private final MemberPoliticalAffiliationService

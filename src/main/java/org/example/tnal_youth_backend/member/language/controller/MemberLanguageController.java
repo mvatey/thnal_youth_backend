@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.language.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.language.dto.request.MemberLanguageRequest;
@@ -14,6 +15,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/members/{memberId}/languages")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Languages",
+        description = "Manage languages for a selected member"
+)
 public class MemberLanguageController {
 
     private final MemberLanguageService languageService;

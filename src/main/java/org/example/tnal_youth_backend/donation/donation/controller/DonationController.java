@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.donation.donation.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.donation.donation.dto.request.DonationRequest;
@@ -14,6 +15,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/donations")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - donation"
+)
 public class DonationController {
 
     private final DonationService donationService;

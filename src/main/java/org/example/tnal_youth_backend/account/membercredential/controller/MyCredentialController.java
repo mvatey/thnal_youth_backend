@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/credentials")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Credentials",
+        name = "A. My Account - Credentials",
         description = "លិខិតបញ្ជាក់សមត្ថភាព (my - account )"
 )
 public class MyCredentialController {

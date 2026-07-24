@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/my-account")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - my-account",
+        name = "A. My Account - my-account",
         description = "My-Account ( My-Account )"
 )
 public class MyAccountController {

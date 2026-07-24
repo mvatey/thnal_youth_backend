@@ -18,7 +18,7 @@ import java.util.List;
 )
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Political Affiliations",
+        name = "A. My Account - Political Affiliations",
         description = "ក្នែកនយោបាយ ( My-Account )"
 )
 public class MyPoliticalAffiliationController {

@@ -17,9 +17,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-//@Tag(name = "Member Page")
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Member",
+        description = "Manage member information for a selected member"
+)
 public class MemberController {
 
     private final MemberService memberService;

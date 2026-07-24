@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.file.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.file.dto.request.CreateFileRequest;
@@ -19,6 +20,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Files"
+)
 public class FileController {
 
     private final FileService fileService;

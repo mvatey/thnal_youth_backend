@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.donation.type.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.donation.type.dto.DonationTypeResponse;
 import org.example.tnal_youth_backend.donation.type.service.DonationTypeService;
@@ -11,6 +12,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/donation-types")
 @RequiredArgsConstructor
+@Tag(
+        name = "C. Member Page - donation-types"
+)
 public class DonationTypeController {
 
     private final DonationTypeService donationTypeService;

@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/my-account/family")
 @RequiredArgsConstructor
 @Tag(
-        name = "My Account - Family",
+        name = "A. My Account - Family",
         description = "គ្រួសារ ( My-Account )"
 )
 public class MyFamilyController {

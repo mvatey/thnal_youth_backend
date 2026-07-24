@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.credential.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
@@ -14,6 +15,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/members/{memberId}/credentials")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Credentials ",
+        description = "Manage credential for a selected member"
+)
 public class MemberCredentialController {
 
     private final MemberCredentialService memberCredentialService;

@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.workhistory.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
@@ -16,6 +17,10 @@ import java.util.List;
         "/api/members/{memberId}/work-history"
 )
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - work history",
+        description = "Manage work history for a selected member"
+)
 public class MemberWorkHistoryController {
 
     private final MemberWorkHistoryService workHistoryService;

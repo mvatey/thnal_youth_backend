@@ -13,9 +13,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-//@Tag(name = "Family Member Page")
 @RequestMapping("/api/members/{memberId}/family")
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Family",
+        description = "Manage family information for a selected member"
+)
 public class MemberFamilyController {
 
     private final MemberFamilyService memberFamilyService;

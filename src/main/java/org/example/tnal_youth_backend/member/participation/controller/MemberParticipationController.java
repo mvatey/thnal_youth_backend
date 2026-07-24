@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.participation.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.participation.dto.request.MemberParticipationRequest;
@@ -16,6 +17,10 @@ import java.util.List;
         "/api/members/{memberId}/participations"
 )
 @RequiredArgsConstructor
+@Tag(
+        name = "B. Member Page - Participation",
+        description = "Manage participation for a selected member"
+)
 public class MemberParticipationController {
 
     private final MemberParticipationService

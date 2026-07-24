@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.password.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.password.dto.request.ChangeMemberPasswordRequest;
@@ -16,6 +17,10 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @PreAuthorize(
         "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+)
+@Tag(
+        name = "B. Member Page - Password",
+        description = "Manage Password of member"
 )
 public class MemberPasswordController {
 

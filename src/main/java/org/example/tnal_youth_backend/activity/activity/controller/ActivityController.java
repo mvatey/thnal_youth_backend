@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.activity.activity.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.activity.dto.request.ActivityRequest;
