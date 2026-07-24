@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.activity.service;
 
 import org.example.tnal_youth_backend.activity.model.request.CreateActivityRequest;
+import org.example.tnal_youth_backend.activity.model.request.UpdateActivityRequest;
 import org.example.tnal_youth_backend.activity.model.response.ActivityPageResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
 
@@ -24,5 +25,11 @@ public interface ActivityService {
             Short sectorId,
             Short typeId,
             LocalDate date
+    );
+
+    ActivityResponse updateActivity(
+            Long activityId,
+            UpdateActivityRequest request,
+            Long currentUserId
     );
 }
