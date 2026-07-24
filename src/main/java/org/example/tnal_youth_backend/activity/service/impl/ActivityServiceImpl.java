@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -70,31 +71,20 @@ public class ActivityServiceImpl implements ActivityService {
                         );
 
         ActivityStatus activityStatus =
-                activityStatusRepository.findById(request.getStatusId())
-                        .filter(status ->
-                                Boolean.TRUE.equals(status.getActive())
-                        )
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.BAD_REQUEST,
-                                        "Activity status is invalid or inactive"
-                                )
-                        );
+                resolveInitialStatus(request);
 
         /*
-         * Business rule:
+         * INTERNAL:
+         * - members of the activity branch see it automatically
+         * - only same-branch members can be invited individually
          *
-         * INTERNAL activity:
-         * - invite-only
-         * - not publicly visible
+         * EXTERNAL:
+         * - members of the activity branch see it automatically
+         * - another branch can be invited later
          *
-         * Any non-INTERNAL activity:
-         * - publicly visible
+         * Neither activity type is public to everyone automatically.
          */
-        boolean publicActivity =
-                !"INTERNAL".equalsIgnoreCase(
-                        activityType.getCode()
-                );
+        boolean publicActivity = false;
 
         Activity activity = activityMapper.toEntity(
                 request,
@@ -232,6 +222,85 @@ public class ActivityServiceImpl implements ActivityService {
                     "English activity title is too long"
             );
         }
+    }
+
+    private ActivityStatus resolveInitialStatus(
+            CreateActivityRequest request
+    ) {
+        ActivityStatus requestedStatus =
+                activityStatusRepository
+                        .findById(request.getStatusId())
+                        .filter(status ->
+                                Boolean.TRUE.equals(
+                                        status.getActive()
+                                )
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Activity status is invalid or inactive"
+                                )
+                        );
+
+        String statusCode =
+                requestedStatus.getCode();
+
+        OffsetDateTime now =
+                OffsetDateTime.now();
+
+        /*
+         * Draft activities remain draft regardless of dates.
+         */
+        if ("DRAFT".equalsIgnoreCase(statusCode)) {
+            return requestedStatus;
+        }
+
+        /*
+         * Do not allow creating an activity as completed.
+         * Completion must be confirmed manually later.
+         */
+        if ("COMPLETED".equalsIgnoreCase(statusCode)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity cannot be created as completed"
+            );
+        }
+
+        /*
+         * If UPCOMING is selected but the start time has already arrived,
+         * save it as ONGOING.
+         */
+        if ("UPCOMING".equalsIgnoreCase(statusCode)
+                && !request.getStartsAt().isAfter(now)) {
+
+            return activityStatusRepository
+                    .findByCodeIgnoreCase("ONGOING")
+                    .filter(status ->
+                            Boolean.TRUE.equals(
+                                    status.getActive()
+                            )
+                    )
+                    .orElseThrow(() ->
+                            new ResponseStatusException(
+                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                    "ONGOING activity status is not configured"
+                            )
+                    );
+        }
+
+        /*
+         * A future activity cannot start as ONGOING.
+         */
+        if ("ONGOING".equalsIgnoreCase(statusCode)
+                && request.getStartsAt().isAfter(now)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A future activity cannot be created as ongoing"
+            );
+        }
+
+        return requestedStatus;
     }
 
     private int currentStringLength(
