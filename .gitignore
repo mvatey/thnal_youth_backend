@@ -32,7 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
-.env
+*.env
 *.md
 !pom.xml
 *.xml
+*.jar
+*.jar.original
