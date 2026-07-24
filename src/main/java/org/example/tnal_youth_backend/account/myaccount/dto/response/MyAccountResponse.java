@@ -27,6 +27,7 @@ public record MyAccountResponse(
         OffsetDateTime lastLoginAt,
 
         /*
+
          * Member profile information from members
          */
         String memberNo,

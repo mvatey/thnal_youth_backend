@@ -28,7 +28,6 @@ public class UserManagementController {
                 userManagementService.getAllUsers()
         );
     }
-
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse>
     getUserById(

@@ -42,6 +42,7 @@ public class MyLanguageServiceImpl
      * Used only for reading one language record that belongs
      * to the logged-in member.
      */
+
     private final MemberLanguageRepository memberLanguageRepository;
     private final MemberLanguageMapper memberLanguageMapper;
 

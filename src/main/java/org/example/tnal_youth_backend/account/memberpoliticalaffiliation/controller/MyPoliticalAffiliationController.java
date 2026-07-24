@@ -37,6 +37,7 @@ public class MyPoliticalAffiliationController {
         );
     }
 
+
     @GetMapping("/{affiliationId}")
     public ResponseEntity<
             MemberPoliticalAffiliationResponse

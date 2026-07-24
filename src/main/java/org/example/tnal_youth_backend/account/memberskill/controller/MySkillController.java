@@ -35,6 +35,7 @@ public class MySkillController {
         );
     }
 
+
     /*
      * GET /api/my-account/skills/{skillId}
      */

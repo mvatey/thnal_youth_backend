@@ -198,12 +198,6 @@ public class MyActivityServiceImpl
         );
     }
 
-    /*
-     * ==========================================================
-     * GET ONE MY ACTIVITY
-     * ==========================================================
-     */
-
     @Override
     public MyActivityResponse getMyActivityById(
             Long activityId
@@ -664,3 +658,4 @@ public class MyActivityServiceImpl
         );
     }
 }
+

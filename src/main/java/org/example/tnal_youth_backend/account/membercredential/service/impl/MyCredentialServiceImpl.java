@@ -40,6 +40,7 @@ public class MyCredentialServiceImpl
         );
     }
 
+
     @Override
     public MemberCredentialResponse getMyCredentialById(
             Long credentialId

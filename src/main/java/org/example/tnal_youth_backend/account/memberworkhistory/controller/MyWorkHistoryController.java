@@ -27,6 +27,7 @@ public class MyWorkHistoryController {
      * GET /api/my-account/work-history
      */
 
+
     @GetMapping
     public ResponseEntity<List<MemberWorkHistoryResponse>>
     getMyWorkHistory() {

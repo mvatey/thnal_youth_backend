@@ -34,6 +34,7 @@ public class MyEducationController {
         );
     }
 
+
     //GET /api/my-account/education/{educationId}
 
     @GetMapping("/{educationId}")

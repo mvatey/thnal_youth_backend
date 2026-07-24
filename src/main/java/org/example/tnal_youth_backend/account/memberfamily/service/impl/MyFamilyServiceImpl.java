@@ -42,6 +42,7 @@ public class MyFamilyServiceImpl
                 .toList();
     }
 
+
     @Override
     public MyFamilyResponse getMyFamilyMember(
             Long familyId

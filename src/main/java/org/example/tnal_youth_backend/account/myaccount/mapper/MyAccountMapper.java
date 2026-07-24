@@ -25,6 +25,7 @@ public class MyAccountMapper {
         Religion religion = member.getReligion();
         FileEntity profilePhoto = member.getProfilePhoto();
 
+
         return new MyAccountResponse(
 
                 /*

@@ -31,6 +31,7 @@ public class MyAccountServiceImpl implements MyAccountService {
     private final PasswordEncoder passwordEncoder;
     private final MyAccountMapper myAccountMapper;
 
+
     /*
      * ==========================================================
      * GET MY ACCOUNT

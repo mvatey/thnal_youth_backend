@@ -29,4 +29,5 @@ public interface MyPoliticalAffiliationService {
     void deleteMyPoliticalAffiliation(
             Long affiliationId
     );
+
 }

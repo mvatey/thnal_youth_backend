@@ -42,6 +42,7 @@ public class MyEducationServiceImpl
 
         Long memberId = getCurrentMemberId();
 
+
         /*
          * Delegate to the existing Member Education service.
          */

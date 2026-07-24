@@ -42,6 +42,7 @@ public class MySkillServiceImpl
      * Used only to retrieve one skill that belongs
      * to the currently logged-in member.
      */
+
     private final MemberSkillRepository memberSkillRepository;
     private final MemberSkillMapper memberSkillMapper;
 

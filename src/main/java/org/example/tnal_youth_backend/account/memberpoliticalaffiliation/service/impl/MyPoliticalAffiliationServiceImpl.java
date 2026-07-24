@@ -37,6 +37,7 @@ public class MyPoliticalAffiliationServiceImpl
         );
     }
 
+
     @Override
     public MemberPoliticalAffiliationResponse
     getMyPoliticalAffiliationById(

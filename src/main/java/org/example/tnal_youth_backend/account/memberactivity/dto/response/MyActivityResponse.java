@@ -74,4 +74,5 @@ public record MyActivityResponse(
 
         String coverImageOriginalName
 ) {
+
 }

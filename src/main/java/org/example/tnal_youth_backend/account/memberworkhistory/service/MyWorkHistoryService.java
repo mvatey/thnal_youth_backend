@@ -21,6 +21,7 @@ public interface MyWorkHistoryService {
             Long workId
     );
 
+
     /*
      * Create a work-history record for
      * the currently logged-in member.
