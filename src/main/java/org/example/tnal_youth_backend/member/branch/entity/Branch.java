@@ -23,6 +23,14 @@ public class Branch {
     private Long id;
 
     @Column(
+            name = "branch_code",
+            nullable = false,
+            unique = true,
+            length = 30
+    )
+    private String branchCode;
+
+    @Column(
             name = "name_km",
             nullable = false,
             length = 255

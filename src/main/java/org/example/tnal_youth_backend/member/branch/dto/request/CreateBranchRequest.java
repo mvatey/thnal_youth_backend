@@ -8,6 +8,14 @@ import jakarta.validation.constraints.Size;
 
 public record CreateBranchRequest(
 
+        @JsonProperty("branch_code")
+        @NotBlank(message = "Branch code is required")
+        @Size(
+                max = 30,
+                message = "Branch code must not exceed 30 characters"
+        )
+        String branchCode,
+
         @JsonProperty("name_km")
         @NotBlank(message = "Khmer branch name is required")
         @Size(

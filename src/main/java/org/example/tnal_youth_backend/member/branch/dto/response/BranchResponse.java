@@ -8,6 +8,9 @@ public record BranchResponse(
 
         Long id,
 
+        @JsonProperty("branch_code")
+        String branchCode,
+
         @JsonProperty("name_km")
         String nameKm,
 
