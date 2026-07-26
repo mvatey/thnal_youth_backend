@@ -12,14 +12,6 @@ import java.time.LocalDate;
 
 public record CreateMemberRequest(
 
-        @JsonProperty("member_no")
-        @NotBlank(message = "Member number is required")
-        @Size(
-                max = 50,
-                message = "Member number must not exceed 50 characters"
-        )
-        String memberNo,
-
         @JsonProperty("full_name_km")
         @NotBlank(message = "Khmer full name is required")
         @Size(
@@ -86,10 +78,6 @@ public record CreateMemberRequest(
         @JsonProperty("joined_on")
         LocalDate joinedOn,
 
-        @JsonProperty("bio")
-        String bio,
-
-        @JsonProperty("created_by")
-        Long createdById
+        String bio
 ) {
 }

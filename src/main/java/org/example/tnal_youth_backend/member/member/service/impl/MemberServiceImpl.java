@@ -1,7 +1,9 @@
 package org.example.tnal_youth_backend.member.member.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
@@ -66,7 +68,89 @@ public class MemberServiceImpl
     public List<MemberListResponse> getAllMembers() {
 
         return memberRepository
-                .findAllDetailed()
+                .findAllListRows()
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> searchMembersByName(
+            String name
+    ) {
+        String normalizedName =
+                trimToNull(name);
+
+        if (normalizedName == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member name is required"
+            );
+        }
+
+        return memberRepository
+                .searchListRowsByName(
+                        normalizedName
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByBranch(
+            Long branchId
+    ) {
+        if (branchId == null || branchId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID must be greater than zero"
+            );
+        }
+
+        return memberRepository
+                .findListRowsByBranchId(
+                        branchId
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByStatus(
+            Short statusId
+    ) {
+        findStatus(statusId);
+
+        return memberRepository
+                .findListRowsByStatusId(
+                        statusId
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByGender(
+            Gender gender
+    ) {
+        if (gender == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Gender is required"
+            );
+        }
+
+        return memberRepository
+                .findListRowsByGender(
+                        gender.name()
+                )
                 .stream()
                 .map(memberMapper::toListResponse)
                 .toList();
@@ -91,22 +175,10 @@ public class MemberServiceImpl
                 memberRepository.countByGender(
                         Gender.FEMALE
                 );
-
-        /*
-         * Your current Gender enum does not contain MONK.
-         *
-         * It contains:
-         *
-         * MALE
-         * FEMALE
-         * OTHER
-         *
-         * Therefore, the Monk card currently counts
-         * members stored with Gender.OTHER.
-         */
+        
         long monkMembers =
                 memberRepository.countByGender(
-                        Gender.OTHER
+                        Gender.MONK
                 );
 
         long buddhistMembers =
@@ -159,10 +231,7 @@ public class MemberServiceImpl
             CreateMemberRequest request
     ) {
         String memberNo =
-                normalizeRequired(
-                        request.memberNo(),
-                        "Member number"
-                );
+                generateMemberNo();
 
         String phone =
                 trimToNull(request.phone());
@@ -270,7 +339,7 @@ public class MemberServiceImpl
                         )
 
                         .createdById(
-                                request.createdById()
+                                getCurrentUserId()
                         )
 
                         .build();
@@ -316,10 +385,7 @@ public class MemberServiceImpl
                 findDetailedMember(id);
 
         String memberNo =
-                normalizeRequired(
-                        request.memberNo(),
-                        "Member number"
-                );
+                member.getMemberNo();
 
         String phone =
                 trimToNull(request.phone());
@@ -332,10 +398,6 @@ public class MemberServiceImpl
                 phone,
                 email,
                 id
-        );
-
-        member.setMemberNo(
-                memberNo
         );
 
         member.setFullNameKm(
@@ -619,6 +681,83 @@ public class MemberServiceImpl
                                 fieldName
                                         + " not found with ID: "
                                         + id
+                        )
+                );
+    }
+
+    /*
+     * ==========================================================
+     * SERVER-CONTROLLED MEMBER FIELDS
+     * ==========================================================
+     */
+
+    private String generateMemberNo() {
+
+        String latestMemberNo =
+                memberRepository
+                        .findLatestGeneratedMemberNo()
+                        .orElse(null);
+
+        int nextSequence = 1;
+
+        if (latestMemberNo != null) {
+            int separatorIndex =
+                    latestMemberNo.lastIndexOf('-');
+
+            if (separatorIndex >= 0
+                    && separatorIndex
+                    < latestMemberNo.length() - 1) {
+
+                String sequenceText =
+                        latestMemberNo.substring(
+                                separatorIndex + 1
+                        );
+
+                try {
+                    nextSequence =
+                            Integer.parseInt(
+                                    sequenceText
+                            ) + 1;
+
+                } catch (
+                        NumberFormatException ignored
+                ) {
+                    nextSequence = 1;
+                }
+            }
+        }
+
+        return "TNAL-M-"
+                + String.format(
+                Locale.ROOT,
+                "%04d",
+                nextSequence
+        );
+    }
+
+    private Long getCurrentUserId() {
+
+        User authenticatedUser =
+                SecurityUtil.getCurrentUser();
+
+        if (authenticatedUser == null
+                || authenticatedUser.getId() == null) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return userRepository
+                .findById(
+                        authenticatedUser.getId()
+                )
+                .map(User::getId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Authenticated user was not found"
                         )
                 );
     }

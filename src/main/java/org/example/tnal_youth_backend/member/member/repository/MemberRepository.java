@@ -48,48 +48,294 @@ public interface MemberRepository
             "cvFile"
     })
     @Query("""
-            SELECT m
-            FROM Member m
-            WHERE m.id = :id
+            SELECT member
+            FROM Member member
+            WHERE member.id = :id
             """)
     Optional<Member> findDetailedById(
-            @Param("id") Long id
+            @Param("id")
+            Long id
     );
 
-    @EntityGraph(attributePaths = {
-            "status",
-            "level",
-            "religion",
-            "profilePhoto"
-    })
-    @Query("""
-            SELECT m
-            FROM Member m
-            ORDER BY m.createdAt DESC
-            """)
-    List<Member> findAllDetailed();
+    /*
+     * ==========================================================
+     * MEMBER LIST
+     * ==========================================================
+     *
+     * The entity keeps branchId as a Long.
+     * These native queries join branches only for the list response.
+     *
+     * Column order must match MemberMapper.toListResponse(Object[]).
+     */
+
+    @Query(
+            value = """
+                    SELECT
+                        m.id,
+                        m.full_name_km,
+                        m.full_name_en,
+                        m.gender,
+                        CASE m.gender
+                            WHEN 'MALE' THEN 'ប្រុស'
+                            WHEN 'FEMALE' THEN 'ស្រី'
+                            WHEN 'OTHER' THEN 'ព្រះសង្ឃ'
+                            ELSE m.gender
+                        END AS gender_label_km,
+                        b.id AS branch_id,
+                        b.name_km AS branch_name_km,
+                        ms.id AS status_id,
+                        ms.code AS status_code,
+                        ms.label_km AS status_label_km,
+                        ms.label_en AS status_label_en,
+                        ml.id AS level_id,
+                        ml.code AS level_code,
+                        ml.label_km AS level_label_km,
+                        ml.label_en AS level_label_en,
+                        f.id AS profile_photo_id,
+                        f.file_path AS profile_photo_url,
+                        m.joined_on
+                    FROM members m
+                    INNER JOIN branches b
+                            ON b.id = m.branch_id
+                    INNER JOIN member_statuses ms
+                            ON ms.id = m.status_id
+                    LEFT JOIN member_levels ml
+                           ON ml.id = m.level_id
+                    LEFT JOIN files f
+                           ON f.id = m.profile_photo_id
+                    ORDER BY
+                        m.created_at DESC,
+                        m.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> findAllListRows();
+
+    @Query(
+            value = """
+                    SELECT
+                        m.id,
+                        m.full_name_km,
+                        m.full_name_en,
+                        m.gender,
+                        CASE m.gender
+                            WHEN 'MALE' THEN 'ប្រុស'
+                            WHEN 'FEMALE' THEN 'ស្រី'
+                            WHEN 'OTHER' THEN 'ព្រះសង្ឃ'
+                            ELSE m.gender
+                        END AS gender_label_km,
+                        b.id AS branch_id,
+                        b.name_km AS branch_name_km,
+                        ms.id AS status_id,
+                        ms.code AS status_code,
+                        ms.label_km AS status_label_km,
+                        ms.label_en AS status_label_en,
+                        ml.id AS level_id,
+                        ml.code AS level_code,
+                        ml.label_km AS level_label_km,
+                        ml.label_en AS level_label_en,
+                        f.id AS profile_photo_id,
+                        f.file_path AS profile_photo_url,
+                        m.joined_on
+                    FROM members m
+                    INNER JOIN branches b
+                            ON b.id = m.branch_id
+                    INNER JOIN member_statuses ms
+                            ON ms.id = m.status_id
+                    LEFT JOIN member_levels ml
+                           ON ml.id = m.level_id
+                    LEFT JOIN files f
+                           ON f.id = m.profile_photo_id
+                    WHERE
+                        LOWER(m.full_name_km)
+                            LIKE LOWER(CONCAT('%', :name, '%'))
+                        OR LOWER(COALESCE(m.full_name_en, ''))
+                            LIKE LOWER(CONCAT('%', :name, '%'))
+                    ORDER BY
+                        m.created_at DESC,
+                        m.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> searchListRowsByName(
+            @Param("name")
+            String name
+    );
+
+    @Query(
+            value = """
+                    SELECT
+                        m.id,
+                        m.full_name_km,
+                        m.full_name_en,
+                        m.gender,
+                        CASE m.gender
+                            WHEN 'MALE' THEN 'ប្រុស'
+                            WHEN 'FEMALE' THEN 'ស្រី'
+                            WHEN 'OTHER' THEN 'ព្រះសង្ឃ'
+                            ELSE m.gender
+                        END AS gender_label_km,
+                        b.id AS branch_id,
+                        b.name_km AS branch_name_km,
+                        ms.id AS status_id,
+                        ms.code AS status_code,
+                        ms.label_km AS status_label_km,
+                        ms.label_en AS status_label_en,
+                        ml.id AS level_id,
+                        ml.code AS level_code,
+                        ml.label_km AS level_label_km,
+                        ml.label_en AS level_label_en,
+                        f.id AS profile_photo_id,
+                        f.file_path AS profile_photo_url,
+                        m.joined_on
+                    FROM members m
+                    INNER JOIN branches b
+                            ON b.id = m.branch_id
+                    INNER JOIN member_statuses ms
+                            ON ms.id = m.status_id
+                    LEFT JOIN member_levels ml
+                           ON ml.id = m.level_id
+                    LEFT JOIN files f
+                           ON f.id = m.profile_photo_id
+                    WHERE m.branch_id = :branchId
+                    ORDER BY
+                        m.created_at DESC,
+                        m.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> findListRowsByBranchId(
+            @Param("branchId")
+            Long branchId
+    );
+
+    @Query(
+            value = """
+                    SELECT
+                        m.id,
+                        m.full_name_km,
+                        m.full_name_en,
+                        m.gender,
+                        CASE m.gender
+                            WHEN 'MALE' THEN 'ប្រុស'
+                            WHEN 'FEMALE' THEN 'ស្រី'
+                            WHEN 'OTHER' THEN 'ព្រះសង្ឃ'
+                            ELSE m.gender
+                        END AS gender_label_km,
+                        b.id AS branch_id,
+                        b.name_km AS branch_name_km,
+                        ms.id AS status_id,
+                        ms.code AS status_code,
+                        ms.label_km AS status_label_km,
+                        ms.label_en AS status_label_en,
+                        ml.id AS level_id,
+                        ml.code AS level_code,
+                        ml.label_km AS level_label_km,
+                        ml.label_en AS level_label_en,
+                        f.id AS profile_photo_id,
+                        f.file_path AS profile_photo_url,
+                        m.joined_on
+                    FROM members m
+                    INNER JOIN branches b
+                            ON b.id = m.branch_id
+                    INNER JOIN member_statuses ms
+                            ON ms.id = m.status_id
+                    LEFT JOIN member_levels ml
+                           ON ml.id = m.level_id
+                    LEFT JOIN files f
+                           ON f.id = m.profile_photo_id
+                    WHERE m.status_id = :statusId
+                    ORDER BY
+                        m.created_at DESC,
+                        m.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> findListRowsByStatusId(
+            @Param("statusId")
+            Short statusId
+    );
+
+    @Query(
+            value = """
+                    SELECT
+                        m.id,
+                        m.full_name_km,
+                        m.full_name_en,
+                        m.gender,
+                        CASE m.gender
+                            WHEN 'MALE' THEN 'ប្រុស'
+                            WHEN 'FEMALE' THEN 'ស្រី'
+                            WHEN 'OTHER' THEN 'ព្រះសង្ឃ'
+                            ELSE m.gender
+                        END AS gender_label_km,
+                        b.id AS branch_id,
+                        b.name_km AS branch_name_km,
+                        ms.id AS status_id,
+                        ms.code AS status_code,
+                        ms.label_km AS status_label_km,
+                        ms.label_en AS status_label_en,
+                        ml.id AS level_id,
+                        ml.code AS level_code,
+                        ml.label_km AS level_label_km,
+                        ml.label_en AS level_label_en,
+                        f.id AS profile_photo_id,
+                        f.file_path AS profile_photo_url,
+                        m.joined_on
+                    FROM members m
+                    INNER JOIN branches b
+                            ON b.id = m.branch_id
+                    INNER JOIN member_statuses ms
+                            ON ms.id = m.status_id
+                    LEFT JOIN member_levels ml
+                           ON ml.id = m.level_id
+                    LEFT JOIN files f
+                           ON f.id = m.profile_photo_id
+                    WHERE m.gender = :gender
+                    ORDER BY
+                        m.created_at DESC,
+                        m.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> findListRowsByGender(
+            @Param("gender")
+            String gender
+    );
+
+    /*
+     * Finds the latest generated number matching TNAL-M-####.
+     */
+    @Query(
+            value = """
+                    SELECT member_no
+                    FROM members
+                    WHERE member_no ~ '^TNAL-M-[0-9]+$'
+                    ORDER BY
+                        CAST(
+                            SUBSTRING(member_no FROM 8)
+                            AS INTEGER
+                        ) DESC
+                    LIMIT 1
+                    """,
+            nativeQuery = true
+    )
+    Optional<String> findLatestGeneratedMemberNo();
 
     /*
      * ==========================================================
      * MEMBER SUMMARY
      * ==========================================================
      */
-    
+
     long countByGender(
             Gender gender
     );
 
-    /*
-     * Count members by the code stored in religions.code.
-     *
-     * Relationship:
-     *
-     * members.religion_id -> religions.id
-     */
     @Query("""
-            SELECT COUNT(m)
-            FROM Member m
-            JOIN m.religion religion
+            SELECT COUNT(member)
+            FROM Member member
+            JOIN member.religion religion
             WHERE UPPER(religion.code) =
                   UPPER(:religionCode)
             """)
@@ -98,31 +344,20 @@ public interface MemberRepository
             String religionCode
     );
 
-    /*
-     * Existing summary query retained for possible future use.
-     */
     @Query("""
-            SELECT COUNT(m)
-            FROM Member m
-            JOIN m.status status
+            SELECT COUNT(member)
+            FROM Member member
+            JOIN member.status status
             WHERE UPPER(status.code) = 'INACTIVE'
             """)
     long countInactiveMembers();
 
-    /*
-     * A leader is a member linked to a User account whose role is
-     * BRANCH_LEADER.
-     *
-     * Relationship:
-     *
-     * users.member_id -> members.id
-     */
     @Query(
             value = """
                     SELECT COUNT(DISTINCT u.member_id)
                     FROM users u
                     INNER JOIN members m
-                        ON m.id = u.member_id
+                            ON m.id = u.member_id
                     WHERE UPPER(u.role) = 'BRANCH_LEADER'
                       AND u.member_id IS NOT NULL
                     """,

@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.member.member.dto.request;
 
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -13,14 +12,6 @@ import java.time.LocalDate;
 
 public record UpdateMemberRequest(
 
-        @JsonProperty("member_no")
-        @NotBlank(message = "Member number is required")
-        @Size(
-                max = 50,
-                message = "Member number must not exceed 50 characters"
-        )
-        String memberNo,
-
         @JsonProperty("full_name_km")
         @NotBlank(message = "Khmer full name is required")
         @Size(
@@ -30,7 +21,10 @@ public record UpdateMemberRequest(
         String fullNameKm,
 
         @JsonProperty("full_name_en")
-        @Size(max = 255)
+        @Size(
+                max = 255,
+                message = "English full name must not exceed 255 characters"
+        )
         String fullNameEn,
 
         @JsonProperty("branch_id")
@@ -59,7 +53,10 @@ public record UpdateMemberRequest(
         String placeOfBirth,
 
         @JsonProperty("phone")
-        @Size(max = 30)
+        @Size(
+                max = 30,
+                message = "Phone must not exceed 30 characters"
+        )
         String phone,
 
         @JsonProperty("email")
@@ -81,7 +78,6 @@ public record UpdateMemberRequest(
         @JsonProperty("joined_on")
         LocalDate joinedOn,
 
-        @JsonProperty("bio")
         String bio
 ) {
 }
