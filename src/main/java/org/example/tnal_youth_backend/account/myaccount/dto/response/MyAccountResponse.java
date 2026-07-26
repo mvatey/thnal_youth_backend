@@ -1,108 +1,79 @@
 package org.example.tnal_youth_backend.account.myaccount.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
-import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
-import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record MyAccountResponse(
 
-        /*
-         * Account information from users
-         */
         Long userId,
 
         Long memberId,
 
-        UserRole role,
-
-        UserStatus accountStatus,
-
-        String phone,
-
-        String email,
-
-        OffsetDateTime lastLoginAt,
-
-        /*
-
-         * Member profile information from members
-         */
         String memberNo,
+
+        UserRole role,
 
         String fullNameKm,
 
         String fullNameEn,
 
-        Gender gender,
+        GenderResponse gender,
+
+        BranchResponse branch,
+
+        LookupResponse level,
+
+        LookupResponse status,
+
+        String phone,
+
+        String email,
 
         LocalDate dateOfBirth,
 
-        String placeOfBirth,
-
-        String currentAddress,
-
-        String permanentAddress,
-
         LocalDate joinedOn,
 
-        String bio,
+        ProfilePhotoResponse profilePhoto,
 
-        /*
-         * Branch
-         */
-        Long branchId,
-
-        /*
-         * Member status
-         */
-        Short memberStatusId,
-
-        String memberStatusCode,
-
-        String memberStatusLabelKm,
-
-        String memberStatusLabelEn,
-
-        /*
-         * Member level
-         */
-        Short memberLevelId,
-
-        String memberLevelCode,
-
-        String memberLevelLabelKm,
-
-        String memberLevelLabelEn,
-
-        /*
-         * Religion
-         */
-        Short religionId,
-
-        String religionCode,
-
-        String religionLabelKm,
-
-        String religionLabelEn,
-
-        /*
-         * Profile photo
-         */
-        Long profilePhotoId,
-
-        String profilePhotoPath,
-
-        String profilePhotoOriginalName,
-
-        /*
-         * Metadata
-         */
-        OffsetDateTime createdAt,
-
-        OffsetDateTime updatedAt
-
+        CvFileResponse cvFile
 ) {
+
+    public record GenderResponse(
+            String code,
+            String labelKm,
+            String labelEn
+    ) {
+    }
+
+    public record BranchResponse(
+            Long id,
+            String nameKm
+    ) {
+    }
+
+    public record LookupResponse(
+            Short id,
+            String code,
+            String labelKm,
+            String labelEn
+    ) {
+    }
+
+    public record ProfilePhotoResponse(
+            Long id,
+            String url
+    ) {
+    }
+
+    public record CvFileResponse(
+            Long id,
+            String url,
+            String originalName,
+            String mimeType,
+            Long sizeBytes
+    ) {
+    }
 }

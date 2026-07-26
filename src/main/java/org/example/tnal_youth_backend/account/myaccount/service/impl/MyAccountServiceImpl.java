@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.account.myaccount.dto.request.UpdateMyAccountRequest;
 import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountResponse;
+import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountSummaryResponse;
 import org.example.tnal_youth_backend.account.myaccount.mapper.MyAccountMapper;
 import org.example.tnal_youth_backend.account.myaccount.service.MyAccountService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
@@ -13,20 +14,37 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
+import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
+import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
+import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MyAccountServiceImpl implements MyAccountService {
 
+    private static final Set<String> ALLOWED_CV_MIME_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final FileRepository fileRepository;
+    private final MemberStatusRepository memberStatusRepository;
+    private final MemberLevelRepository memberLevelRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     private final PasswordEncoder passwordEncoder;
     private final MyAccountMapper myAccountMapper;
@@ -48,6 +66,93 @@ public class MyAccountServiceImpl implements MyAccountService {
                 user,
                 member
         );
+    }
+
+    /*
+     * ==========================================================
+     * GET MY ACCOUNT SUMMARY
+     * ==========================================================
+     */
+
+    @Override
+    public MyAccountSummaryResponse getMyAccountSummary() {
+
+        User user =
+                getCurrentUserFromDatabase();
+
+        Member member =
+                getLinkedMember(user);
+
+        Long memberId =
+                member.getId();
+
+        String activitySql = """
+            SELECT
+                COUNT(*) FILTER (
+                    WHERE UPPER(ats.code) = 'PRESENT'
+                ) AS attended_activities,
+
+                COUNT(*) FILTER (
+                    WHERE UPPER(ats.code) = 'ABSENT'
+                ) AS absent_activities
+
+            FROM activity_participants ap
+
+            LEFT JOIN attendance_statuses ats
+                   ON ats.id = ap.attendance_status_id
+
+            WHERE ap.member_id = ?
+            """;
+
+        ActivitySummary activitySummary =
+                jdbcTemplate.queryForObject(
+                        activitySql,
+                        (
+                                resultSet,
+                                rowNumber
+                        ) -> new ActivitySummary(
+                                resultSet.getLong(
+                                        "attended_activities"
+                                ),
+                                resultSet.getLong(
+                                        "absent_activities"
+                                )
+                        ),
+                        memberId
+                );
+
+        Long totalDonations =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM donations
+                        WHERE member_id = ?
+                        """,
+                        Long.class,
+                        memberId
+                );
+
+        return new MyAccountSummaryResponse(
+                activitySummary != null
+                        ? activitySummary.attendedActivities()
+                        : 0L,
+
+                activitySummary != null
+                        ? activitySummary.absentActivities()
+                        : 0L,
+
+                totalDonations != null
+                        ? totalDonations
+                        : 0L
+        );
+    }
+
+    private record ActivitySummary(
+
+            long attendedActivities,
+
+            long absentActivities
+    ) {
     }
 
     /*
@@ -109,9 +214,27 @@ public class MyAccountServiceImpl implements MyAccountService {
                 normalize(request.bio())
         );
 
+        validateBranch(request.branchId());
+
+        MemberStatus memberStatus =
+                findMemberStatus(request.memberStatusId());
+
+        MemberLevel memberLevel =
+                findMemberLevel(request.memberLevelId());
+
+        member.setBranchId(request.branchId());
+        member.setStatus(memberStatus);
+        member.setLevel(memberLevel);
+        member.setJoinedOn(request.joinedOn());
+
         updateProfilePhoto(
                 member,
                 request.profilePhotoId()
+        );
+
+        updateCvFile(
+                member,
+                request.cvFileId()
         );
 
         /*
@@ -234,6 +357,112 @@ public class MyAccountServiceImpl implements MyAccountService {
 
     /*
      * ==========================================================
+     * SUMMARY COUNT
+     * ==========================================================
+     */
+
+    private long countRecordsByMemberId(
+            String tableName,
+            Long memberId
+    ) {
+        /*
+         * tableName is not supplied by the client.
+         * Only internal constant table names call this method.
+         */
+        String sql =
+                """
+                SELECT COUNT(*)
+                FROM %s
+                WHERE member_id = ?
+                """.formatted(tableName);
+
+        Long count =
+                jdbcTemplate.queryForObject(
+                        sql,
+                        Long.class,
+                        memberId
+                );
+
+        return count == null
+                ? 0L
+                : count;
+    }
+
+    /*
+     * ==========================================================
+     * MEMBER LOOKUPS
+     * ==========================================================
+     */
+
+    private void validateBranch(
+            Long branchId
+    ) {
+        if (branchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID is required"
+            );
+        }
+
+        Long count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM branches
+                WHERE id = ?
+                """,
+                Long.class,
+                branchId
+        );
+
+        if (count == null || count == 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Branch not found with ID: " + branchId
+            );
+        }
+    }
+
+    private MemberStatus findMemberStatus(
+            Short statusId
+    ) {
+        if (statusId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member status ID is required"
+            );
+        }
+
+        return memberStatusRepository
+                .findById(statusId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Member status not found with ID: "
+                                        + statusId
+                        )
+                );
+    }
+
+    private MemberLevel findMemberLevel(
+            Short levelId
+    ) {
+        if (levelId == null) {
+            return null;
+        }
+
+        return memberLevelRepository
+                .findById(levelId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Member level not found with ID: "
+                                        + levelId
+                        )
+                );
+    }
+
+    /*
+     * ==========================================================
      * PROFILE PHOTO
      * ==========================================================
      */
@@ -273,6 +502,50 @@ public class MyAccountServiceImpl implements MyAccountService {
                 .startsWith("image/")) {
             throw new IllegalArgumentException(
                     "The selected file must be an image"
+            );
+        }
+    }
+
+    /*
+     * ==========================================================
+     * CV FILE
+     * ==========================================================
+     */
+
+    private void updateCvFile(
+            Member member,
+            Long cvFileId
+    ) {
+        if (cvFileId == null) {
+            return;
+        }
+
+        FileEntity cvFile =
+                fileRepository
+                        .findById(cvFileId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "CV file was not found"
+                                )
+                        );
+
+        validateCvFile(cvFile);
+        member.setCvFile(cvFile);
+    }
+
+    private void validateCvFile(
+            FileEntity cvFile
+    ) {
+        String mimeType = cvFile.getMimeType();
+
+        if (mimeType == null
+                || !ALLOWED_CV_MIME_TYPES.contains(
+                mimeType.toLowerCase(Locale.ROOT)
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "CV file must be PDF, DOC, or DOCX"
             );
         }
     }

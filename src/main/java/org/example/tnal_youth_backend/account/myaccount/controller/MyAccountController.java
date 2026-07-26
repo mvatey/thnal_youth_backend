@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.account.myaccount.dto.request.UpdateMyAccountRequest;
 import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountResponse;
+import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountSummaryResponse;
 import org.example.tnal_youth_backend.account.myaccount.service.MyAccountService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,28 +23,49 @@ public class MyAccountController {
     private final MyAccountService myAccountService;
 
     /*
+     * Blue Profile Card + Personal Information Tab
+     *
      * GET /api/my-account
      */
     @GetMapping
-    public ResponseEntity<MyAccountResponse> getMyAccount() {
+    public ResponseEntity<MyAccountResponse>
+    getMyAccount() {
 
         return ResponseEntity.ok(
                 myAccountService.getMyAccount()
         );
     }
 
+    /*
+     * Top Summary Cards
+     *
+     * GET /api/my-account/summary
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<MyAccountSummaryResponse>
+    getMyAccountSummary() {
+
+        return ResponseEntity.ok(
+                myAccountService.getMyAccountSummary()
+        );
+    }
 
     /*
+     * Update Blue Profile Card + Personal Information Tab
+     *
      * PUT /api/my-account
      */
     @PutMapping
-    public ResponseEntity<MyAccountResponse> updateMyAccount(
+    public ResponseEntity<MyAccountResponse>
+    updateMyAccount(
             @Valid
             @RequestBody
             UpdateMyAccountRequest request
     ) {
         return ResponseEntity.ok(
-                myAccountService.updateMyAccount(request)
+                myAccountService.updateMyAccount(
+                        request
+                )
         );
     }
 
@@ -51,12 +73,15 @@ public class MyAccountController {
      * PATCH /api/my-account/password
      */
     @PatchMapping("/password")
-    public ResponseEntity<Void> changeMyPassword(
+    public ResponseEntity<Void>
+    changeMyPassword(
             @Valid
             @RequestBody
             ChangeMyPasswordRequest request
     ) {
-        myAccountService.changeMyPassword(request);
+        myAccountService.changeMyPassword(
+                request
+        );
 
         return ResponseEntity
                 .noContent()

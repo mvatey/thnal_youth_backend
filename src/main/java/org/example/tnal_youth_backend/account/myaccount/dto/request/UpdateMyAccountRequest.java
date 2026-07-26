@@ -2,6 +2,8 @@ package org.example.tnal_youth_backend.account.myaccount.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
@@ -28,7 +30,6 @@ public record UpdateMyAccountRequest(
                 max = 255,
                 message = "Khmer full name must not exceed 255 characters"
         )
-
         String fullNameKm,
 
         @Size(
@@ -39,6 +40,7 @@ public record UpdateMyAccountRequest(
 
         Gender gender,
 
+        @Past(message = "Date of birth must be in the past")
         LocalDate dateOfBirth,
 
         String placeOfBirth,
@@ -49,11 +51,18 @@ public record UpdateMyAccountRequest(
 
         String bio,
 
-        /*
-         * Existing row from the files table.
-         * Send null when the profile photo is not being changed.
-         */
-        Long profilePhotoId
+        @NotNull(message = "Branch ID is required")
+        Long branchId,
 
+        @NotNull(message = "Member status ID is required")
+        Short memberStatusId,
+
+        Short memberLevelId,
+
+        LocalDate joinedOn,
+
+        Long profilePhotoId,
+
+        Long cvFileId
 ) {
 }

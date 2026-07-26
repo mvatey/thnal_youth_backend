@@ -1,16 +1,23 @@
 package org.example.tnal_youth_backend.account.myaccount.mapper;
 
+import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountResponse;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
-import org.example.tnal_youth_backend.member.religion.entity.Religion;
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
+@RequiredArgsConstructor
 public class MyAccountMapper {
+
+    private final JdbcTemplate jdbcTemplate;
 
     public MyAccountResponse toResponse(
             User user,
@@ -20,121 +27,170 @@ public class MyAccountMapper {
             return null;
         }
 
-        MemberStatus memberStatus = member.getStatus();
-        MemberLevel memberLevel = member.getLevel();
-        Religion religion = member.getReligion();
-        FileEntity profilePhoto = member.getProfilePhoto();
-
-
         return new MyAccountResponse(
-
-                /*
-                 * Account
-                 */
                 user.getId(),
                 member.getId(),
-                user.getRole(),
-                user.getStatus(),
-                member.getPhone(),
-                member.getEmail(),
-                user.getLastLoginAt(),
-
-                /*
-                 * Member profile
-                 */
                 member.getMemberNo(),
+                user.getRole(),
                 member.getFullNameKm(),
                 member.getFullNameEn(),
-                member.getGender(),
+                toGenderResponse(
+                        member.getGender()
+                ),
+                toBranchResponse(
+                        member.getBranchId()
+                ),
+                toLookupResponse(
+                        member.getLevel()
+                ),
+                toLookupResponse(
+                        member.getStatus()
+                ),
+                member.getPhone(),
+                member.getEmail(),
                 member.getDateOfBirth(),
-                member.getPlaceOfBirth(),
-                member.getCurrentAddress(),
-                member.getPermanentAddress(),
                 member.getJoinedOn(),
-                member.getBio(),
+                toProfilePhotoResponse(
+                        member.getProfilePhoto(),
+                        user.getProfileImage()
+                ),
+                toCvFileResponse(
+                        member.getCvFile()
+                )
+        );
+    }
 
-                /*
-                 * Branch
-                 */
-                member.getBranchId(),
+    private MyAccountResponse.GenderResponse
+    toGenderResponse(
+            Gender gender
+    ) {
+        if (gender == null) {
+            return null;
+        }
 
-                /*
-                 * Member status
-                 */
-                memberStatus != null
-                        ? memberStatus.getId()
-                        : null,
+        return switch (gender) {
+            case MALE ->
+                    new MyAccountResponse.GenderResponse(
+                            "MALE",
+                            "ប្រុស",
+                            "Male"
+                    );
 
-                memberStatus != null
-                        ? memberStatus.getCode()
-                        : null,
+            case FEMALE ->
+                    new MyAccountResponse.GenderResponse(
+                            "FEMALE",
+                            "ស្រី",
+                            "Female"
+                    );
 
-                memberStatus != null
-                        ? memberStatus.getLabelKm()
-                        : null,
+            case MONK ->
+                    new MyAccountResponse.GenderResponse(
+                            "OTHER",
+                            "ព្រះសង្ឃ",
+                            "Monk"
+                    );
+        };
+    }
 
-                memberStatus != null
-                        ? memberStatus.getLabelEn()
-                        : null,
+    private MyAccountResponse.BranchResponse
+    toBranchResponse(
+            Long branchId
+    ) {
+        if (branchId == null) {
+            return null;
+        }
 
-                /*
-                 * Member level
-                 */
-                memberLevel != null
-                        ? memberLevel.getId()
-                        : null,
+        List<MyAccountResponse.BranchResponse> results =
+                jdbcTemplate.query(
+                        """
+                        SELECT
+                            id,
+                            name_km
+                        FROM branches
+                        WHERE id = ?
+                        """,
+                        (
+                                resultSet,
+                                rowNumber
+                        ) -> new MyAccountResponse.BranchResponse(
+                                resultSet.getLong("id"),
+                                resultSet.getString("name_km")
+                        ),
+                        branchId
+                );
 
-                memberLevel != null
-                        ? memberLevel.getCode()
-                        : null,
+        return results.isEmpty()
+                ? null
+                : results.get(0);
+    }
 
-                memberLevel != null
-                        ? memberLevel.getLabelKm()
-                        : null,
+    private MyAccountResponse.LookupResponse
+    toLookupResponse(
+            Object lookup
+    ) {
+        if (lookup == null) {
+            return null;
+        }
 
-                memberLevel != null
-                        ? memberLevel.getLabelEn()
-                        : null,
+        if (lookup instanceof MemberLevel value) {
+            return new MyAccountResponse.LookupResponse(
+                    value.getId(),
+                    value.getCode(),
+                    value.getLabelKm(),
+                    value.getLabelEn()
+            );
+        }
 
-                /*
-                 * Religion
-                 */
-                religion != null
-                        ? religion.getId()
-                        : null,
+        if (lookup instanceof MemberStatus value) {
+            return new MyAccountResponse.LookupResponse(
+                    value.getId(),
+                    value.getCode(),
+                    value.getLabelKm(),
+                    value.getLabelEn()
+            );
+        }
 
-                religion != null
-                        ? religion.getCode()
-                        : null,
+        return null;
+    }
 
-                religion != null
-                        ? religion.getLabelKm()
-                        : null,
+    private MyAccountResponse.ProfilePhotoResponse
+    toProfilePhotoResponse(
+            FileEntity profilePhoto,
+            String fallbackProfileImage
+    ) {
+        if (profilePhoto != null) {
+            return new MyAccountResponse.ProfilePhotoResponse(
+                    profilePhoto.getId(),
+                    profilePhoto.getFilePath()
+            );
+        }
 
-                religion != null
-                        ? religion.getLabelEn()
-                        : null,
+        if (fallbackProfileImage == null
+                || fallbackProfileImage.isBlank()) {
 
-                /*
-                 * Profile photo
-                 */
-                profilePhoto != null
-                        ? profilePhoto.getId()
-                        : null,
+            return null;
+        }
 
-                profilePhoto != null
-                        ? profilePhoto.getFilePath()
-                        : user.getProfileImage(),
+        return new MyAccountResponse.ProfilePhotoResponse(
+                null,
+                fallbackProfileImage
+        );
+    }
 
-                profilePhoto != null
-                        ? profilePhoto.getOriginalName()
-                        : null,
+    private MyAccountResponse.CvFileResponse
+    toCvFileResponse(
+            FileEntity cvFile
+    ) {
+        if (cvFile == null) {
+            return null;
+        }
 
-                /*
-                 * Metadata
-                 */
-                member.getCreatedAt(),
-                member.getUpdatedAt()
+        return new MyAccountResponse.CvFileResponse(
+                cvFile.getId(),
+                cvFile.getFilePath(),
+                cvFile.getOriginalName(),
+                cvFile.getMimeType(),
+                cvFile.getSizeBytes()
         );
     }
 }
