@@ -20,6 +20,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +70,108 @@ public class MyDonationServiceImpl
         return jdbcTemplate.query(
                 sql,
                 Map.of("memberId", memberId),
+                this::mapDonation
+        );
+    }
+
+    @Override
+    public List<MyDonationResponse> searchByDonationPeriod(
+            String period
+    ) {
+        String normalizedPeriod =
+                trimToNull(period);
+
+        if (normalizedPeriod == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period is required"
+            );
+        }
+
+        final YearMonth yearMonth;
+
+        try {
+            yearMonth =
+                    YearMonth.parse(
+                            normalizedPeriod
+                    );
+
+        } catch (
+                DateTimeParseException exception
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    """
+                    Donation period must use yyyy-MM format,                     for example 2026-07
+                    """
+            );
+        }
+
+        LocalDate startDate =
+                yearMonth.atDay(1);
+
+        LocalDate endDate =
+                yearMonth.atEndOfMonth();
+
+        Long memberId =
+                getCurrentMemberId();
+
+        String sql = BASE_DONATION_SQL + """
+
+                AND d.donation_period
+                    BETWEEN :startDate
+                    AND :endDate
+
+                ORDER BY
+                    d.paid_at DESC,
+                    d.id DESC
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("startDate", startDate)
+                        .addValue("endDate", endDate);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                this::mapDonation
+        );
+    }
+
+    @Override
+    public List<MyDonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    ) {
+        validatePaymentMethodId(
+                paymentMethodId
+        );
+
+        Long memberId =
+                getCurrentMemberId();
+
+        String sql = BASE_DONATION_SQL + """
+
+                AND d.payment_method_id =
+                    :paymentMethodId
+
+                ORDER BY
+                    d.paid_at DESC,
+                    d.id DESC
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue(
+                                "paymentMethodId",
+                                paymentMethodId
+                        );
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
                 this::mapDonation
         );
     }
@@ -312,6 +416,55 @@ public class MyDonationServiceImpl
         }
 
         return memberId;
+    }
+
+    private void validatePaymentMethodId(
+            Short paymentMethodId
+    ) {
+        if (paymentMethodId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Payment method ID is required"
+            );
+        }
+
+        Long count =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM payment_methods
+                        WHERE id = :paymentMethodId
+                          AND is_active = TRUE
+                        """,
+                        Map.of(
+                                "paymentMethodId",
+                                paymentMethodId
+                        ),
+                        Long.class
+                );
+
+        if (count == null || count == 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Payment method not found or inactive with ID: "
+                            + paymentMethodId
+            );
+        }
+    }
+
+    private String trimToNull(
+            String value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed =
+                value.trim();
+
+        return trimmed.isEmpty()
+                ? null
+                : trimmed;
     }
 
     private void validateDonationId(

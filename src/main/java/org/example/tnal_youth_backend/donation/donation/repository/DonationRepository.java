@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -62,48 +63,81 @@ public interface DonationRepository
 
     /*
      * ==========================================================
-     * FILTER DONATIONS
+     * SEARCH BY MONTHLY DONATION PERIOD
      * ==========================================================
      *
-     * Every filter is optional.
+     * The service converts yyyy-MM into:
      *
-     * Passing null means that filter is ignored.
+     * startDate = first day of the month
+     * endDate   = last day of the month
+     *
+     * Example:
+     *
+     * 2026-07
+     *
+     * becomes:
+     *
+     * 2026-07-01 through 2026-07-31
+     */
+    List<Donation>
+    findAllByDonationPeriodBetweenOrderByPaidAtDesc(
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
+    /*
+     * ==========================================================
+     * GENERAL OPTIONAL FILTERS
+     * ==========================================================
      */
 
     @Query("""
-            SELECT d
-            FROM Donation d
+            SELECT donation
+            FROM Donation donation
+
             WHERE (
                 :memberId IS NULL
-                OR d.memberId = :memberId
+                OR donation.memberId = :memberId
             )
+
             AND (
                 :activityId IS NULL
-                OR d.activityId = :activityId
+                OR donation.activityId = :activityId
             )
+
             AND (
                 :branchId IS NULL
-                OR d.branchId = :branchId
+                OR donation.branchId = :branchId
             )
+
             AND (
                 :donationTypeId IS NULL
-                OR d.donationTypeId = :donationTypeId
+                OR donation.donationTypeId =
+                   :donationTypeId
             )
+
             AND (
                 :paymentMethodId IS NULL
-                OR d.paymentMethodId = :paymentMethodId
+                OR donation.paymentMethodId =
+                   :paymentMethodId
             )
+
             AND (
                 :paidFrom IS NULL
-                OR d.paidAt >= :paidFrom
+                OR donation.paidAt >= :paidFrom
             )
+
             AND (
                 :paidTo IS NULL
-                OR d.paidAt <= :paidTo
+                OR donation.paidAt <= :paidTo
             )
-            ORDER BY d.paidAt DESC
+
+            ORDER BY
+                donation.paidAt DESC,
+                donation.id DESC
             """)
     List<Donation> findFiltered(
+
             @Param("memberId")
             Long memberId,
 
@@ -130,29 +164,21 @@ public interface DonationRepository
      * ==========================================================
      * DONATION NUMBER GENERATION
      * ==========================================================
-     *
-     * Finds the latest donation number with a specific prefix.
-     *
-     * Example prefix:
-     *
-     * DON-20260724-
-     *
-     * Existing values:
-     *
-     * DON-20260724-0001
-     * DON-20260724-0002
      */
+
     @Query(
             value = """
                     SELECT donation_no
                     FROM donations
-                    WHERE donation_no LIKE CONCAT(:prefix, '%')
+                    WHERE donation_no
+                          LIKE CONCAT(:prefix, '%')
                     ORDER BY donation_no DESC
                     LIMIT 1
                     """,
             nativeQuery = true
     )
     Optional<String> findLatestDonationNoByPrefix(
+
             @Param("prefix")
             String prefix
     );
@@ -177,7 +203,7 @@ public interface DonationRepository
 
     /*
      * ==========================================================
-     * DELETE CHECKS
+     * DELETE / OWNERSHIP CHECKS
      * ==========================================================
      */
 

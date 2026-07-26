@@ -9,6 +9,14 @@ public interface DonationService {
 
     List<DonationResponse> getAllDonations();
 
+    List<DonationResponse> searchByDonationPeriod(
+            String period
+    );
+
+    List<DonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    );
+
     DonationResponse getDonationById(
             Long id
     );

@@ -15,13 +15,15 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(
         name = "A. My Account - Donations",
-        description = " ការបរិច្ចាគ (my - account ) "
+        description = "ការបរិច្ចាគ (My Account)"
 )
 public class MyDonationController {
 
     private final MyDonationService myDonationService;
 
     /*
+     * Get all donations belonging to the logged-in member.
+     *
      * GET /api/my-account/donations
      */
     @GetMapping
@@ -33,8 +35,55 @@ public class MyDonationController {
         );
     }
 
+    /*
+     * Search the logged-in member's donations
+     * by month and year.
+     *
+     * Required format:
+     * yyyy-MM
+     *
+     * Example:
+     * GET /api/my-account/donations/search?period=2026-07
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<MyDonationResponse>>
+    searchByDonationPeriod(
+
+            @RequestParam
+            String period
+    ) {
+        return ResponseEntity.ok(
+                myDonationService.searchByDonationPeriod(
+                        period
+                )
+        );
+    }
 
     /*
+     * Filter the logged-in member's donations
+     * by payment method.
+     *
+     * Example:
+     * GET /api/my-account/donations/filter/payment-method
+     *     ?paymentMethodId=1
+     */
+    @GetMapping("/filter/payment-method")
+    public ResponseEntity<List<MyDonationResponse>>
+    filterByPaymentMethod(
+
+            @RequestParam
+            Short paymentMethodId
+    ) {
+        return ResponseEntity.ok(
+                myDonationService.filterByPaymentMethod(
+                        paymentMethodId
+                )
+        );
+    }
+
+    /*
+     * Get summary totals for the logged-in member.
+     *
      * GET /api/my-account/donations/summary
      */
     @GetMapping("/summary")
@@ -47,12 +96,17 @@ public class MyDonationController {
     }
 
     /*
+     * Get one donation only when it belongs
+     * to the logged-in member.
+     *
      * GET /api/my-account/donations/{donationId}
      */
     @GetMapping("/{donationId}")
     public ResponseEntity<MyDonationResponse>
     getMyDonationById(
-            @PathVariable Long donationId
+
+            @PathVariable
+            Long donationId
     ) {
         return ResponseEntity.ok(
                 myDonationService.getMyDonationById(

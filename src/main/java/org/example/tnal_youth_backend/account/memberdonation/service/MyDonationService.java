@@ -7,22 +7,19 @@ import java.util.List;
 
 public interface MyDonationService {
 
-    /*
-     * Get every donation directly linked to the
-     * currently logged-in member.
-     */
     List<MyDonationResponse> getMyDonations();
 
-    /*
-     * Get one donation only when it belongs to the
-     * currently logged-in member.
-     */
+    List<MyDonationResponse> searchByDonationPeriod(
+            String period
+    );
+
+    List<MyDonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    );
+
     MyDonationResponse getMyDonationById(
             Long donationId
     );
 
-    /*
-     * Get donation totals for the logged-in member.
-     */
     MyDonationSummaryResponse getMyDonationSummary();
 }

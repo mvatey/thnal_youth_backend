@@ -16,12 +16,18 @@ import java.util.List;
 @RequestMapping("/api/donations")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - donation"
+        name = "B. Member Page - Donations",
+        description = "Manage member donation records"
 )
 public class DonationController {
 
     private final DonationService donationService;
 
+    /*
+     * Normal GET endpoint.
+     *
+     * GET /api/donations
+     */
     @GetMapping
     public ResponseEntity<List<DonationResponse>>
     getAllDonations() {
@@ -31,19 +37,65 @@ public class DonationController {
         );
     }
 
+    /*
+     * Search donations by monthly donation period.
+     *
+     * Required format:
+     * yyyy-MM
+     *
+     * Example:
+     * GET /api/donations/search?period=2026-07
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<DonationResponse>>
+    searchByDonationPeriod(
+
+            @RequestParam
+            String period
+    ) {
+        return ResponseEntity.ok(
+                donationService.searchByDonationPeriod(
+                        period
+                )
+        );
+    }
+
+    /*
+     * Filter donations by payment method.
+     *
+     * Example:
+     * GET /api/donations/filter/payment-method?paymentMethodId=1
+     */
+    @GetMapping("/filter/payment-method")
+    public ResponseEntity<List<DonationResponse>>
+    filterByPaymentMethod(
+
+            @RequestParam
+            Short paymentMethodId
+    ) {
+        return ResponseEntity.ok(
+                donationService.filterByPaymentMethod(
+                        paymentMethodId
+                )
+        );
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<DonationResponse>
     getDonationById(
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(
-                donationService.getDonationById(id)
+                donationService.getDonationById(
+                        id
+                )
         );
     }
 
     @PostMapping
     public ResponseEntity<DonationResponse>
     createDonation(
+
             @Valid
             @RequestBody
             DonationRequest request
@@ -60,6 +112,7 @@ public class DonationController {
     @PutMapping("/{id}")
     public ResponseEntity<DonationResponse>
     updateDonation(
+
             @PathVariable Long id,
 
             @Valid
@@ -79,7 +132,9 @@ public class DonationController {
     deleteDonation(
             @PathVariable Long id
     ) {
-        donationService.deleteDonation(id);
+        donationService.deleteDonation(
+                id
+        );
 
         return ResponseEntity
                 .noContent()

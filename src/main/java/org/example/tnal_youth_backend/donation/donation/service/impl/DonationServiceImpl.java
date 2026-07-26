@@ -18,8 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 
@@ -53,6 +54,77 @@ public class DonationServiceImpl
 
         return donationRepository
                 .findAllByOrderByPaidAtDesc()
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> searchByDonationPeriod(
+            String period
+    ) {
+        String normalizedPeriod =
+                trimToNull(
+                        period
+                );
+
+        if (normalizedPeriod == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period is required"
+            );
+        }
+
+        final YearMonth yearMonth;
+
+        try {
+            yearMonth =
+                    YearMonth.parse(
+                            normalizedPeriod
+                    );
+
+        } catch (
+                DateTimeParseException exception
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    """
+                    Donation period must use yyyy-MM format,                     for example 2026-07
+                    """
+            );
+        }
+
+        LocalDate startDate =
+                yearMonth.atDay(1);
+
+        LocalDate endDate =
+                yearMonth.atEndOfMonth();
+
+        return donationRepository
+                .findAllByDonationPeriodBetweenOrderByPaidAtDesc(
+                        startDate,
+                        endDate
+                )
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    ) {
+        requireActiveLookup(
+                "payment_methods",
+                paymentMethodId,
+                "Payment method"
+        );
+
+        return donationRepository
+                .findAllByPaymentMethodIdOrderByPaidAtDesc(
+                        paymentMethodId
+                )
                 .stream()
                 .map(donationMapper::toResponse)
                 .toList();
@@ -804,21 +876,6 @@ public class DonationServiceImpl
         return trimmed.isEmpty()
                 ? null
                 : trimmed;
-    }
-
-    private void validateDateRange(
-            OffsetDateTime paidFrom,
-            OffsetDateTime paidTo
-    ) {
-        if (paidFrom != null
-                && paidTo != null
-                && paidFrom.isAfter(paidTo)) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "The start date cannot be after the end date"
-            );
-        }
     }
 
     private ResponseStatusException databaseException(
