@@ -1,7 +1,10 @@
 package org.example.tnal_youth_backend.dashboard.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.dashboard.dto.ActivityTypeBreakdownResponse;
+import org.example.tnal_youth_backend.dashboard.dto.DashboardActivitiesResponse;
 import org.example.tnal_youth_backend.dashboard.dto.DashboardSummaryResponse;
+import org.example.tnal_youth_backend.dashboard.dto.ParticipationTrendResponse;
 import org.example.tnal_youth_backend.dashboard.service.DashboardService;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthRange;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthResolver;
@@ -22,6 +25,38 @@ public class DashboardController {
     ) {
         return ResponseEntity.ok(
                 dashboardService.getSummary(month)
+        );
+    }
+
+    @GetMapping("/activities")
+    public ResponseEntity<DashboardActivitiesResponse>
+    getActivities() {
+
+        return ResponseEntity.ok(
+                dashboardService.getActivities()
+        );
+    }
+
+    @GetMapping("/activity-breakdown")
+    public ResponseEntity<ActivityTypeBreakdownResponse>
+    getActivityTypeBreakdown(
+            @RequestParam(required = false)
+            String month
+    ) {
+        return ResponseEntity.ok(
+                dashboardService
+                        .getActivityTypeBreakdown(month)
+        );
+    }
+    @GetMapping("/participation-trend")
+    public ResponseEntity<ParticipationTrendResponse>
+    getParticipationTrend(
+                    @RequestParam(required = false)
+                    Integer year
+            ) {
+        return ResponseEntity.ok(
+                dashboardService
+                        .getParticipationTrend(year)
         );
     }
 }

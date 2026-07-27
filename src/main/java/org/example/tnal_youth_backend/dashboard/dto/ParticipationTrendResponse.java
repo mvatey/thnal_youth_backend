@@ -1,18 +1,12 @@
 package org.example.tnal_youth_backend.dashboard.dto;
 
+import lombok.Builder;
+
 import java.util.List;
 
+@Builder
 public record ParticipationTrendResponse(
-        Integer year,
-        String countingMethod,
-        List<MonthlyParticipationItem> data
+        int year,
+        List<ParticipationTrendItemResponse> months
 ) {
-
-    public record MonthlyParticipationItem(
-            Integer month,
-            String labelKm,
-            String labelEn,
-            Long participantCount
-    ) {
-    }
 }

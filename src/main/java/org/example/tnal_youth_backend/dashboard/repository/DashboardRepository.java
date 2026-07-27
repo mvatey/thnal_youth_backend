@@ -1,7 +1,11 @@
 package org.example.tnal_youth_backend.dashboard.repository;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.dashboard.repository.projection.ActivityTypeCountRow;
+import org.example.tnal_youth_backend.dashboard.repository.projection.DashboardActivityRow;
 import org.example.tnal_youth_backend.dashboard.repository.projection.DonationTotals;
+import org.example.tnal_youth_backend.dashboard.repository.projection.MonthlyParticipationRow;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -9,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Repository
 @RequiredArgsConstructor
@@ -281,5 +286,400 @@ public class DashboardRepository {
         return value == null
                 ? BigDecimal.ZERO
                 : value;
+    }
+
+    public List<DashboardActivityRow>
+    findRecentCompletedActivities() {
+
+        String sql = """
+            SELECT
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path AS cover_image,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code AS activity_type,
+                COUNT(ap.id) AS participant_count
+            FROM activities a
+            JOIN activity_statuses ast
+                ON ast.id = a.status_id
+            JOIN activity_types at
+                ON at.id = a.type_id
+            LEFT JOIN files f
+                ON f.id = a.cover_image_id
+            LEFT JOIN activity_participants ap
+                ON ap.activity_id = a.id
+            WHERE ast.code = 'COMPLETED'
+            GROUP BY
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code
+            ORDER BY a.ends_at DESC
+            LIMIT 5
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                new MapSqlParameterSource(),
+                activityRowMapper()
+        );
+    }
+
+    public List<DashboardActivityRow>
+    findRecentCompletedActivitiesByBranch(
+            Long branchId
+    ) {
+
+        String sql = """
+            SELECT
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path AS cover_image,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code AS activity_type,
+                COUNT(ap.id) AS participant_count
+            FROM activities a
+            JOIN activity_statuses ast
+                ON ast.id = a.status_id
+            JOIN activity_types at
+                ON at.id = a.type_id
+            LEFT JOIN files f
+                ON f.id = a.cover_image_id
+            LEFT JOIN activity_participants ap
+                ON ap.activity_id = a.id
+            WHERE ast.code = 'COMPLETED'
+              AND a.branch_id = :branchId
+            GROUP BY
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code
+            ORDER BY a.ends_at DESC
+            LIMIT 5
+            """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityRowMapper()
+        );
+    }
+
+    public List<DashboardActivityRow>
+    findUpcomingActivities(
+            OffsetDateTime now
+    ) {
+
+        String sql = """
+            SELECT
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path AS cover_image,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code AS activity_type,
+                COUNT(ap.id) AS participant_count
+            FROM activities a
+            JOIN activity_statuses ast
+                ON ast.id = a.status_id
+            JOIN activity_types at
+                ON at.id = a.type_id
+            LEFT JOIN files f
+                ON f.id = a.cover_image_id
+            LEFT JOIN activity_participants ap
+                ON ap.activity_id = a.id
+            WHERE ast.code = 'UPCOMING'
+              AND a.starts_at >= :now
+            GROUP BY
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code
+            ORDER BY a.starts_at ASC
+            LIMIT 5
+            """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("now", now);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityRowMapper()
+        );
+    }
+
+    public List<DashboardActivityRow>
+    findUpcomingActivitiesByBranch(
+            Long branchId,
+            OffsetDateTime now
+    ) {
+
+        String sql = """
+            SELECT
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path AS cover_image,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code AS activity_type,
+                COUNT(ap.id) AS participant_count
+            FROM activities a
+            JOIN activity_statuses ast
+                ON ast.id = a.status_id
+            JOIN activity_types at
+                ON at.id = a.type_id
+            LEFT JOIN files f
+                ON f.id = a.cover_image_id
+            LEFT JOIN activity_participants ap
+                ON ap.activity_id = a.id
+            WHERE ast.code = 'UPCOMING'
+              AND a.branch_id = :branchId
+              AND a.starts_at >= :now
+            GROUP BY
+                a.id,
+                a.title_km,
+                a.title_en,
+                f.file_path,
+                a.starts_at,
+                a.ends_at,
+                a.location_name,
+                at.code
+            ORDER BY a.starts_at ASC
+            LIMIT 5
+            """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId)
+                        .addValue("now", now);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityRowMapper()
+        );
+    }
+
+    private RowMapper<DashboardActivityRow>
+    activityRowMapper() {
+
+        return (resultSet, rowNumber) ->
+                new DashboardActivityRow(
+                        resultSet.getLong("id"),
+                        resultSet.getString("title_km"),
+                        resultSet.getString("title_en"),
+                        resultSet.getString("cover_image"),
+                        resultSet.getObject(
+                                "starts_at",
+                                OffsetDateTime.class
+                        ),
+                        resultSet.getObject(
+                                "ends_at",
+                                OffsetDateTime.class
+                        ),
+                        resultSet.getString(
+                                "location_name"
+                        ),
+                        resultSet.getString(
+                                "activity_type"
+                        ),
+                        resultSet.getLong(
+                                "participant_count"
+                        )
+                );
+    }
+
+    public List<ActivityTypeCountRow>
+    findActivityTypeBreakdown(
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+
+        String sql = """
+        SELECT
+            at.code,
+            COUNT(*) AS total
+        FROM activities a
+        JOIN activity_types at
+            ON at.id = a.type_id
+        WHERE a.starts_at >= :start
+          AND a.starts_at < :end
+        GROUP BY at.code
+        """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityTypeMapper()
+        );
+    }
+
+    public List<ActivityTypeCountRow>
+    findActivityTypeBreakdownByBranch(
+            Long branchId,
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+
+        String sql = """
+        SELECT
+            at.code,
+            COUNT(*) AS total
+        FROM activities a
+        JOIN activity_types at
+            ON at.id = a.type_id
+        WHERE a.branch_id = :branchId
+          AND a.starts_at >= :start
+          AND a.starts_at < :end
+        GROUP BY at.code
+        """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId)
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityTypeMapper()
+        );
+    }
+
+    private RowMapper<ActivityTypeCountRow>
+    activityTypeMapper() {
+
+        return (rs, rowNum) ->
+                new ActivityTypeCountRow(
+                        rs.getString("code"),
+                        rs.getLong("total")
+                );
+    }
+
+    public List<MonthlyParticipationRow>
+    findParticipationTrend(
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+
+        String sql = """
+        SELECT
+            EXTRACT(
+                MONTH
+                FROM a.starts_at
+            )::int AS month,
+
+            COUNT(ap.id) AS participation_count
+
+        FROM activities a
+
+        JOIN activity_participants ap
+            ON ap.activity_id = a.id
+
+        WHERE a.starts_at >= :start
+          AND a.starts_at < :end
+
+        GROUP BY month
+
+        ORDER BY month
+        """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                participationTrendMapper()
+        );
+    }
+
+    public List<MonthlyParticipationRow>
+    findParticipationTrendByBranch(
+            Long branchId,
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+
+        String sql = """
+        SELECT
+            EXTRACT(
+                MONTH
+                FROM a.starts_at
+            )::int AS month,
+
+            COUNT(ap.id) AS participation_count
+
+        FROM activities a
+
+        JOIN activity_participants ap
+            ON ap.activity_id = a.id
+
+        WHERE a.branch_id = :branchId
+          AND a.starts_at >= :start
+          AND a.starts_at < :end
+
+        GROUP BY month
+
+        ORDER BY month
+        """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId)
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                participationTrendMapper()
+        );
+    }
+
+    private RowMapper<MonthlyParticipationRow>
+    participationTrendMapper() {
+
+        return (rs, rowNum) ->
+                new MonthlyParticipationRow(
+                        rs.getInt("month"),
+                        rs.getLong("participation_count")
+                );
     }
 }
