@@ -1,7 +1,14 @@
 package org.example.tnal_youth_backend.member.credential.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.member.member.entity.Member;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -13,6 +20,20 @@ import java.time.OffsetDateTime;
                 @UniqueConstraint(
                         name = "uk_member_credentials_credential_no",
                         columnNames = "credential_no"
+                )
+        },
+        indexes = {
+                @Index(
+                        name = "idx_member_credentials_member_id",
+                        columnList = "member_id"
+                ),
+                @Index(
+                        name = "idx_member_credentials_issued_by",
+                        columnList = "issued_by"
+                ),
+                @Index(
+                        name = "idx_member_credentials_file_id",
+                        columnList = "file_id"
                 )
         }
 )
@@ -27,11 +48,29 @@ public class MemberCredential {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /*
+     * ==========================================================
+     * Foreign Key IDs
+     * ==========================================================
+     */
+
     @Column(
             name = "member_id",
             nullable = false
     )
     private Long memberId;
+
+    @Column(name = "issued_by")
+    private Long issuedById;
+
+    @Column(name = "file_id")
+    private Long fileId;
+
+    /*
+     * ==========================================================
+     * Credential Information
+     * ==========================================================
+     */
 
     @Column(
             name = "title",
@@ -58,14 +97,43 @@ public class MemberCredential {
     private LocalDate issuedOn;
 
     /*
-     * Database type is BIGINT.
-     * This represents the ID of the user who issued the credential.
+     * ==========================================================
+     * Read-only Relationships
+     * ==========================================================
+     *
+     * The ID fields above remain responsible for insert/update.
+     * These relationships are only used when building API responses.
      */
-    @Column(name = "issued_by")
-    private Long issuedById;
 
-    @Column(name = "file_id")
-    private Long fileId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "member_id",
+            insertable = false,
+            updatable = false
+    )
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "issued_by",
+            insertable = false,
+            updatable = false
+    )
+    private User issuedBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "file_id",
+            insertable = false,
+            updatable = false
+    )
+    private FileEntity file;
+
+    /*
+     * ==========================================================
+     * Metadata
+     * ==========================================================
+     */
 
     @Column(
             name = "created_at",
@@ -82,7 +150,8 @@ public class MemberCredential {
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -95,6 +164,7 @@ public class MemberCredential {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt =
+                OffsetDateTime.now();
     }
 }

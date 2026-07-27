@@ -1,5 +1,7 @@
 package org.example.tnal_youth_backend.member.credential.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,16 +14,58 @@ import java.time.OffsetDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MemberCredentialResponse {
 
     private Long id;
-    private Long memberId;
+
     private String title;
-    private String credentialKind;
+
+    private CredentialKindResponse credentialKind;
+
     private String credentialNo;
+
     private LocalDate issuedOn;
-    private Long issuedById;
-    private Long fileId;
+
+    private FileResponse file;
+
     private OffsetDateTime createdAt;
+
     private OffsetDateTime updatedAt;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CredentialKindResponse {
+
+        private String code;
+
+        @JsonProperty("label_km")
+        private String labelKm;
+
+        @JsonProperty("label_en")
+        private String labelEn;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FileResponse {
+
+        private Long id;
+
+        private String url;
+
+        private String originalName;
+
+        private String mimeType;
+
+        private Long sizeBytes;
+
+        private Double sizeKb;
+
+        private Double sizeMb;
+    }
 }

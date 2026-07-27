@@ -1,20 +1,26 @@
 package org.example.tnal_youth_backend.member.credential.mapper;
 
+import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialResponse;
 import org.example.tnal_youth_backend.member.credential.entity.MemberCredential;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class MemberCredentialMapper {
 
     public MemberCredential toEntity(
             Long memberId,
             MemberCredentialRequest request
     ) {
-        MemberCredential credential = new MemberCredential();
+        MemberCredential credential =
+                new MemberCredential();
 
-        credential.setMemberId(memberId);
+        credential.setMemberId(
+                memberId
+        );
 
         copyRequestToEntity(
                 credential,
@@ -37,40 +43,175 @@ public class MemberCredentialMapper {
     public MemberCredentialResponse toResponse(
             MemberCredential credential
     ) {
+        if (credential == null) {
+            return null;
+        }
+
         MemberCredentialResponse response =
                 new MemberCredentialResponse();
 
-        response.setId(credential.getId());
-        response.setMemberId(credential.getMemberId());
-        response.setTitle(credential.getTitle());
-        response.setCredentialKind(credential.getCredentialKind());
-        response.setCredentialNo(credential.getCredentialNo());
-        response.setIssuedOn(credential.getIssuedOn());
-        response.setIssuedById(credential.getIssuedById());
-        response.setFileId(credential.getFileId());
-        response.setCreatedAt(credential.getCreatedAt());
-        response.setUpdatedAt(credential.getUpdatedAt());
+        response.setId(
+                credential.getId()
+        );
+
+        response.setTitle(
+                credential.getTitle()
+        );
+
+        response.setCredentialNo(
+                credential.getCredentialNo()
+        );
+
+        response.setIssuedOn(
+                credential.getIssuedOn()
+        );
+
+        response.setCreatedAt(
+                credential.getCreatedAt()
+        );
+
+        response.setUpdatedAt(
+                credential.getUpdatedAt()
+        );
+
+        /*
+         * Credential Kind
+         */
+        response.setCredentialKind(
+                toCredentialKindResponse(
+                        credential.getCredentialKind()
+                )
+        );
+
+        /*
+         * File
+         */
+        response.setFile(
+                toFileResponse(
+                        credential.getFile()
+                )
+        );
 
         return response;
     }
 
+    private MemberCredentialResponse.CredentialKindResponse
+    toCredentialKindResponse(
+            String credentialKind
+    ) {
+        if (credentialKind == null
+                || credentialKind.isBlank()) {
+
+            return null;
+        }
+
+        String normalizedKind =
+                credentialKind.trim();
+
+        return switch (normalizedKind) {
+
+            case "MEMBERSHIP_CARD" ->
+                    new MemberCredentialResponse
+                            .CredentialKindResponse(
+                            "MEMBERSHIP_CARD",
+                            "ប័ណ្ណសមាជិក",
+                            "Membership Card"
+                    );
+
+            case "CERTIFICATE" ->
+                    new MemberCredentialResponse
+                            .CredentialKindResponse(
+                            "CERTIFICATE",
+                            "វិញ្ញាបនបត្រ",
+                            "Certificate"
+                    );
+
+            case "ID_CARD" ->
+                    new MemberCredentialResponse
+                            .CredentialKindResponse(
+                            "ID_CARD",
+                            "អត្តសញ្ញាណប័ណ្ណ",
+                            "ID Card"
+                    );
+
+            default ->
+                    new MemberCredentialResponse
+                            .CredentialKindResponse(
+                            normalizedKind,
+                            normalizedKind,
+                            normalizedKind
+                    );
+        };
+    }
+
+    private MemberCredentialResponse.FileResponse
+    toFileResponse(
+            FileEntity file
+    ) {
+        if (file == null) {
+            return null;
+        }
+
+        Long sizeBytes =
+                file.getSizeBytes();
+
+        Double sizeKb = null;
+        Double sizeMb = null;
+
+        if (sizeBytes != null) {
+            sizeKb =
+                    Math.round(
+                            (
+                                    sizeBytes / 1024.0
+                            ) * 100.0
+                    ) / 100.0;
+
+            sizeMb =
+                    Math.round(
+                            (
+                                    sizeBytes
+                                            / (
+                                            1024.0
+                                                    * 1024.0
+                                    )
+                            ) * 100.0
+                    ) / 100.0;
+        }
+
+        return new MemberCredentialResponse.FileResponse(
+                file.getId(),
+                file.getFilePath(),
+                file.getOriginalName(),
+                file.getMimeType(),
+                sizeBytes,
+                sizeKb,
+                sizeMb
+        );
+    }
+
     /**
-     * Copies request values into an entity.
+     * Copies request values into the entity.
      */
     private void copyRequestToEntity(
             MemberCredential credential,
             MemberCredentialRequest request
     ) {
         credential.setTitle(
-                normalizeRequired(request.getTitle())
+                normalizeRequired(
+                        request.getTitle()
+                )
         );
 
         credential.setCredentialKind(
-                normalizeRequired(request.getCredentialKind())
+                normalizeRequired(
+                        request.getCredentialKind()
+                )
         );
 
         credential.setCredentialNo(
-                normalizeOptional(request.getCredentialNo())
+                normalizeOptional(
+                        request.getCredentialNo()
+                )
         );
 
         credential.setIssuedOn(
@@ -99,7 +240,9 @@ public class MemberCredentialMapper {
     private String normalizeOptional(
             String value
     ) {
-        if (value == null || value.isBlank()) {
+        if (value == null
+                || value.isBlank()) {
+
             return null;
         }
 
