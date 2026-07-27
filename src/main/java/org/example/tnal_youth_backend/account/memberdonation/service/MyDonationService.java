@@ -1,25 +1,36 @@
 package org.example.tnal_youth_backend.account.memberdonation.service;
 
 import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationResponse;
-import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationSummaryResponse;
 
 import java.util.List;
 
 public interface MyDonationService {
 
-    List<MyDonationResponse> getMyDonations();
+    /*
+     * Monthly donations
+     */
+    List<MyDonationResponse> getMyMonthlyDonations();
 
-    List<MyDonationResponse> searchByDonationPeriod(
+    List<MyDonationResponse> searchMyMonthlyDonations(
             String period
     );
 
-    List<MyDonationResponse> filterByPaymentMethod(
+    List<MyDonationResponse>
+    filterMyMonthlyDonationsByPaymentMethod(
             Short paymentMethodId
     );
 
-    MyDonationResponse getMyDonationById(
-            Long donationId
+    /*
+     * Sponsor donations
+     */
+    List<MyDonationResponse> getMySponsorDonations();
+
+    List<MyDonationResponse> searchMySponsorDonations(
+            String search
     );
 
-    MyDonationSummaryResponse getMyDonationSummary();
+    List<MyDonationResponse>
+    filterMySponsorDonationsByPaymentMethod(
+            Short paymentMethodId
+    );
 }

@@ -3,7 +3,6 @@ package org.example.tnal_youth_backend.account.memberdonation.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationResponse;
-import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationSummaryResponse;
 import org.example.tnal_youth_backend.account.memberdonation.service.MyDonationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,103 +14,115 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(
         name = "A. My Account - Donations",
-        description = "ការបរិច្ចាគ (My Account)"
+        description = "View the logged-in member's monthly and sponsor donations"
 )
 public class MyDonationController {
 
     private final MyDonationService myDonationService;
 
     /*
-     * Get all donations belonging to the logged-in member.
-     *
-     * GET /api/my-account/donations
+     * ==========================================================
+     * MONTHLY DONATIONS
+     * ==========================================================
      */
-    @GetMapping
+
+    /*
+     * GET /api/my-account/donations/monthly
+     */
+    @GetMapping("/monthly")
     public ResponseEntity<List<MyDonationResponse>>
-    getMyDonations() {
+    getMyMonthlyDonations() {
 
         return ResponseEntity.ok(
-                myDonationService.getMyDonations()
+                myDonationService.getMyMonthlyDonations()
         );
     }
 
     /*
-     * Search the logged-in member's donations
-     * by month and year.
-     *
-     * Required format:
-     * yyyy-MM
-     *
-     * Example:
-     * GET /api/my-account/donations/search?period=2026-07
+     * GET /api/my-account/donations/monthly/search
+     *     ?period=2026-07
      */
-    @GetMapping("/search")
+    @GetMapping("/monthly/search")
     public ResponseEntity<List<MyDonationResponse>>
-    searchByDonationPeriod(
-
+    searchMyMonthlyDonations(
             @RequestParam
             String period
     ) {
         return ResponseEntity.ok(
-                myDonationService.searchByDonationPeriod(
+                myDonationService.searchMyMonthlyDonations(
                         period
                 )
         );
     }
 
     /*
-     * Filter the logged-in member's donations
-     * by payment method.
-     *
-     * Example:
-     * GET /api/my-account/donations/filter/payment-method
+     * GET /api/my-account/donations/monthly/filter/payment-method
      *     ?paymentMethodId=1
      */
-    @GetMapping("/filter/payment-method")
+    @GetMapping("/monthly/filter/payment-method")
     public ResponseEntity<List<MyDonationResponse>>
-    filterByPaymentMethod(
-
+    filterMyMonthlyDonationsByPaymentMethod(
             @RequestParam
             Short paymentMethodId
     ) {
         return ResponseEntity.ok(
-                myDonationService.filterByPaymentMethod(
-                        paymentMethodId
-                )
+                myDonationService
+                        .filterMyMonthlyDonationsByPaymentMethod(
+                                paymentMethodId
+                        )
         );
     }
 
     /*
-     * Get summary totals for the logged-in member.
-     *
-     * GET /api/my-account/donations/summary
+     * ==========================================================
+     * SPONSOR DONATIONS
+     * ==========================================================
      */
-    @GetMapping("/summary")
-    public ResponseEntity<MyDonationSummaryResponse>
-    getMyDonationSummary() {
+
+    /*
+     * GET /api/my-account/donations/sponsors
+     */
+    @GetMapping("/sponsors")
+    public ResponseEntity<List<MyDonationResponse>>
+    getMySponsorDonations() {
 
         return ResponseEntity.ok(
-                myDonationService.getMyDonationSummary()
+                myDonationService.getMySponsorDonations()
         );
     }
 
     /*
-     * Get one donation only when it belongs
-     * to the logged-in member.
-     *
-     * GET /api/my-account/donations/{donationId}
+     * GET /api/my-account/donations/sponsors/search
+     *     ?search=ABA
      */
-    @GetMapping("/{donationId}")
-    public ResponseEntity<MyDonationResponse>
-    getMyDonationById(
-
-            @PathVariable
-            Long donationId
+    @GetMapping("/sponsors/search")
+    public ResponseEntity<List<MyDonationResponse>>
+    searchMySponsorDonations(
+            @RequestParam
+            String search
     ) {
         return ResponseEntity.ok(
-                myDonationService.getMyDonationById(
-                        donationId
+                myDonationService.searchMySponsorDonations(
+                        search
                 )
+        );
+    }
+
+    /*
+     * GET /api/my-account/donations/sponsors/filter/payment-method
+     *     ?paymentMethodId=1
+     */
+    @GetMapping("/sponsors/filter/payment-method")
+    public ResponseEntity<List<MyDonationResponse>>
+    filterMySponsorDonationsByPaymentMethod(
+            @RequestParam
+            Short paymentMethodId
+    ) {
+        return ResponseEntity.ok(
+                myDonationService
+                        .filterMySponsorDonationsByPaymentMethod(
+                                paymentMethodId
+                        )
         );
     }
 }

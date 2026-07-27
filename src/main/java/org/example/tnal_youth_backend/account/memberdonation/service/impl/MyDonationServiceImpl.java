@@ -2,7 +2,6 @@ package org.example.tnal_youth_backend.account.memberdonation.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationResponse;
-import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationSummaryResponse;
 import org.example.tnal_youth_backend.account.memberdonation.service.MyDonationService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -23,7 +22,6 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -31,81 +29,227 @@ import java.util.Map;
 public class MyDonationServiceImpl
         implements MyDonationService {
 
+    private static final String MONTHLY_DONATION =
+            "MONTHLY_DONATION";
+
+    private static final String SPONSOR_DONATION =
+            "SPONSOR_DONATION";
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
 
-    private static final String BASE_DONATION_SQL = """
+    /*
+     * My Account ownership rule:
+     *
+     * users.member_id
+     *      -> members.id
+     *      -> donations.member_id
+     *
+     * Both monthly and sponsor-type records are restricted to
+     * the member profile linked to the logged-in account.
+     */
+    private static final String BASE_SQL = """
             SELECT
-                d.id                         AS donation_id,
-                d.donation_no                AS donation_no,
-                d.donation_type_id           AS donation_type_id,
-                d.activity_id                AS activity_id,
-                d.branch_id                  AS branch_id,
-                d.donation_period            AS donation_period,
-                d.amount_khr                 AS amount_khr,
-                d.amount_usd                 AS amount_usd,
-                d.total_amount_usd           AS total_amount_usd,
-                d.payment_method_id          AS payment_method_id,
-                d.paid_at                    AS paid_at,
-                d.payment_reference          AS payment_reference,
-                d.receipt_file_id            AS receipt_file_id,
-                d.note                       AS note
-            FROM donations d
-            WHERE d.member_id = :memberId
+                donation.id
+                    AS donation_id,
+
+                donation.donation_no
+                    AS donation_no,
+
+                donation_type.id
+                    AS donation_type_id,
+
+                donation_type.code
+                    AS donation_type_code,
+
+                donation_type.label_km
+                    AS donation_type_label_km,
+
+                donation_type.label_en
+                    AS donation_type_label_en,
+
+                sponsor.id
+                    AS sponsor_id,
+
+                sponsor.sponsor_type_id
+                    AS sponsor_type_id,
+
+                sponsor_type.code
+                    AS sponsor_type_code,
+
+                sponsor_type.label_km
+                    AS sponsor_type_label_km,
+
+                sponsor_type.label_en
+                    AS sponsor_type_label_en,
+
+                sponsor.name
+                    AS sponsor_name,
+
+                sponsor.phone
+                    AS sponsor_phone,
+
+                CAST(sponsor.email AS TEXT)
+                    AS sponsor_email,
+
+                donation.donor_name
+                    AS donor_name,
+
+                activity.id
+                    AS activity_id,
+
+                activity.title_km
+                    AS activity_title_km,
+
+                activity.title_en
+                    AS activity_title_en,
+
+                branch.id
+                    AS branch_id,
+
+                branch.name_km
+                    AS branch_name_km,
+
+                branch.name_en
+                    AS branch_name_en,
+
+                donation.donation_period
+                    AS donation_period,
+
+                donation.amount_khr
+                    AS amount_khr,
+
+                donation.amount_usd
+                    AS amount_usd,
+
+                donation.total_amount_usd
+                    AS total_amount_usd,
+
+                payment_method.id
+                    AS payment_method_id,
+
+                payment_method.code
+                    AS payment_method_code,
+
+                payment_method.label_km
+                    AS payment_method_label_km,
+
+                payment_method.label_en
+                    AS payment_method_label_en,
+
+                donation.paid_at
+                    AS paid_at,
+
+                donation.payment_reference
+                    AS payment_reference,
+
+                recorded_by.id
+                    AS recorded_by_id,
+
+                recorded_by.full_name_km
+                    AS recorded_by_full_name_km,
+
+                recorded_by.full_name_en
+                    AS recorded_by_full_name_en,
+
+                receipt.id
+                    AS receipt_id,
+
+                receipt.file_path
+                    AS receipt_url,
+
+                receipt.original_name
+                    AS receipt_original_name,
+
+                receipt.mime_type
+                    AS receipt_mime_type,
+
+                receipt.size_bytes
+                    AS receipt_size_bytes,
+
+                donation.note
+                    AS note
+
+            FROM donations donation
+
+            INNER JOIN donation_types donation_type
+                    ON donation_type.id =
+                       donation.donation_type_id
+
+            LEFT JOIN sponsors sponsor
+                   ON sponsor.id =
+                      donation.sponsor_id
+
+            LEFT JOIN sponsor_types sponsor_type
+                   ON sponsor_type.id =
+                      sponsor.sponsor_type_id
+
+            LEFT JOIN activities activity
+                   ON activity.id =
+                      donation.activity_id
+
+            INNER JOIN branches branch
+                    ON branch.id =
+                       donation.branch_id
+
+            INNER JOIN payment_methods payment_method
+                    ON payment_method.id =
+                       donation.payment_method_id
+
+            INNER JOIN users recorded_by
+                    ON recorded_by.id =
+                       donation.recorded_by
+
+            LEFT JOIN files receipt
+                   ON receipt.id =
+                      donation.receipt_file_id
+
+            WHERE donation.member_id =
+                  :memberId
+
+              AND donation_type.code =
+                  :donationTypeCode
             """;
 
+    /*
+     * ==========================================================
+     * MONTHLY DONATIONS
+     * ==========================================================
+     */
+
     @Override
-    public List<MyDonationResponse> getMyDonations() {
+    public List<MyDonationResponse> getMyMonthlyDonations() {
 
-        Long memberId = getCurrentMemberId();
+        Long memberId =
+                getCurrentMemberId();
 
-        String sql = BASE_DONATION_SQL + """
+        String sql = BASE_SQL + """
 
                 ORDER BY
-                    d.paid_at DESC,
-                    d.id DESC
+                    donation.paid_at DESC,
+                    donation.id DESC
                 """;
 
         return jdbcTemplate.query(
                 sql,
-                Map.of("memberId", memberId),
+                baseParameters(
+                        memberId,
+                        MONTHLY_DONATION
+                ),
                 this::mapDonation
         );
     }
 
     @Override
-    public List<MyDonationResponse> searchByDonationPeriod(
+    public List<MyDonationResponse> searchMyMonthlyDonations(
             String period
     ) {
-        String normalizedPeriod =
-                trimToNull(period);
 
-        if (normalizedPeriod == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Donation period is required"
-            );
-        }
-
-        final YearMonth yearMonth;
-
-        try {
-            yearMonth =
-                    YearMonth.parse(
-                            normalizedPeriod
-                    );
-
-        } catch (
-                DateTimeParseException exception
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    """
-                    Donation period must use yyyy-MM format,                     for example 2026-07
-                    """
-            );
-        }
+        YearMonth yearMonth =
+                parseYearMonth(
+                        period
+                );
 
         LocalDate startDate =
                 yearMonth.atDay(1);
@@ -116,22 +260,30 @@ public class MyDonationServiceImpl
         Long memberId =
                 getCurrentMemberId();
 
-        String sql = BASE_DONATION_SQL + """
+        String sql = BASE_SQL + """
 
-                AND d.donation_period
+                AND donation.donation_period
                     BETWEEN :startDate
                     AND :endDate
 
                 ORDER BY
-                    d.paid_at DESC,
-                    d.id DESC
+                    donation.paid_at DESC,
+                    donation.id DESC
                 """;
 
         MapSqlParameterSource parameters =
-                new MapSqlParameterSource()
-                        .addValue("memberId", memberId)
-                        .addValue("startDate", startDate)
-                        .addValue("endDate", endDate);
+                baseParameters(
+                        memberId,
+                        MONTHLY_DONATION
+                )
+                        .addValue(
+                                "startDate",
+                                startDate
+                        )
+                        .addValue(
+                                "endDate",
+                                endDate
+                        );
 
         return jdbcTemplate.query(
                 sql,
@@ -141,9 +293,11 @@ public class MyDonationServiceImpl
     }
 
     @Override
-    public List<MyDonationResponse> filterByPaymentMethod(
+    public List<MyDonationResponse>
+    filterMyMonthlyDonationsByPaymentMethod(
             Short paymentMethodId
     ) {
+
         validatePaymentMethodId(
                 paymentMethodId
         );
@@ -151,19 +305,21 @@ public class MyDonationServiceImpl
         Long memberId =
                 getCurrentMemberId();
 
-        String sql = BASE_DONATION_SQL + """
+        String sql = BASE_SQL + """
 
-                AND d.payment_method_id =
+                AND donation.payment_method_id =
                     :paymentMethodId
 
                 ORDER BY
-                    d.paid_at DESC,
-                    d.id DESC
+                    donation.paid_at DESC,
+                    donation.id DESC
                 """;
 
         MapSqlParameterSource parameters =
-                new MapSqlParameterSource()
-                        .addValue("memberId", memberId)
+                baseParameters(
+                        memberId,
+                        MONTHLY_DONATION
+                )
                         .addValue(
                                 "paymentMethodId",
                                 paymentMethodId
@@ -176,139 +332,178 @@ public class MyDonationServiceImpl
         );
     }
 
+    /*
+     * ==========================================================
+     * SPONSOR DONATIONS
+     * ==========================================================
+     */
+
     @Override
-    public MyDonationResponse getMyDonationById(
-            Long donationId
+    public List<MyDonationResponse> getMySponsorDonations() {
+
+        Long memberId =
+                getCurrentMemberId();
+
+        String sql = BASE_SQL + """
+
+                ORDER BY
+                    donation.paid_at DESC,
+                    donation.id DESC
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                baseParameters(
+                        memberId,
+                        SPONSOR_DONATION
+                ),
+                this::mapDonation
+        );
+    }
+
+    @Override
+    public List<MyDonationResponse> searchMySponsorDonations(
+            String search
     ) {
-        validateDonationId(donationId);
 
-        Long memberId = getCurrentMemberId();
+        String normalizedSearch =
+                trimToNull(
+                        search
+                );
 
-        String sql = BASE_DONATION_SQL + """
+        if (normalizedSearch == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Search value is required"
+            );
+        }
 
-                AND d.id = :donationId
+        Long memberId =
+                getCurrentMemberId();
+
+        String sql = BASE_SQL + """
+
+                AND (
+                    LOWER(
+                        COALESCE(
+                            donation.donation_no,
+                            ''
+                        )
+                    ) LIKE LOWER(
+                        CONCAT(
+                            '%',
+                            :search,
+                            '%'
+                        )
+                    )
+
+                    OR LOWER(
+                        COALESCE(
+                            donation.payment_reference,
+                            ''
+                        )
+                    ) LIKE LOWER(
+                        CONCAT(
+                            '%',
+                            :search,
+                            '%'
+                        )
+                    )
+
+                    OR LOWER(
+                        COALESCE(
+                            donation.note,
+                            ''
+                        )
+                    ) LIKE LOWER(
+                        CONCAT(
+                            '%',
+                            :search,
+                            '%'
+                        )
+                    )
+
+                    OR LOWER(
+                        COALESCE(
+                            sponsor.name,
+                            ''
+                        )
+                    ) LIKE LOWER(
+                        CONCAT(
+                            '%',
+                            :search,
+                            '%'
+                        )
+                    )
+                )
+
+                ORDER BY
+                    donation.paid_at DESC,
+                    donation.id DESC
                 """;
 
         MapSqlParameterSource parameters =
-                new MapSqlParameterSource()
-                        .addValue("memberId", memberId)
-                        .addValue("donationId", donationId);
+                baseParameters(
+                        memberId,
+                        SPONSOR_DONATION
+                )
+                        .addValue(
+                                "search",
+                                normalizedSearch
+                        );
 
-        List<MyDonationResponse> results =
-                jdbcTemplate.query(
-                        sql,
-                        parameters,
-                        this::mapDonation
-                );
-
-        if (results.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Donation was not found for the logged-in member"
-            );
-        }
-
-        return results.get(0);
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                this::mapDonation
+        );
     }
 
     @Override
-    public MyDonationSummaryResponse getMyDonationSummary() {
+    public List<MyDonationResponse>
+    filterMySponsorDonationsByPaymentMethod(
+            Short paymentMethodId
+    ) {
 
-        Long memberId = getCurrentMemberId();
+        validatePaymentMethodId(
+                paymentMethodId
+        );
 
-        String sql = """
-                SELECT
-                    COUNT(*) AS total_donation_records,
+        Long memberId =
+                getCurrentMemberId();
 
-                    COALESCE(
-                        SUM(d.amount_khr),
-                        0
-                    ) AS total_amount_khr,
+        String sql = BASE_SQL + """
 
-                    COALESCE(
-                        SUM(d.amount_usd),
-                        0
-                    ) AS total_amount_usd,
+                AND donation.payment_method_id =
+                    :paymentMethodId
 
-                    COALESCE(
-                        SUM(d.total_amount_usd),
-                        0
-                    ) AS overall_total_usd,
-
-                    COUNT(*) FILTER (
-                        WHERE dt.code = 'MONTHLY_DONATION'
-                    ) AS monthly_donation_records,
-
-                    COUNT(*) FILTER (
-                        WHERE dt.code = 'ACTIVITY_DONATION'
-                    ) AS activity_donation_records,
-
-                    COUNT(*) FILTER (
-                        WHERE dt.code = 'SPONSOR_DONATION'
-                    ) AS sponsor_donation_records,
-
-                    MAX(d.paid_at) AS latest_paid_at
-
-                FROM donations d
-
-                INNER JOIN donation_types dt
-                        ON dt.id = d.donation_type_id
-
-                WHERE d.member_id = :memberId
+                ORDER BY
+                    donation.paid_at DESC,
+                    donation.id DESC
                 """;
 
-        MyDonationSummaryResponse response =
-                jdbcTemplate.queryForObject(
-                        sql,
-                        Map.of("memberId", memberId),
-                        (resultSet, rowNumber) ->
-                                new MyDonationSummaryResponse(
-                                        resultSet.getLong(
-                                                "total_donation_records"
-                                        ),
-                                        getBigDecimalOrZero(
-                                                resultSet,
-                                                "total_amount_khr"
-                                        ),
-                                        getBigDecimalOrZero(
-                                                resultSet,
-                                                "total_amount_usd"
-                                        ),
-                                        getBigDecimalOrZero(
-                                                resultSet,
-                                                "overall_total_usd"
-                                        ),
-                                        resultSet.getLong(
-                                                "monthly_donation_records"
-                                        ),
-                                        resultSet.getLong(
-                                                "activity_donation_records"
-                                        ),
-                                        resultSet.getLong(
-                                                "sponsor_donation_records"
-                                        ),
-                                        resultSet.getObject(
-                                                "latest_paid_at",
-                                                OffsetDateTime.class
-                                        )
-                                )
-                );
+        MapSqlParameterSource parameters =
+                baseParameters(
+                        memberId,
+                        SPONSOR_DONATION
+                )
+                        .addValue(
+                                "paymentMethodId",
+                                paymentMethodId
+                        );
 
-        if (response == null) {
-            return new MyDonationSummaryResponse(
-                    0,
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    0,
-                    0,
-                    0,
-                    null
-            );
-        }
-
-        return response;
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                this::mapDonation
+        );
     }
+
+    /*
+     * ==========================================================
+     * RESPONSE MAPPING
+     * ==========================================================
+     */
 
     private MyDonationResponse mapDonation(
             ResultSet resultSet,
@@ -323,17 +518,32 @@ public class MyDonationServiceImpl
                 resultSet.getString(
                         "donation_no"
                 ),
-                getNullableShort(
-                        resultSet,
-                        "donation_type_id"
+                new MyDonationResponse.DonationTypeInfo(
+                        getNullableShort(
+                                resultSet,
+                                "donation_type_id"
+                        ),
+                        resultSet.getString(
+                                "donation_type_code"
+                        ),
+                        resultSet.getString(
+                                "donation_type_label_km"
+                        ),
+                        resultSet.getString(
+                                "donation_type_label_en"
+                        )
                 ),
-                getNullableLong(
-                        resultSet,
-                        "activity_id"
+                mapSponsor(
+                        resultSet
                 ),
-                getNullableLong(
-                        resultSet,
-                        "branch_id"
+                resultSet.getString(
+                        "donor_name"
+                ),
+                mapActivity(
+                        resultSet
+                ),
+                mapBranch(
+                        resultSet
                 ),
                 resultSet.getObject(
                         "donation_period",
@@ -351,27 +561,218 @@ public class MyDonationServiceImpl
                         resultSet,
                         "total_amount_usd"
                 ),
-                getNullableShort(
-                        resultSet,
-                        "payment_method_id"
+                mapPaymentMethod(
+                        resultSet
                 ),
                 resultSet.getObject(
                         "paid_at",
                         OffsetDateTime.class
-
                 ),
                 resultSet.getString(
                         "payment_reference"
                 ),
-                getNullableLong(
-                        resultSet,
-                        "receipt_file_id"
+                mapRecordedBy(
+                        resultSet
+                ),
+                mapReceipt(
+                        resultSet
                 ),
                 resultSet.getString(
                         "note"
                 )
         );
     }
+
+    private MyDonationResponse.SponsorInfo mapSponsor(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Long sponsorId =
+                getNullableLong(
+                        resultSet,
+                        "sponsor_id"
+                );
+
+        if (sponsorId == null) {
+            return null;
+        }
+
+        return new MyDonationResponse.SponsorInfo(
+                sponsorId,
+                getNullableShort(
+                        resultSet,
+                        "sponsor_type_id"
+                ),
+                resultSet.getString(
+                        "sponsor_type_code"
+                ),
+                resultSet.getString(
+                        "sponsor_type_label_km"
+                ),
+                resultSet.getString(
+                        "sponsor_type_label_en"
+                ),
+                resultSet.getString(
+                        "sponsor_name"
+                ),
+                resultSet.getString(
+                        "sponsor_phone"
+                ),
+                resultSet.getString(
+                        "sponsor_email"
+                )
+        );
+    }
+
+    private MyDonationResponse.ActivityInfo mapActivity(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Long activityId =
+                getNullableLong(
+                        resultSet,
+                        "activity_id"
+                );
+
+        if (activityId == null) {
+            return null;
+        }
+
+        return new MyDonationResponse.ActivityInfo(
+                activityId,
+                resultSet.getString(
+                        "activity_title_km"
+                ),
+                resultSet.getString(
+                        "activity_title_en"
+                )
+        );
+    }
+
+    private MyDonationResponse.BranchInfo mapBranch(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Long branchId =
+                getNullableLong(
+                        resultSet,
+                        "branch_id"
+                );
+
+        if (branchId == null) {
+            return null;
+        }
+
+        return new MyDonationResponse.BranchInfo(
+                branchId,
+                resultSet.getString(
+                        "branch_name_km"
+                ),
+                resultSet.getString(
+                        "branch_name_en"
+                )
+        );
+    }
+
+    private MyDonationResponse.PaymentMethodInfo mapPaymentMethod(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Short paymentMethodId =
+                getNullableShort(
+                        resultSet,
+                        "payment_method_id"
+                );
+
+        if (paymentMethodId == null) {
+            return null;
+        }
+
+        return new MyDonationResponse.PaymentMethodInfo(
+                paymentMethodId,
+                resultSet.getString(
+                        "payment_method_code"
+                ),
+                resultSet.getString(
+                        "payment_method_label_km"
+                ),
+                resultSet.getString(
+                        "payment_method_label_en"
+                )
+        );
+    }
+
+    private MyDonationResponse.RecordedByInfo mapRecordedBy(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Long recordedById =
+                getNullableLong(
+                        resultSet,
+                        "recorded_by_id"
+                );
+
+        if (recordedById == null) {
+            return null;
+        }
+
+        return new MyDonationResponse.RecordedByInfo(
+                recordedById,
+                resultSet.getString(
+                        "recorded_by_full_name_km"
+                ),
+                resultSet.getString(
+                        "recorded_by_full_name_en"
+                )
+        );
+    }
+
+    private MyDonationResponse.ReceiptInfo mapReceipt(
+            ResultSet resultSet
+    ) throws SQLException {
+
+        Long receiptId =
+                getNullableLong(
+                        resultSet,
+                        "receipt_id"
+                );
+
+        if (receiptId == null) {
+            return null;
+        }
+
+        Long sizeBytes =
+                getNullableLong(
+                        resultSet,
+                        "receipt_size_bytes"
+                );
+
+        return new MyDonationResponse.ReceiptInfo(
+                receiptId,
+                resultSet.getString(
+                        "receipt_url"
+                ),
+                resultSet.getString(
+                        "receipt_original_name"
+                ),
+                resultSet.getString(
+                        "receipt_mime_type"
+                ),
+                sizeBytes,
+                calculateSizeKb(
+                        sizeBytes
+                ),
+                calculateSizeMb(
+                        sizeBytes
+                )
+        );
+    }
+
+    /*
+     * ==========================================================
+     * CURRENT MEMBER
+     * ==========================================================
+     */
 
     private Long getCurrentMemberId() {
 
@@ -399,7 +800,8 @@ public class MyDonationServiceImpl
                                 )
                         );
 
-        Long memberId = currentUser.getMemberId();
+        Long memberId =
+                currentUser.getMemberId();
 
         if (memberId == null) {
             throw new ResponseStatusException(
@@ -408,7 +810,9 @@ public class MyDonationServiceImpl
             );
         }
 
-        if (!memberRepository.existsById(memberId)) {
+        if (!memberRepository.existsById(
+                memberId
+        )) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "The member profile linked to this account was not found"
@@ -418,9 +822,63 @@ public class MyDonationServiceImpl
         return memberId;
     }
 
+    /*
+     * ==========================================================
+     * VALIDATION AND HELPERS
+     * ==========================================================
+     */
+
+    private MapSqlParameterSource baseParameters(
+            Long memberId,
+            String donationTypeCode
+    ) {
+
+        return new MapSqlParameterSource()
+                .addValue(
+                        "memberId",
+                        memberId
+                )
+                .addValue(
+                        "donationTypeCode",
+                        donationTypeCode
+                );
+    }
+
+    private YearMonth parseYearMonth(
+            String period
+    ) {
+
+        String normalizedPeriod =
+                trimToNull(
+                        period
+                );
+
+        if (normalizedPeriod == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period is required"
+            );
+        }
+
+        try {
+            return YearMonth.parse(
+                    normalizedPeriod
+            );
+
+        } catch (
+                DateTimeParseException exception
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period must use yyyy-MM format, for example 2026-07"
+            );
+        }
+    }
+
     private void validatePaymentMethodId(
             Short paymentMethodId
     ) {
+
         if (paymentMethodId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -436,10 +894,11 @@ public class MyDonationServiceImpl
                         WHERE id = :paymentMethodId
                           AND is_active = TRUE
                         """,
-                        Map.of(
-                                "paymentMethodId",
-                                paymentMethodId
-                        ),
+                        new MapSqlParameterSource()
+                                .addValue(
+                                        "paymentMethodId",
+                                        paymentMethodId
+                                ),
                         Long.class
                 );
 
@@ -455,6 +914,7 @@ public class MyDonationServiceImpl
     private String trimToNull(
             String value
     ) {
+
         if (value == null) {
             return null;
         }
@@ -465,24 +925,6 @@ public class MyDonationServiceImpl
         return trimmed.isEmpty()
                 ? null
                 : trimmed;
-    }
-
-    private void validateDonationId(
-            Long donationId
-    ) {
-        if (donationId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Donation ID is required"
-            );
-        }
-
-        if (donationId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Donation ID must be greater than zero"
-            );
-        }
     }
 
     private Long getNullableLong(
@@ -528,5 +970,40 @@ public class MyDonationServiceImpl
         return value == null
                 ? BigDecimal.ZERO
                 : value;
+    }
+
+    private Double calculateSizeKb(
+            Long sizeBytes
+    ) {
+
+        if (sizeBytes == null) {
+            return null;
+        }
+
+        return roundToTwoDecimals(
+                sizeBytes / 1024.0
+        );
+    }
+
+    private Double calculateSizeMb(
+            Long sizeBytes
+    ) {
+
+        if (sizeBytes == null) {
+            return null;
+        }
+
+        return roundToTwoDecimals(
+                sizeBytes / (1024.0 * 1024.0)
+        );
+    }
+
+    private Double roundToTwoDecimals(
+            double value
+    ) {
+
+        return Math.round(
+                value * 100.0
+        ) / 100.0;
     }
 }
