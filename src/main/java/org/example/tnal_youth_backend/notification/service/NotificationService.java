@@ -36,7 +36,7 @@ public class NotificationService {
      * authenticated principal. The row is immutable via the API (no update/delete
      * endpoint), so created_by is a sufficient trail.
      *
-     * <p><b>Idempotency (V21):</b> if the caller supplies {@code clientRequestId},
+     * <p><b>Idempotency (V22):</b> if the caller supplies {@code clientRequestId},
      * a repeated create from the same actor returns the original notification
      * instead of fanning out again. Sequential retries (the common double-submit
      * case) are collapsed by the pre-check below. Truly concurrent duplicates are

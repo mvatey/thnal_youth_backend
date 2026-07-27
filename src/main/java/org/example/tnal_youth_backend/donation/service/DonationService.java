@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.donation.dto.DonationUpdateDTO;
 import org.example.tnal_youth_backend.donation.model.DonationModel;
 import org.example.tnal_youth_backend.donation.repo.DonationRepo;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,14 @@ import java.util.List;
  * traceable {@code errorCode}), and {@link SecurityUtils#getCurrentUserId()} for
  * sender/recorder attribution.
  *
+ * <p><b>Object-level authorization (branch scoping).</b> Endpoint access is gated
+ * at the controller by {@code @PreAuthorize} (STAFF for CRUD, ADMIN for delete),
+ * but STAFF is not a single blast radius: a {@code BRANCH_LEADER} may only see and
+ * touch donations for THEIR OWN branch (users.branch_id, V14). {@code ADMIN} and
+ * {@code SECRETARY} are org-wide. This is enforced here, not in the controller,
+ * because it is a row-level rule the annotation cannot express. A branch leader
+ * with no branch assigned fails closed (403).
+ *
  * <p><b>Trust boundary.</b> The DTO bean-validation only covers shape/range.
  * The cross-field invariants the schema models as CHECK constraints
  * ({@code chk_donation_source}, {@code chk_donation_amounts},
@@ -44,7 +53,8 @@ import java.util.List;
  * read from the client:
  * {@code totalUsd = amountUsd + (amountKhr / exchangeRateKhrPerUsd)}, rounded to
  * 2 dp (HALF_UP) to fit NUMERIC(14,2). When there is no KHR component the rate is
- * not required and the total is just the USD amount.
+ * not required, is normalised to NULL (so a meaningless rate is never stored),
+ * and the total is just the USD amount.
  *
  * <p><b>Idempotency (V23).</b> If the caller supplies {@code clientRequestId}, a
  * sequential replay from the same recorder returns the original donation instead
@@ -65,6 +75,9 @@ public class DonationService {
     private static final String TYPE_ACTIVITY_DONATION = "ACTIVITY_DONATION";
     private static final String TYPE_MONTHLY_DONATION = "MONTHLY_DONATION";
 
+    /** Role confined to a single branch. ADMIN / SECRETARY are org-wide. */
+    private static final String ROLE_BRANCH_LEADER = "BRANCH_LEADER";
+
     private final DonationRepo repo;
     private final Clock clock; // utcClock bean from TimeConfig
 
@@ -75,9 +88,19 @@ public class DonationService {
     @Transactional
     public DonationCreateResultDTO create(DonationCreateDTO req) {
         Long actorId = SecurityUtils.getCurrentUserId();
+
+        // ---- object-level authz: a branch leader can only record for their branch ----
+        Long scopeBranchId = scopedBranchIdOrNull(actorId);
+        if (scopeBranchId != null && !scopeBranchId.equals(req.getBranchId())) {
+            throw new AccessDeniedException(
+                    "You may only record donations for your own branch");
+        }
+
         String clientRequestId = normalizeToNull(req.getClientRequestId());
 
         // ---- idempotency short-circuit (already-committed replay) ----
+        // Scoped to recorded_by = actorId, so a replay can only ever return the
+        // caller's own prior donation.
         if (clientRequestId != null) {
             Long existing = repo.findIdByRecorderAndClientRequestId(actorId, clientRequestId);
             if (existing != null) {
@@ -102,7 +125,7 @@ public class DonationService {
                 .donationPeriod(req.getDonationPeriod())
                 .amountKhr(p.amountKhr())
                 .amountUsd(p.amountUsd())
-                .exchangeRateKhrPerUsd(req.getExchangeRateKhrPerUsd())
+                .exchangeRateKhrPerUsd(p.exchangeRate())
                 .totalAmountUsd(p.totalAmountUsd())
                 .paymentMethodId(req.getPaymentMethodId())
                 .paidAt(req.getPaidAt())
@@ -132,6 +155,11 @@ public class DonationService {
         if (dto == null) {
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
         }
+        // Object-level authz: a branch leader may only read donations for their branch.
+        Long scopeBranchId = scopedBranchIdOrNull(SecurityUtils.getCurrentUserId());
+        if (scopeBranchId != null && !scopeBranchId.equals(dto.getBranchId())) {
+            throw new AccessDeniedException("This donation belongs to another branch");
+        }
         return dto;
     }
 
@@ -142,13 +170,14 @@ public class DonationService {
                                 int page, int size) {
         int safeSize = Math.clamp(size, 1, 100);
         int safePage = Math.max(page, 0);
-        String safeSearch = normalizeToNull(search);
+        String safeSearch = normalizeSearch(search);
+        Long effectiveBranchId = effectiveBranchFilter(branchId);
 
         List<DonationDTO> items = repo.list(
-                branchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
+                effectiveBranchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
                 paidFrom, paidTo, safeSearch, safeSize, safePage * safeSize);
         long total = repo.countList(
-                branchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
+                effectiveBranchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
                 paidFrom, paidTo, safeSearch);
 
         return new DonationPageDTO(items, total, safePage, safeSize);
@@ -159,8 +188,8 @@ public class DonationService {
                                       Long memberId, Long sponsorId, Long activityId,
                                       OffsetDateTime paidFrom, OffsetDateTime paidTo, String search) {
         return repo.summary(
-                branchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
-                paidFrom, paidTo, normalizeToNull(search));
+                effectiveBranchFilter(branchId), typeId, paymentMethodId, memberId, sponsorId, activityId,
+                paidFrom, paidTo, normalizeSearch(search));
     }
 
     // ===================================================================
@@ -169,9 +198,20 @@ public class DonationService {
 
     @Transactional
     public DonationDTO update(Long id, DonationUpdateDTO req) {
+        Long actorId = SecurityUtils.getCurrentUserId();
+
         // Fail fast with a clean 404-style code instead of a silent 0-row update.
-        if (repo.findById(id) == null) {
+        DonationDTO current = repo.findById(id);
+        if (current == null) {
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
+        }
+
+        // Object-level authz: a branch leader may only edit donations in their own
+        // branch AND may not move one out of (or into) their branch.
+        Long scopeBranchId = scopedBranchIdOrNull(actorId);
+        if (scopeBranchId != null
+                && (!scopeBranchId.equals(current.getBranchId()) || !scopeBranchId.equals(req.getBranchId()))) {
+            throw new AccessDeniedException("You may only edit donations for your own branch");
         }
 
         Prepared p = validateAndPrepare(
@@ -193,18 +233,26 @@ public class DonationService {
                 .donationPeriod(req.getDonationPeriod())
                 .amountKhr(p.amountKhr())
                 .amountUsd(p.amountUsd())
-                .exchangeRateKhrPerUsd(req.getExchangeRateKhrPerUsd())
+                .exchangeRateKhrPerUsd(p.exchangeRate())
                 .totalAmountUsd(p.totalAmountUsd())
                 .paymentMethodId(req.getPaymentMethodId())
                 .paidAt(req.getPaidAt())
                 .paymentReference(normalizeToNull(req.getPaymentReference()))
                 .receiptFileId(req.getReceiptFileId())
                 .note(normalizeToNull(req.getNote()))
+                .updatedBy(actorId)
+                .expectedUpdatedAt(req.getExpectedUpdatedAt())
                 .build();
 
         int rows = repo.updateDonation(d);
         if (rows == 0) {
-            // Lost a race with a concurrent delete between the existence check and here.
+            // Either the row vanished (concurrent delete) or, when the caller sent an
+            // optimistic-lock token, it no longer matches (concurrent edit). Tell the
+            // two cases apart so the client knows whether to reload or give up.
+            if (req.getExpectedUpdatedAt() != null && repo.findById(id) != null) {
+                throw new BusinessException("DONATION_UPDATE_CONFLICT",
+                        "Donation " + id + " was modified by someone else; reload and retry");
+            }
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
         }
         return repo.findById(id);
@@ -226,13 +274,15 @@ public class DonationService {
     private record Prepared(String donorName,
                             BigDecimal amountKhr,
                             BigDecimal amountUsd,
+                            BigDecimal exchangeRate,
                             BigDecimal totalAmountUsd) {
     }
 
     /**
      * Re-validates every cross-field / referential rule and returns the
-     * normalised amounts + the server-computed USD total. Throws
-     * {@link BusinessException} with a stable code on the first violation.
+     * normalised amounts, the (normalised) exchange rate and the server-computed
+     * USD total. Throws {@link BusinessException} with a stable code on the first
+     * violation.
      */
     private Prepared validateAndPrepare(Short donationTypeId, Long memberId, Long sponsorId, String donorNameRaw,
                                         Long activityId, Long branchId, LocalDate donationPeriod,
@@ -317,8 +367,12 @@ public class DonationService {
                     "donationPeriod is required for MONTHLY_DONATION");
         }
 
+        // Normalise the rate: it is only meaningful when there is a KHR component.
+        // Persisting a rate with a zero-KHR donation would store a misleading number.
+        BigDecimal rateOut = amountKhr.signum() > 0 ? rate : null;
+
         BigDecimal totalUsd = computeTotalUsd(amountKhr, amountUsd, rate);
-        return new Prepared(donorName, amountKhr, amountUsd, totalUsd);
+        return new Prepared(donorName, amountKhr, amountUsd, rateOut, totalUsd);
     }
 
     /**
@@ -354,7 +408,50 @@ public class DonationService {
         return new DonationCreateResultDTO(d.getId(), d.getDonationNo(), d.getTotalAmountUsd(), d.getCreatedAt());
     }
 
+    /**
+     * The branch this actor is confined to, or {@code null} for org-wide roles
+     * (ADMIN / SECRETARY, or any non-branch-leader). A BRANCH_LEADER with no branch
+     * assigned fails closed with 403 — we will not silently widen their scope.
+     */
+    private Long scopedBranchIdOrNull(Long actorId) {
+        if (!ROLE_BRANCH_LEADER.equals(SecurityUtils.getCurrentUserRole())) {
+            return null; // org-wide
+        }
+        Long branchId = repo.findBranchIdByUserId(actorId);
+        if (branchId == null) {
+            throw new AccessDeniedException(
+                    "Your account is a branch leader but is not assigned to a branch");
+        }
+        return branchId;
+    }
+
+    /**
+     * The branch filter to apply to a list/summary query: a branch leader is
+     * force-narrowed to their own branch regardless of the requested filter;
+     * everyone else gets the filter they asked for (possibly null = all branches).
+     */
+    private Long effectiveBranchFilter(Long requestedBranchId) {
+        Long scope = scopedBranchIdOrNull(SecurityUtils.getCurrentUserId());
+        return scope != null ? scope : requestedBranchId;
+    }
+
     private static String normalizeToNull(String s) {
         return (s == null || s.isBlank()) ? null : s.strip();
+    }
+
+    /**
+     * Normalise a free-text search term and escape LIKE/ILIKE metacharacters so
+     * user input is matched literally. PostgreSQL uses backslash as the default
+     * LIKE escape character, so escaping {@code \ % _} here is sufficient without
+     * an explicit ESCAPE clause. Blank → null (no filter).
+     */
+    private static String normalizeSearch(String s) {
+        String v = normalizeToNull(s);
+        if (v == null) {
+            return null;
+        }
+        return v.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }

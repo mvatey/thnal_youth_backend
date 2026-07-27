@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.donation.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -53,6 +54,7 @@ public class DonationUpdateDTO {
     private Short paymentMethodId;
 
     @NotNull
+    @PastOrPresent(message = "paidAt cannot be in the future")
     private OffsetDateTime paidAt;
 
     @Size(max = 100, message = "paymentReference must be 100 characters or fewer")
@@ -62,4 +64,14 @@ public class DonationUpdateDTO {
 
     @Size(max = 4000, message = "note must be 4000 characters or fewer")
     private String note;
+
+    /**
+     * OPTIONAL optimistic-lock guard. Send back the {@code updatedAt} you read on
+     * the donation you are editing; the update then only succeeds if the row has
+     * not changed since, otherwise the service returns
+     * {@code DONATION_UPDATE_CONFLICT} (400) instead of silently overwriting a
+     * concurrent edit. Omit it to keep the previous last-writer-wins behaviour
+     * (backward compatible).
+     */
+    private OffsetDateTime expectedUpdatedAt;
 }

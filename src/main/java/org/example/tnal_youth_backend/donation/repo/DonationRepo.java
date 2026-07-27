@@ -15,9 +15,10 @@ import java.util.List;
 
 /**
  * All SQL is written against the committed schema (V8 donations, V13 lookups,
- * V14 users.full_name_km, V23 donation_no_seq + client_request_id). Every column
- * is aliased explicitly because map-underscore-to-camel-case is NOT configured
- * for MyBatis in this project (see the note in {@code NotificationRepo}).
+ * V14 users.full_name_km + users.branch_id, V23 donation_no_seq +
+ * client_request_id, V24 donations.updated_by). Every column is aliased
+ * explicitly because map-underscore-to-camel-case is NOT configured for MyBatis
+ * in this project (see the note in {@code NotificationRepo}).
  *
  * <p>The enriched SELECT block (columns + joins) is duplicated across findById /
  * list because MyBatis annotation mappers cannot share a &lt;sql&gt; fragment;
@@ -84,6 +85,21 @@ public interface DonationRepo {
         """)
     int countFile(@Param("fileId") Long fileId);
 
+    // ===================== authorization scoping =====================
+
+    /**
+     * The branch a user is bound to (users.branch_id, added in V14), or
+     * {@code null} if unset. Used to confine a BRANCH_LEADER's donation
+     * reads/writes to their own branch. ADMIN / SECRETARY are org-wide and never
+     * call this.
+     */
+    @Select("""
+        SELECT branch_id
+        FROM users
+        WHERE id = #{userId}
+        """)
+    Long findBranchIdByUserId(@Param("userId") Long userId);
+
     // ===================== number + idempotency =====================
 
     /** Atomic; the service formats the value into DON-{yyyyMMdd}-{seq}. */
@@ -127,30 +143,39 @@ public interface DonationRepo {
 
     /**
      * Full-replace update. donation_no / recorded_by / client_request_id are
-     * intentionally NOT updatable. Returns the number of rows affected (0 => the
-     * id does not exist).
+     * intentionally NOT updatable. Records the editor in updated_by (V24).
+     *
+     * <p>OPTIMISTIC LOCK: when {@code expectedUpdatedAt} is supplied the WHERE
+     * clause additionally requires the row's current {@code updated_at} to match,
+     * so a stale edit affects 0 rows and the service can distinguish a conflict
+     * from a not-found. When it is null the guard is skipped (last-writer-wins,
+     * as before). Returns the number of rows affected.
      */
-    @Update("""
-        UPDATE donations
-        SET donation_type_id          = #{donationTypeId},
-            member_id                 = #{memberId},
-            sponsor_id                = #{sponsorId},
-            donor_name                = #{donorName},
-            activity_id               = #{activityId},
-            branch_id                 = #{branchId},
-            donation_period           = #{donationPeriod},
-            amount_khr                = #{amountKhr},
-            amount_usd                = #{amountUsd},
-            exchange_rate_khr_per_usd = #{exchangeRateKhrPerUsd},
-            total_amount_usd          = #{totalAmountUsd},
-            payment_method_id         = #{paymentMethodId},
-            paid_at                   = #{paidAt},
-            payment_reference         = #{paymentReference},
-            receipt_file_id           = #{receiptFileId},
-            note                      = #{note},
-            updated_at                = NOW()
-        WHERE id = #{id}
-        """)
+    @Update({
+            "<script>",
+            "UPDATE donations",
+            "SET donation_type_id          = #{donationTypeId},",
+            "    member_id                 = #{memberId},",
+            "    sponsor_id                = #{sponsorId},",
+            "    donor_name                = #{donorName},",
+            "    activity_id               = #{activityId},",
+            "    branch_id                 = #{branchId},",
+            "    donation_period           = #{donationPeriod},",
+            "    amount_khr                = #{amountKhr},",
+            "    amount_usd                = #{amountUsd},",
+            "    exchange_rate_khr_per_usd = #{exchangeRateKhrPerUsd},",
+            "    total_amount_usd          = #{totalAmountUsd},",
+            "    payment_method_id         = #{paymentMethodId},",
+            "    paid_at                   = #{paidAt},",
+            "    payment_reference         = #{paymentReference},",
+            "    receipt_file_id           = #{receiptFileId},",
+            "    note                      = #{note},",
+            "    updated_by                = #{updatedBy},",
+            "    updated_at                = NOW()",
+            "WHERE id = #{id}",
+            "<if test='expectedUpdatedAt != null'> AND updated_at = #{expectedUpdatedAt} </if>",
+            "</script>"
+    })
     int updateDonation(DonationModel d);
 
     @org.apache.ibatis.annotations.Delete("""
@@ -193,6 +218,8 @@ public interface DonationRepo {
             n.receipt_file_id            AS receiptFileId,
             n.recorded_by                AS recordedBy,
             ru.full_name_km              AS recordedByName,
+            n.updated_by                 AS updatedBy,
+            ub.full_name_km              AS updatedByName,
             n.note                       AS note,
             n.created_at                 AS createdAt,
             n.updated_at                 AS updatedAt
@@ -204,6 +231,7 @@ public interface DonationRepo {
         LEFT JOIN sponsors   s  ON s.id  = n.sponsor_id
         LEFT JOIN activities a  ON a.id  = n.activity_id
         LEFT JOIN users      ru ON ru.id = n.recorded_by
+        LEFT JOIN users      ub ON ub.id = n.updated_by
         WHERE n.id = #{id}
         """)
     DonationDTO findById(@Param("id") Long id);
@@ -241,6 +269,8 @@ public interface DonationRepo {
             "    n.receipt_file_id            AS receiptFileId,",
             "    n.recorded_by                AS recordedBy,",
             "    ru.full_name_km              AS recordedByName,",
+            "    n.updated_by                 AS updatedBy,",
+            "    ub.full_name_km              AS updatedByName,",
             "    n.note                       AS note,",
             "    n.created_at                 AS createdAt,",
             "    n.updated_at                 AS updatedAt",
@@ -252,6 +282,7 @@ public interface DonationRepo {
             "LEFT JOIN sponsors   s  ON s.id  = n.sponsor_id",
             "LEFT JOIN activities a  ON a.id  = n.activity_id",
             "LEFT JOIN users      ru ON ru.id = n.recorded_by",
+            "LEFT JOIN users      ub ON ub.id = n.updated_by",
             "<where>",
             "  <if test='branchId != null'>        AND n.branch_id = #{branchId}        </if>",
             "  <if test='donationTypeId != null'>  AND n.donation_type_id = #{donationTypeId} </if>",

@@ -61,7 +61,7 @@ compile. That gap is now filled.
 - **Time**: inject the `Clock` bean from `config.TimeConfig` (`utcClock`,
   `Clock.system(UTC)`). Do not call `Instant.now()`/`LocalDate.now()` unbound —
   makes tests deterministic.
-- **Idempotency pattern** (see V21 notifications, V22/V23 donations): optional
+- **Idempotency pattern** (see V22 notifications, V23 donations): optional
   client UUID, pre-check `findIdBy...ClientRequestId`, partial unique index
   catches concurrent dupes → `DATA_INTEGRITY_VIOLATION`.
 - **Blank→null normalisation** before persisting so `BTRIM(...) <> ''` CHECKs are
@@ -75,9 +75,14 @@ compile. That gap is now filled.
 
 **Base path:** `/api/donations`  ·  Controller: `donation/controller/DonationController.java`
 
-**Authz (method-level `@PreAuthorize`):**
+**Authz (method-level `@PreAuthorize` + service-level row scoping):**
 - create / get / list / summary / update → **STAFF** = `hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')`.
-- delete → **ADMIN only** (a booked donation is not casually removable).
+- delete → **ADMIN only**.
+- **Object-level (branch) scoping, enforced in `DonationService` (not the annotation):**
+  a `BRANCH_LEADER` is confined to their own branch (`users.branch_id`, V14) for
+  create/get/update, and list/summary are force-narrowed to it. Cross-branch →
+  `AccessDeniedException` → **403 FORBIDDEN**. `ADMIN`/`SECRETARY` are org-wide.
+  A branch leader with no `branch_id` **fails closed** (403).
 
 **Money rule (server-authoritative, never trust client `totalAmountUsd`):**
 ```
@@ -86,6 +91,12 @@ totalUsd = amountUsd + (amountKhr / exchangeRateKhrPerUsd)
 KHR→USD carried at 6 dp, final result HALF_UP to 2 dp.
 Pinned example (in `http/donations.http` #3): `25.00 + 100000/4100 → 49.39`.
 Exchange rate is required **iff** `amountKhr > 0`.
+
+**Exchange rate normalisation:** the rate is persisted only when `amountKhr > 0`;
+a rate sent with a zero-KHR donation is stored as `NULL`.
+
+**`paidAt` bound:** `@PastOrPresent` — future timestamps are rejected; backdating
+is allowed.
 
 **Donor source:** EXACTLY one of `memberId` / `sponsorId` / `donorName`
 (DB `chk_donation_source`; pre-validated in service).
@@ -100,6 +111,13 @@ Exchange rate is required **iff** `amountKhr > 0`.
 **Idempotency:** optional `clientRequestId` (UUID). Sequential replay from the
 same recorder returns the original; concurrent dupes blocked by
 `uq_donations_recorder_client_request` (partial, `WHERE client_request_id IS NOT NULL`).
+
+**Editing & concurrency:**
+- **Audit:** `donations.updated_by` (V24) records the last editor; set on every
+  `PUT`, exposed as `updatedBy`/`updatedByName` on reads. NULL until first edit.
+- **Optimistic locking (optional):** send `expectedUpdatedAt` (the `updatedAt`
+  you read) on update; a stale token yields `DONATION_UPDATE_CONFLICT` instead of
+  a silent overwrite. Omit it → last-writer-wins (backward compatible).
 
 **Validation order in `DonationService` (matters for tests):** donor source →
 **amounts** → exchange rate → lookups (type, payment method, branch) →
@@ -126,6 +144,7 @@ valid amount to reach the code it asserts.
 | `DONATION_ACTIVITY_REQUIRED` | ACTIVITY_DONATION without activityId |
 | `DONATION_PERIOD_REQUIRED` | MONTHLY_DONATION without donationPeriod |
 | `DONATION_NOT_FOUND` | get/update/delete on missing id |
+| `DONATION_UPDATE_CONFLICT` | optimistic-lock mismatch: `expectedUpdatedAt` didn't match current row |
 | `DONATION_INSERT_FAILED` | insert returned no generated key |
 
 **Seed reference (V13):** donation_types `MONTHLY_DONATION`(1),
@@ -133,8 +152,8 @@ valid amount to reach the code it asserts.
 `CASH`(1),`ABA`(2),`ACLEDA`(3),`WING`(4),`TRUEMONEY`(5),`OTHER`(6).
 
 **Schema of record:** `V8__create_donation_tables.sql` (table + CHECKs + indexes),
-`V23__donation_support.sql` (`donation_no_seq` + `client_request_id` + partial unique index).
-**V1–V22 are immutable once applied** — never edit an old migration; add a new one.
+`V23__donation_support.sql` (`donation_no_seq` + `client_request_id` + partial unique index),
+`V24__donation_audit.sql` (`updated_by` column + FK + index). **V1–V23 immutable.**
 
 ---
 
@@ -144,7 +163,7 @@ valid amount to reach the code it asserts.
 
 | Class | Count | Scope |
 |---|---|---|
-| `DonationServiceTest` | **24/24** | mock `DonationRepo` + fixed `Clock` + `mockStatic(SecurityUtils)`. Money math (49.39/10.00/9.76), every error code, idempotency, not-found, pagination clamping. No DB. |
+| `DonationServiceTest` | **34/34** | mock `DonationRepo` + fixed `Clock` + `mockStatic(SecurityUtils)` (`getCurrentUserRole` stubbed for branch-leader cases). Money math (49.39/10.00/9.76), every error code, idempotency, not-found, edit-conflict, branch scoping, pagination clamping. No DB. |
 | `DonationControllerSecurityTest` | **18/18** | `@WebMvcTest`, JWT filter excluded, `AuthenticatedSecurityConfig` mirrors prod `anyRequest().authenticated()` + `@EnableMethodSecurity`. STAFF vs MEMBER vs anonymous; delete is ADMIN-only (SECRETARY/BRANCH_LEADER 403). No DB. |
 | `DonationControllerTest` | **16/16** | `@WebMvcTest`, permit-all chain. `ApiResponse` envelope, `totalAmountUsd` echo, `@NotNull`/UUID/`@DecimalMin` validation 400s, `BusinessException`→errorCode, param binding + defaults. No DB. |
 

@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * All SQL is written against the committed schema (V11 notifications /
  * notification_recipients, V6 activity_participants, V7 member_statuses,
- * V14 users.status, V21 notifications.client_request_id). Columns are aliased
+ * V14 users.status, V22 notifications.client_request_id). Columns are aliased
  * explicitly because map-underscore-to-camel-case is NOT configured for MyBatis
  * in this project.
  */
@@ -36,7 +36,7 @@ public interface NotificationRepo {
     /**
      * Returns the id of a prior notification created by the same actor with the
      * same idempotency key, or {@code null}. Backed by the partial unique index
-     * uq_notifications_creator_client_request (V21).
+     * uq_notifications_creator_client_request (V22).
      */
     @Select("""
         SELECT id

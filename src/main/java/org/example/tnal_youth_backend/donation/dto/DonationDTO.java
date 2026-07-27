@@ -11,7 +11,8 @@ import java.time.OffsetDateTime;
 
 /**
  * Enriched read row for a donation: raw columns plus resolved labels from the
- * lookup / reference tables (type, payment method, branch, donor, recorder).
+ * lookup / reference tables (type, payment method, branch, donor, recorder,
+ * last editor).
  *
  * <p>{@code donorDisplay} is a convenience the DB computes as
  * {@code COALESCE(member.full_name_km, sponsor.name, donor_name)} so the UI has a
@@ -65,6 +66,10 @@ public class DonationDTO {
 
     private Long recordedBy;
     private String recordedByName;
+
+    /** Who last edited this donation (V24). Null when it has never been updated. */
+    private Long updatedBy;
+    private String updatedByName;
 
     private String note;
 

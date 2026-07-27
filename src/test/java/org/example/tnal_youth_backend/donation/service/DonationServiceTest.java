@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -46,23 +47,28 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit test for {@link DonationService}. The repo and {@link Clock} are mocked;
- * {@link SecurityUtils#getCurrentUserId()} is stubbed via a {@code MockedStatic}
- * so no Spring context / SecurityContext is needed.
+ * {@link SecurityUtils#getCurrentUserId()} / {@code getCurrentUserRole()} are
+ * stubbed via a {@code MockedStatic} so no Spring context / SecurityContext is
+ * needed.
  *
  * <p>Coverage focus (the parts a reader can't eyeball for correctness):
  * <ul>
  *   <li>server-side USD total math (the {@code 49.39} the .http suite pins),</li>
+ *   <li>exchange-rate normalisation (dropped when there is no KHR component),</li>
  *   <li>every cross-field rule -&gt; its stable {@link BusinessException} code,</li>
  *   <li>type-specific required fields (ACTIVITY / MONTHLY),</li>
  *   <li>referential checks,</li>
  *   <li>idempotent replay short-circuit,</li>
  *   <li>donation number format,</li>
- *   <li>not-found paths on get / update / delete,</li>
+ *   <li>not-found / edit-conflict paths on get / update / delete,</li>
+ *   <li>branch-leader object-level scoping (create / get / update / list),</li>
  *   <li>list pagination clamping.</li>
  * </ul>
  *
  * <p>{@code Strictness.LENIENT} is used because the "all lookups valid" helper
- * stubs more than any single failure-path test consumes.
+ * stubs more than any single failure-path test consumes. By default
+ * {@code getCurrentUserRole()} is left UNSTUBBED (returns null) so the org-wide
+ * (ADMIN/SECRETARY) path is exercised; the branch-leader tests stub it.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -84,6 +90,7 @@ class DonationServiceTest {
         service = new DonationService(repo, FIXED_CLOCK);
         securityUtils = org.mockito.Mockito.mockStatic(SecurityUtils.class);
         securityUtils.when(SecurityUtils::getCurrentUserId).thenReturn(ACTOR_ID);
+        // getCurrentUserRole() intentionally left unstubbed -> null -> org-wide.
     }
 
     @AfterEach
@@ -149,6 +156,26 @@ class DonationServiceTest {
 
         // 40000 / 4100 = 9.7560... -> 9.76
         assertEquals(0, new BigDecimal("9.76").compareTo(res.getTotalAmountUsd()));
+    }
+
+    @Test
+    void create_zeroKhr_withStrayRate_dropsRate() {
+        // A rate sent with a zero-KHR donation is meaningless; the service must not
+        // persist it (avoids a misleading number on the record).
+        stubValidLookups("SPONSOR_DONATION");
+        when(repo.nextDonationNoSeq()).thenReturn(7L);
+        stubInsertAssigningKeys(110L, OffsetDateTime.parse("2026-07-27T08:00:00Z"));
+
+        DonationCreateDTO req = baseSponsorDto();
+        req.setAmountUsd(new BigDecimal("10.00"));
+        req.setAmountKhr(BigDecimal.ZERO);
+        req.setExchangeRateKhrPerUsd(new BigDecimal("4100.0000")); // stray
+
+        service.create(req);
+
+        DonationModel saved = captureInserted();
+        assertNull(saved.getExchangeRateKhrPerUsd());
+        assertEquals(0, new BigDecimal("10.00").compareTo(saved.getTotalAmountUsd()));
     }
 
     @Test
@@ -399,6 +426,37 @@ class DonationServiceTest {
         assertNull(cap.getValue().getDonationNo());
         assertNull(cap.getValue().getRecordedBy());
         assertNull(cap.getValue().getClientRequestId());
+        // ...but the editor MUST be attributed (V24 audit).
+        assertEquals(ACTOR_ID, cap.getValue().getUpdatedBy());
+    }
+
+    @Test
+    void update_staleVersion_throwsConflict() {
+        stubValidLookups("SPONSOR_DONATION");
+        DonationDTO before = DonationDTO.builder().id(9L).donationNo("DON-20260724-000009").build();
+        // pre-check finds it, post-0-row re-check still finds it -> conflict, not delete.
+        when(repo.findById(9L)).thenReturn(before, before);
+        when(repo.updateDonation(any(DonationModel.class))).thenReturn(0);
+
+        DonationUpdateDTO req = baseUpdateDto();
+        req.setExpectedUpdatedAt(OffsetDateTime.parse("2026-07-24T09:00:00Z")); // stale token
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.update(9L, req));
+        assertEquals("DONATION_UPDATE_CONFLICT", ex.getCode());
+    }
+
+    @Test
+    void update_versionedButRowDeleted_throwsNotFound() {
+        stubValidLookups("SPONSOR_DONATION");
+        DonationDTO before = DonationDTO.builder().id(10L).donationNo("DON-20260724-000010").build();
+        when(repo.findById(10L)).thenReturn(before, (DonationDTO) null); // vanished between check and re-read
+        when(repo.updateDonation(any(DonationModel.class))).thenReturn(0);
+
+        DonationUpdateDTO req = baseUpdateDto();
+        req.setExpectedUpdatedAt(OffsetDateTime.parse("2026-07-24T09:00:00Z"));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.update(10L, req));
+        assertEquals("DONATION_NOT_FOUND", ex.getCode());
     }
 
     @Test
@@ -413,6 +471,85 @@ class DonationServiceTest {
         when(repo.deleteById(5L)).thenReturn(1);
         service.delete(5L); // no throw
         verify(repo).deleteById(5L);
+    }
+
+    // =================================================================
+    // object-level authz — branch-leader scoping
+    // =================================================================
+
+    @Test
+    void create_branchLeader_ownBranch_isAllowed() {
+        asBranchLeaderOfBranch(1L);
+        stubValidLookups("SPONSOR_DONATION");
+        when(repo.nextDonationNoSeq()).thenReturn(11L);
+        stubInsertAssigningKeys(120L, OffsetDateTime.parse("2026-07-27T08:00:00Z"));
+
+        DonationCreateDTO req = baseSponsorDto(); // branchId = 1L
+        DonationCreateResultDTO res = service.create(req);
+
+        assertEquals(120L, res.getId());
+        assertEquals(1L, captureInserted().getBranchId());
+    }
+
+    @Test
+    void create_branchLeader_otherBranch_isForbidden() {
+        asBranchLeaderOfBranch(1L);
+
+        DonationCreateDTO req = baseSponsorDto();
+        req.setBranchId(2L); // not their branch
+
+        assertThrows(AccessDeniedException.class, () -> service.create(req));
+        verify(repo, never()).insertDonation(any());
+    }
+
+    @Test
+    void create_branchLeader_withNoBranchAssigned_isForbidden() {
+        securityUtils.when(SecurityUtils::getCurrentUserRole).thenReturn("BRANCH_LEADER");
+        when(repo.findBranchIdByUserId(ACTOR_ID)).thenReturn(null); // misconfigured -> fail closed
+
+        assertThrows(AccessDeniedException.class, () -> service.create(baseSponsorDto()));
+        verify(repo, never()).insertDonation(any());
+    }
+
+    @Test
+    void get_branchLeader_ownBranch_isAllowed() {
+        asBranchLeaderOfBranch(1L);
+        when(repo.findById(5L)).thenReturn(DonationDTO.builder().id(5L).branchId(1L).build());
+
+        DonationDTO dto = service.get(5L);
+        assertEquals(5L, dto.getId());
+    }
+
+    @Test
+    void get_branchLeader_otherBranch_isForbidden() {
+        asBranchLeaderOfBranch(1L);
+        when(repo.findById(5L)).thenReturn(DonationDTO.builder().id(5L).branchId(2L).build());
+
+        assertThrows(AccessDeniedException.class, () -> service.get(5L));
+    }
+
+    @Test
+    void update_branchLeader_otherBranch_isForbidden() {
+        asBranchLeaderOfBranch(1L);
+        when(repo.findById(5L)).thenReturn(DonationDTO.builder().id(5L).branchId(2L).build());
+
+        assertThrows(AccessDeniedException.class, () -> service.update(5L, baseUpdateDto()));
+        verify(repo, never()).updateDonation(any());
+    }
+
+    @Test
+    void list_branchLeader_isForcedToOwnBranch() {
+        asBranchLeaderOfBranch(1L);
+        when(repo.list(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(repo.countList(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(0L);
+
+        // Caller asks for branch 2, but a branch leader is confined to branch 1.
+        service.list(2L, null, null, null, null, null, null, null, null, 0, 20);
+
+        verify(repo).list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), eq(20), eq(0));
     }
 
     // =================================================================
@@ -484,6 +621,12 @@ class DonationServiceTest {
         req.setPaymentMethodId((short) 1);
         req.setPaidAt(OffsetDateTime.parse("2026-07-24T09:00:00Z"));
         return req;
+    }
+
+    /** Make the current principal a BRANCH_LEADER bound to the given branch. */
+    private void asBranchLeaderOfBranch(long branchId) {
+        securityUtils.when(SecurityUtils::getCurrentUserRole).thenReturn("BRANCH_LEADER");
+        when(repo.findBranchIdByUserId(ACTOR_ID)).thenReturn(branchId);
     }
 
     private void stubValidLookups(String typeCode) {

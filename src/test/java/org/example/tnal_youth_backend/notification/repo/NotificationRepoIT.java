@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * {@code ::boolean} cast, {@code ON CONFLICT}, or the read-state CHECK were ever
  * executed in CI.
  *
- * <p>Runs the project's real Flyway migrations (V1..V21) against a throwaway
+ * <p>Runs the project's real Flyway migrations (V1..V24) against a throwaway
  * Postgres 16 container, so the schema under test is byte-for-byte what ships.
  *
  * <p>REQUIREMENTS: a Docker-capable CI runner. Testcontainers pulls
@@ -187,7 +187,7 @@ class NotificationRepoIT {
         assertThat(repo.countForUser(recipient, false)).isEqualTo(allBefore);
     }
 
-    // ------------------------------------------------------------ idempotency (V21)
+    // ------------------------------------------------------------ idempotency (V22)
 
     @Test
     void clientRequestId_lookupFindsTheOriginal() {

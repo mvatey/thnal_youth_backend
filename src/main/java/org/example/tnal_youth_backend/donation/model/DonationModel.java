@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
- * Mirrors the {@code donations} table (V8 + V23).
+ * Mirrors the {@code donations} table (V8 + V23 + V24).
  *
  * <p>Plain POJO written for MyBatis (same style as {@code NotificationModel}) —
  * this is NOT a JPA entity, so column names are mapped explicitly in
@@ -68,13 +68,28 @@ public class DonationModel {
     private String paymentReference;
     private Long receiptFileId;
 
-    /** Populated from the authenticated principal (users.id). */
+    /** Populated from the authenticated principal (users.id). Set once, on insert. */
     private Long recordedBy;
 
     private String note;
 
     /** Optional idempotency key (V23). Passed to SQL as text and cast to uuid. */
     private String clientRequestId;
+
+    /**
+     * Who last edited this donation (users.id), set by the service on every update
+     * (V24). Never carried on insert — a freshly recorded donation has no editor.
+     */
+    private Long updatedBy;
+
+    /**
+     * OPTIMISTIC-LOCK GUARD (write-only, not a column). When non-null the update
+     * SQL adds {@code AND updated_at = #{expectedUpdatedAt}} so a stale edit
+     * affects 0 rows and the service can raise DONATION_UPDATE_CONFLICT instead of
+     * silently clobbering a concurrent change. Omitting it keeps the previous
+     * last-writer-wins behaviour.
+     */
+    private OffsetDateTime expectedUpdatedAt;
 
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
