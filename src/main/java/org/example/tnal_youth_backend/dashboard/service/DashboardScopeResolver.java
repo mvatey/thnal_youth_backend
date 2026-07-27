@@ -8,11 +8,15 @@ import org.example.tnal_youth_backend.dashboard.exception.DashboardAccessExcepti
 import org.example.tnal_youth_backend.dashboard.model.DashboardScope;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthRange;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthResolver;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -20,6 +24,7 @@ public class DashboardScopeResolver {
 
     private final DashboardMonthResolver dashboardMonthResolver;
     private final MemberRepository memberRepository;
+    private final BranchStaffRepository branchStaffRepository;
 
     public DashboardScope resolve(String month) {
 
@@ -33,14 +38,18 @@ public class DashboardScopeResolver {
 
         if (authentication == null
                 || !authentication.isAuthenticated()) {
+
             throw new DashboardAccessException(
                     "Authentication is required to access the dashboard."
             );
         }
 
-        Object principal = authentication.getPrincipal();
+        Object principal =
+                authentication.getPrincipal();
 
-        if (!(principal instanceof CustomUserDetails userDetails)) {
+        if (!(principal
+                instanceof CustomUserDetails userDetails)) {
+
             throw new DashboardAccessException(
                     "Unable to resolve the authenticated user."
             );
@@ -55,25 +64,33 @@ public class DashboardScopeResolver {
             );
         }
 
+        /*
+         * ADMIN sees the whole organization.
+         * No branch IDs need to be supplied.
+         */
         if (role == UserRole.ADMIN) {
             return new DashboardScope(
                     user.getId(),
                     role,
-                    null,
+                    Set.of(),
                     monthRange
             );
         }
 
+        /*
+         * SECRETARY and BRANCH_LEADER may be assigned
+         * to one or more branches through branch_staff.
+         */
         if (role == UserRole.SECRETARY
                 || role == UserRole.BRANCH_LEADER) {
 
-            Long branchId =
-                    resolveAssignedBranchId(user);
+            Set<Long> branchIds =
+                    resolveAccessibleBranchIds(user);
 
             return new DashboardScope(
                     user.getId(),
                     role,
-                    branchId,
+                    branchIds,
                     monthRange
             );
         }
@@ -83,8 +100,9 @@ public class DashboardScopeResolver {
         );
     }
 
-    private Long resolveAssignedBranchId(User user) {
-
+    private Set<Long> resolveAccessibleBranchIds(
+            User user
+    ) {
         Long memberId = user.getMemberId();
 
         if (memberId == null) {
@@ -101,14 +119,32 @@ public class DashboardScopeResolver {
                         )
                 );
 
-        Long branchId = member.getBranchId();
+        Set<Long> branchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        memberId
+                                )
+                );
 
-        if (branchId == null) {
-            throw new DashboardAccessException(
-                    "The linked member does not have an assigned branch."
+        /*
+         * Compatibility fallback:
+         *
+         * Older users may have members.branch_id populated
+         * but no branch_staff assignment yet.
+         */
+        if (member.getBranchId() != null) {
+            branchIds.add(
+                    member.getBranchId()
             );
         }
 
-        return branchId;
+        if (branchIds.isEmpty()) {
+            throw new DashboardAccessException(
+                    "The linked member does not have any active branch assignment."
+            );
+        }
+
+        return Set.copyOf(branchIds);
     }
 }

@@ -1,9 +1,6 @@
 package org.example.tnal_youth_backend.dashboard.service;
 
-import org.example.tnal_youth_backend.dashboard.dto.ActivityTypeBreakdownResponse;
-import org.example.tnal_youth_backend.dashboard.dto.DashboardActivitiesResponse;
-import org.example.tnal_youth_backend.dashboard.dto.DashboardSummaryResponse;
-import org.example.tnal_youth_backend.dashboard.dto.ParticipationTrendResponse;
+import org.example.tnal_youth_backend.dashboard.dto.*;
 
 public interface DashboardService {
 
@@ -21,5 +18,10 @@ public interface DashboardService {
     ParticipationTrendResponse
     getParticipationTrend(
             Integer year
+    );
+
+    BranchPerformanceResponse getBranchPerformance(
+            Long branchId,
+            String month
     );
 }

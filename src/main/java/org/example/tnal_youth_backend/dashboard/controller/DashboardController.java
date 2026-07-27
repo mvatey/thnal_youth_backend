@@ -1,10 +1,7 @@
 package org.example.tnal_youth_backend.dashboard.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.example.tnal_youth_backend.dashboard.dto.ActivityTypeBreakdownResponse;
-import org.example.tnal_youth_backend.dashboard.dto.DashboardActivitiesResponse;
-import org.example.tnal_youth_backend.dashboard.dto.DashboardSummaryResponse;
-import org.example.tnal_youth_backend.dashboard.dto.ParticipationTrendResponse;
+import org.example.tnal_youth_backend.dashboard.dto.*;
 import org.example.tnal_youth_backend.dashboard.service.DashboardService;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthRange;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthResolver;
@@ -57,6 +54,24 @@ public class DashboardController {
         return ResponseEntity.ok(
                 dashboardService
                         .getParticipationTrend(year)
+        );
+    }
+
+    @GetMapping("/branch-performance")
+    public ResponseEntity<BranchPerformanceResponse>
+    getBranchPerformance(
+            @RequestParam(required = false)
+            Long branchId,
+
+            @RequestParam(required = false)
+            String month
+    ) {
+        return ResponseEntity.ok(
+                dashboardService
+                        .getBranchPerformance(
+                                branchId,
+                                month
+                        )
         );
     }
 }
