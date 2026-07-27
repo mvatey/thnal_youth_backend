@@ -107,4 +107,5 @@ public class ActivityController {
                 "Authenticated user information is invalid"
         );
     }
+
 }

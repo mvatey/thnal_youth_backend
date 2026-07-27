@@ -1,15 +1,20 @@
 package org.example.tnal_youth_backend.member.member.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -21,6 +26,9 @@ import org.example.tnal_youth_backend.member.religion.repository.ReligionReposit
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
 import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,22 +63,7 @@ public class MemberServiceImpl
 
     private final MemberMapper memberMapper;
 
-    /*
-     * ==========================================================
-     * GET ALL MEMBERS
-     * ==========================================================
-     */
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<MemberListResponse> getAllMembers() {
-
-        return memberRepository
-                .findAllDetailed()
-                .stream()
-                .map(memberMapper::toListResponse)
-                .toList();
-    }
+    private final BranchRepository branchRepository;
 
     /*
      * ==========================================================
@@ -91,22 +84,10 @@ public class MemberServiceImpl
                 memberRepository.countByGender(
                         Gender.FEMALE
                 );
-
-        /*
-         * Your current Gender enum does not contain MONK.
-         *
-         * It contains:
-         *
-         * MALE
-         * FEMALE
-         * OTHER
-         *
-         * Therefore, the Monk card currently counts
-         * members stored with Gender.OTHER.
-         */
+        
         long monkMembers =
                 memberRepository.countByGender(
-                        Gender.OTHER
+                        Gender.MONK
                 );
 
         long buddhistMembers =
@@ -159,10 +140,7 @@ public class MemberServiceImpl
             CreateMemberRequest request
     ) {
         String memberNo =
-                normalizeRequired(
-                        request.memberNo(),
-                        "Member number"
-                );
+                generateMemberNo();
 
         String phone =
                 trimToNull(request.phone());
@@ -270,7 +248,7 @@ public class MemberServiceImpl
                         )
 
                         .createdById(
-                                request.createdById()
+                                getCurrentUserId()
                         )
 
                         .build();
@@ -316,10 +294,7 @@ public class MemberServiceImpl
                 findDetailedMember(id);
 
         String memberNo =
-                normalizeRequired(
-                        request.memberNo(),
-                        "Member number"
-                );
+                member.getMemberNo();
 
         String phone =
                 trimToNull(request.phone());
@@ -332,10 +307,6 @@ public class MemberServiceImpl
                 phone,
                 email,
                 id
-        );
-
-        member.setMemberNo(
-                memberNo
         );
 
         member.setFullNameKm(
@@ -625,6 +596,83 @@ public class MemberServiceImpl
 
     /*
      * ==========================================================
+     * SERVER-CONTROLLED MEMBER FIELDS
+     * ==========================================================
+     */
+
+    private String generateMemberNo() {
+
+        String latestMemberNo =
+                memberRepository
+                        .findLatestGeneratedMemberNo()
+                        .orElse(null);
+
+        int nextSequence = 1;
+
+        if (latestMemberNo != null) {
+            int separatorIndex =
+                    latestMemberNo.lastIndexOf('-');
+
+            if (separatorIndex >= 0
+                    && separatorIndex
+                    < latestMemberNo.length() - 1) {
+
+                String sequenceText =
+                        latestMemberNo.substring(
+                                separatorIndex + 1
+                        );
+
+                try {
+                    nextSequence =
+                            Integer.parseInt(
+                                    sequenceText
+                            ) + 1;
+
+                } catch (
+                        NumberFormatException ignored
+                ) {
+                    nextSequence = 1;
+                }
+            }
+        }
+
+        return "TNAL-M-"
+                + String.format(
+                Locale.ROOT,
+                "%04d",
+                nextSequence
+        );
+    }
+
+    private Long getCurrentUserId() {
+
+        User authenticatedUser =
+                SecurityUtil.getCurrentUser();
+
+        if (authenticatedUser == null
+                || authenticatedUser.getId() == null) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return userRepository
+                .findById(
+                        authenticatedUser.getId()
+                )
+                .map(User::getId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Authenticated user was not found"
+                        )
+                );
+    }
+
+    /*
+     * ==========================================================
      * UNIQUE VALIDATION
      * ==========================================================
      */
@@ -836,5 +884,102 @@ public class MemberServiceImpl
         }
 
         return HttpStatus.BAD_REQUEST;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberPageResponse getMembers(
+            int page,
+            int size,
+            String search,
+            Long branchId,
+            Short statusId,
+            Gender gender
+    ) {
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        if (branchId != null && branchId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID must be greater than zero"
+            );
+        }
+
+        if (statusId != null) {
+            findStatus(statusId);
+        }
+
+        String normalizedSearch =
+                trimToNull(search);
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size
+                );
+
+        Page<Object[]> memberPage =
+                memberRepository.findMemberPage(
+                        normalizedSearch,
+                        branchId,
+                        statusId,
+                        gender != null
+                                ? gender.name()
+                                : null,
+                        pageable
+                );
+
+        List<MemberListResponse> content =
+                memberPage.getContent()
+                        .stream()
+                        .map(memberMapper::toListResponse)
+                        .toList();
+
+        return MemberPageResponse.builder()
+                .content(content)
+                .page(memberPage.getNumber())
+                .size(memberPage.getSize())
+                .totalElements(
+                        memberPage.getTotalElements()
+                )
+                .totalPages(
+                        memberPage.getTotalPages()
+                )
+                .first(memberPage.isFirst())
+                .last(memberPage.isLast())
+                .build();
+    }
+
+    private Branch findBranch(
+            Long branchId
+    ) {
+        if (branchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID is required"
+            );
+        }
+
+        return branchRepository
+                .findById(branchId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Branch not found with ID: "
+                                        + branchId
+                        )
+                );
     }
 }

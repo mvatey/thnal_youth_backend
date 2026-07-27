@@ -61,6 +61,21 @@ public class ActivityParticipant {
     )
     private OffsetDateTime registeredAt;
 
+
+    @Column(
+            name = "created_at",
+            nullable = false,
+            updatable = false
+    )
+    private OffsetDateTime createdAt;
+
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
+    private OffsetDateTime updatedAt;
+
+
     @Column(name = "checked_in_at")
     private OffsetDateTime checkedInAt;
 
@@ -90,13 +105,29 @@ public class ActivityParticipant {
 
     @PrePersist
     protected void onCreate() {
+        OffsetDateTime now =
+                OffsetDateTime.now();
+
         if (registeredAt == null) {
-            registeredAt = OffsetDateTime.now();
+            registeredAt = now;
         }
 
         if (registrationSource == null) {
             registrationSource =
                     ParticipantRegistrationSource.MANUAL;
         }
+
+        if (createdAt == null) {
+            createdAt = now;
+        }
+
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = OffsetDateTime.now();
     }
 }

@@ -32,4 +32,5 @@ public interface ActivityService {
             UpdateActivityRequest request,
             Long currentUserId
     );
+
 }

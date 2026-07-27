@@ -4,6 +4,7 @@ import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatu
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -13,4 +14,7 @@ public interface AttendanceStatusRepository
     Optional<AttendanceStatus> findByCodeIgnoreCase(
             String code
     );
+
+    List<AttendanceStatus>
+    findAllByActiveTrueOrderBySortOrderAscIdAsc();
 }

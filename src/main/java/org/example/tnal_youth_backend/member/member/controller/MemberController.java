@@ -7,7 +7,9 @@ import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequ
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,16 +23,54 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(
         name = "B. Member Page - Member",
-        description = "Manage member information for a selected member"
+        description = "Manage member information"
 )
 public class MemberController {
 
     private final MemberService memberService;
 
+    /*
+     * Normal Member table endpoint.
+     *
+     * GET /api/members
+     */
     @GetMapping
-    public ResponseEntity<List<MemberListResponse>> getAllMembers() {
+    @PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberPageResponse>
+    getMembers(
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "15")
+            int size,
+
+            @RequestParam(required = false)
+            String search,
+
+            @RequestParam(required = false)
+            Long branchId,
+
+            @RequestParam(required = false)
+            Short statusId,
+
+            @RequestParam(required = false)
+            Gender gender
+    ) {
         return ResponseEntity.ok(
-                memberService.getAllMembers()
+                memberService.getMembers(
+                        page,
+                        size,
+                        search,
+                        branchId,
+                        statusId,
+                        gender
+                )
         );
     }
 
@@ -42,23 +82,37 @@ public class MemberController {
                 'BRANCH_LEADER'
             )
             """)
-    public ResponseEntity<MemberSummaryResponse> getMemberSummary() {
+    public ResponseEntity<MemberSummaryResponse>
+    getMemberSummary() {
+
         return ResponseEntity.ok(
                 memberService.getMemberSummary()
         );
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MemberDetailResponse> getMemberById(
-            @PathVariable Long id
+    public ResponseEntity<MemberDetailResponse>
+    getMemberById(
+            @PathVariable
+            Long id
     ) {
         return ResponseEntity.ok(
-                memberService.getMemberById(id)
+                memberService.getMemberById(
+                        id
+                )
         );
     }
 
     @PostMapping
-    public ResponseEntity<MemberDetailResponse> createMember(
+    @PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberDetailResponse>
+    createMember(
             @Valid
             @RequestBody
             CreateMemberRequest request
@@ -66,13 +120,18 @@ public class MemberController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(
-                        memberService.createMember(request)
+                        memberService.createMember(
+                                request
+                        )
                 );
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MemberDetailResponse> updateMember(
-            @PathVariable Long id,
+    public ResponseEntity<MemberDetailResponse>
+    updateMember(
+            @PathVariable
+            Long id,
+
             @Valid
             @RequestBody
             UpdateMemberRequest request
@@ -86,13 +145,19 @@ public class MemberController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMember(
-            @PathVariable Long id
+    public ResponseEntity<Void>
+    deleteMember(
+            @PathVariable
+            Long id
     ) {
-        memberService.deleteMember(id);
+        memberService.deleteMember(
+                id
+        );
 
         return ResponseEntity
                 .noContent()
                 .build();
     }
+
+
 }

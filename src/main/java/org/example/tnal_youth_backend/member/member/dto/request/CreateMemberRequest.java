@@ -9,16 +9,9 @@ import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.time.LocalDate;
+import jakarta.validation.constraints.PastOrPresent;
 
 public record CreateMemberRequest(
-
-        @JsonProperty("member_no")
-        @NotBlank(message = "Member number is required")
-        @Size(
-                max = 50,
-                message = "Member number must not exceed 50 characters"
-        )
-        String memberNo,
 
         @JsonProperty("full_name_km")
         @NotBlank(message = "Khmer full name is required")
@@ -84,12 +77,12 @@ public record CreateMemberRequest(
         Long cvFileId,
 
         @JsonProperty("joined_on")
+        @PastOrPresent(
+                message = "Joined date cannot be in the future"
+        )
         LocalDate joinedOn,
 
         @JsonProperty("bio")
-        String bio,
-
-        @JsonProperty("created_by")
-        Long createdById
+        String bio
 ) {
 }

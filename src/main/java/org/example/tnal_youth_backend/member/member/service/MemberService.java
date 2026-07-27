@@ -4,13 +4,22 @@ import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequ
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.util.List;
 
 public interface MemberService {
 
-    List<MemberListResponse> getAllMembers();
+    MemberPageResponse getMembers(
+            int page,
+            int size,
+            String search,
+            Long branchId,
+            Short statusId,
+            Gender gender
+    );
 
     MemberSummaryResponse getMemberSummary();
 
