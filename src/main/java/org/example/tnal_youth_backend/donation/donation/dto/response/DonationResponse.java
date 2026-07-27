@@ -15,9 +15,15 @@ public record DonationResponse(
 
         DonationTypeInfo donationType,
 
-        Long memberId,
+        MemberInfo member,
 
-        Long branchId,
+        SponsorInfo sponsor,
+
+        String donorName,
+
+        ActivityInfo activity,
+
+        BranchInfo branch,
 
         LocalDate donationPeriod,
 
@@ -25,9 +31,15 @@ public record DonationResponse(
 
         BigDecimal amountUsd,
 
+        BigDecimal totalAmountUsd,
+
         PaymentMethodInfo paymentMethod,
 
         OffsetDateTime paidAt,
+
+        String paymentReference,
+
+        RecordedByInfo recordedBy,
 
         ReceiptInfo receipt,
 
@@ -40,8 +52,55 @@ public record DonationResponse(
 
                 Short id,
 
-                String labelKm
+                String code,
 
+                String labelKm,
+
+                String labelEn
+        ) {
+        }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record MemberInfo(
+
+                Long id,
+
+                String memberNo,
+
+                String fullNameKm,
+
+                String fullNameEn
+        ) {
+        }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record SponsorInfo(
+
+                Long id,
+
+                String name
+        ) {
+        }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record ActivityInfo(
+
+                Long id,
+
+                String titleKm,
+
+                String titleEn
+        ) {
+        }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record BranchInfo(
+
+                Long id,
+
+                String nameKm,
+
+                String nameEn
         ) {
         }
 
@@ -50,16 +109,39 @@ public record DonationResponse(
 
                 Short id,
 
-                String labelKm
+                String code,
 
+                String labelKm,
+
+                String labelEn
+        ) {
+        }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record RecordedByInfo(
+
+                Long id,
+
+                Long memberId,
+
+                String fullNameKm,
+
+                String fullNameEn
         ) {
         }
 
         @JsonInclude(JsonInclude.Include.NON_NULL)
         public record ReceiptInfo(
 
-                Long id
+                Long id,
 
+                String url,
+
+                String originalName,
+
+                String mimeType,
+
+                Long sizeBytes
         ) {
         }
 }
