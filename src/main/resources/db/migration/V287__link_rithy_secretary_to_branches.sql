@@ -26,7 +26,7 @@ BEGIN
 SELECT u.id
 INTO target_user_id
 FROM users u
-WHERE u.id = 3
+WHERE u.id = 1
   AND LOWER(u.email) =
       LOWER('rithyphan@gmail.com')
   AND u.role = 'SECRETARY';
