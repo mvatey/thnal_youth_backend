@@ -9,11 +9,42 @@ public interface DonationService {
 
     List<DonationResponse> getAllDonations();
 
+    /*
+     * Monthly member donations.
+     */
+    List<DonationResponse> getMonthlyDonations();
+
+    List<DonationResponse> searchMonthlyDonations(
+            String period
+    );
+
+    List<DonationResponse>
+    filterMonthlyDonationsByPaymentMethod(
+            Short paymentMethodId
+    );
+
+    /*
+     * Backward-compatible monthly aliases.
+     */
     List<DonationResponse> searchByDonationPeriod(
             String period
     );
 
     List<DonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    );
+
+    /*
+     * Sponsor donations.
+     */
+    List<DonationResponse> getSponsorDonations();
+
+    List<DonationResponse> searchSponsorDonations(
+            String search
+    );
+
+    List<DonationResponse>
+    filterSponsorDonationsByPaymentMethod(
             Short paymentMethodId
     );
 

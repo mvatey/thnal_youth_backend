@@ -58,41 +58,33 @@ public class DonationServiceImpl
                 .map(donationMapper::toResponse)
                 .toList();
     }
+
+    /*
+     * ==========================================================
+     * MONTHLY MEMBER DONATIONS
+     * ==========================================================
+     */
+
     @Override
     @Transactional(readOnly = true)
-    public List<DonationResponse> searchByDonationPeriod(
+    public List<DonationResponse> getMonthlyDonations() {
+
+        return donationRepository
+                .findAllMonthlyDonations()
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> searchMonthlyDonations(
             String period
     ) {
-        String normalizedPeriod =
-                trimToNull(
+        YearMonth yearMonth =
+                parseDonationPeriod(
                         period
                 );
-
-        if (normalizedPeriod == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Donation period is required"
-            );
-        }
-
-        final YearMonth yearMonth;
-
-        try {
-            yearMonth =
-                    YearMonth.parse(
-                            normalizedPeriod
-                    );
-
-        } catch (
-                DateTimeParseException exception
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    """
-                    Donation period must use yyyy-MM format,                     for example 2026-07
-                    """
-            );
-        }
 
         LocalDate startDate =
                 yearMonth.atDay(1);
@@ -101,7 +93,7 @@ public class DonationServiceImpl
                 yearMonth.atEndOfMonth();
 
         return donationRepository
-                .findAllByDonationPeriodBetweenOrderByPaidAtDesc(
+                .findMonthlyDonationsByPeriod(
                         startDate,
                         endDate
                 )
@@ -112,7 +104,8 @@ public class DonationServiceImpl
 
     @Override
     @Transactional(readOnly = true)
-    public List<DonationResponse> filterByPaymentMethod(
+    public List<DonationResponse>
+    filterMonthlyDonationsByPaymentMethod(
             Short paymentMethodId
     ) {
         requireActiveLookup(
@@ -122,7 +115,94 @@ public class DonationServiceImpl
         );
 
         return donationRepository
-                .findAllByPaymentMethodIdOrderByPaidAtDesc(
+                .findMonthlyDonationsByPaymentMethod(
+                        paymentMethodId
+                )
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+
+    /*
+     * Existing frontend aliases now use Monthly Donation rules.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> searchByDonationPeriod(
+            String period
+    ) {
+        return searchMonthlyDonations(
+                period
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> filterByPaymentMethod(
+            Short paymentMethodId
+    ) {
+        return filterMonthlyDonationsByPaymentMethod(
+                paymentMethodId
+        );
+    }
+
+    /*
+     * ==========================================================
+     * SPONSOR DONATIONS
+     * ==========================================================
+     */
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> getSponsorDonations() {
+
+        return donationRepository
+                .findAllSponsorDonations()
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse> searchSponsorDonations(
+            String search
+    ) {
+        String normalizedSearch =
+                trimToNull(
+                        search
+                );
+
+        if (normalizedSearch == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Sponsor name, phone, or email is required"
+            );
+        }
+
+        return donationRepository
+                .searchSponsorDonations(
+                        normalizedSearch
+                )
+                .stream()
+                .map(donationMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationResponse>
+    filterSponsorDonationsByPaymentMethod(
+            Short paymentMethodId
+    ) {
+        requireActiveLookup(
+                "payment_methods",
+                paymentMethodId,
+                "Payment method"
+        );
+
+        return donationRepository
+                .findSponsorDonationsByPaymentMethod(
                         paymentMethodId
                 )
                 .stream()
@@ -839,6 +919,36 @@ public class DonationServiceImpl
         }
 
         return userIds.get(0);
+    }
+
+    private YearMonth parseDonationPeriod(
+            String period
+    ) {
+        String normalizedPeriod =
+                trimToNull(
+                        period
+                );
+
+        if (normalizedPeriod == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period is required"
+            );
+        }
+
+        try {
+            return YearMonth.parse(
+                    normalizedPeriod
+            );
+
+        } catch (
+                DateTimeParseException exception
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Donation period must use yyyy-MM format, for example 2026-07"
+            );
+        }
     }
 
     private BigDecimal normalizeAmount(

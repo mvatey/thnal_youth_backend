@@ -13,12 +13,6 @@ import java.util.Optional;
 public interface DonationRepository
         extends JpaRepository<Donation, Long> {
 
-    /*
-     * ==========================================================
-     * UNIQUE VALIDATION
-     * ==========================================================
-     */
-
     boolean existsByDonationNoIgnoreCase(
             String donationNo
     );
@@ -27,12 +21,6 @@ public interface DonationRepository
             String donationNo,
             Long id
     );
-
-    /*
-     * ==========================================================
-     * GET DONATIONS
-     * ==========================================================
-     */
 
     List<Donation> findAllByOrderByPaidAtDesc();
 
@@ -63,26 +51,222 @@ public interface DonationRepository
 
     /*
      * ==========================================================
-     * SEARCH BY MONTHLY DONATION PERIOD
+     * MONTHLY MEMBER DONATIONS
      * ==========================================================
-     *
-     * The service converts yyyy-MM into:
-     *
-     * startDate = first day of the month
-     * endDate   = last day of the month
-     *
-     * Example:
-     *
-     * 2026-07
-     *
-     * becomes:
-     *
-     * 2026-07-01 through 2026-07-31
+     */
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'MONTHLY_DONATION'
+
+                      AND donation.member_id IS NOT NULL
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation> findAllMonthlyDonations();
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'MONTHLY_DONATION'
+
+                      AND donation.member_id IS NOT NULL
+
+                      AND donation.donation_period
+                          BETWEEN :startDate AND :endDate
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation> findMonthlyDonationsByPeriod(
+            @Param("startDate")
+            LocalDate startDate,
+
+            @Param("endDate")
+            LocalDate endDate
+    );
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'MONTHLY_DONATION'
+
+                      AND donation.member_id IS NOT NULL
+
+                      AND donation.payment_method_id =
+                          :paymentMethodId
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation>
+    findMonthlyDonationsByPaymentMethod(
+            @Param("paymentMethodId")
+            Short paymentMethodId
+    );
+
+    /*
+     * Retained for compatibility with older code.
      */
     List<Donation>
     findAllByDonationPeriodBetweenOrderByPaidAtDesc(
             LocalDate startDate,
             LocalDate endDate
+    );
+
+    /*
+     * ==========================================================
+     * SPONSOR DONATIONS
+     * ==========================================================
+     */
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'SPONSOR_DONATION'
+
+                      AND donation.sponsor_id IS NOT NULL
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation> findAllSponsorDonations();
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    INNER JOIN sponsors sponsor
+                            ON sponsor.id =
+                               donation.sponsor_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'SPONSOR_DONATION'
+
+                      AND donation.sponsor_id IS NOT NULL
+
+                      AND (
+                          LOWER(sponsor.name)
+                              LIKE LOWER(
+                                  CONCAT(
+                                      '%',
+                                      :search,
+                                      '%'
+                                  )
+                              )
+
+                          OR LOWER(
+                              COALESCE(
+                                  sponsor.phone,
+                                  ''
+                              )
+                          ) LIKE LOWER(
+                              CONCAT(
+                                  '%',
+                                  :search,
+                                  '%'
+                              )
+                          )
+
+                          OR LOWER(
+                              COALESCE(
+                                  sponsor.email::TEXT,
+                                  ''
+                              )
+                          ) LIKE LOWER(
+                              CONCAT(
+                                  '%',
+                                  :search,
+                                  '%'
+                              )
+                          )
+                      )
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation> searchSponsorDonations(
+            @Param("search")
+            String search
+    );
+
+    @Query(
+            value = """
+                    SELECT donation.*
+                    FROM donations donation
+
+                    INNER JOIN donation_types donation_type
+                            ON donation_type.id =
+                               donation.donation_type_id
+
+                    WHERE UPPER(donation_type.code) =
+                          'SPONSOR_DONATION'
+
+                      AND donation.sponsor_id IS NOT NULL
+
+                      AND donation.payment_method_id =
+                          :paymentMethodId
+
+                    ORDER BY
+                        donation.paid_at DESC,
+                        donation.id DESC
+                    """,
+            nativeQuery = true
+    )
+    List<Donation>
+    findSponsorDonationsByPaymentMethod(
+            @Param("paymentMethodId")
+            Short paymentMethodId
     );
 
     /*
@@ -160,12 +344,6 @@ public interface DonationRepository
             OffsetDateTime paidTo
     );
 
-    /*
-     * ==========================================================
-     * DONATION NUMBER GENERATION
-     * ==========================================================
-     */
-
     @Query(
             value = """
                     SELECT donation_no
@@ -178,16 +356,9 @@ public interface DonationRepository
             nativeQuery = true
     )
     Optional<String> findLatestDonationNoByPrefix(
-
             @Param("prefix")
             String prefix
     );
-
-    /*
-     * ==========================================================
-     * SUMMARY COUNTS
-     * ==========================================================
-     */
 
     long countByMemberId(
             Long memberId
@@ -200,12 +371,6 @@ public interface DonationRepository
     long countByBranchId(
             Long branchId
     );
-
-    /*
-     * ==========================================================
-     * DELETE / OWNERSHIP CHECKS
-     * ==========================================================
-     */
 
     boolean existsByIdAndRecordedById(
             Long id,

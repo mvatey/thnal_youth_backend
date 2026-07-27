@@ -17,14 +17,14 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(
         name = "B. Member Page - Donations",
-        description = "Manage member donation records"
+        description = "Manage monthly member donations and sponsor donations"
 )
 public class DonationController {
 
     private final DonationService donationService;
 
     /*
-     * Normal GET endpoint.
+     * All donation transactions.
      *
      * GET /api/donations
      */
@@ -38,18 +38,65 @@ public class DonationController {
     }
 
     /*
-     * Search donations by monthly donation period.
+     * ==========================================================
+     * MONTHLY MEMBER DONATIONS
+     * ==========================================================
+     */
+
+    /*
+     * GET /api/donations/monthly
+     */
+    @GetMapping("/monthly")
+    public ResponseEntity<List<DonationResponse>>
+    getMonthlyDonations() {
+
+        return ResponseEntity.ok(
+                donationService.getMonthlyDonations()
+        );
+    }
+
+    /*
+     * GET /api/donations/monthly/search?period=2026-07
+     */
+    @GetMapping("/monthly/search")
+    public ResponseEntity<List<DonationResponse>>
+    searchMonthlyDonations(
+            @RequestParam
+            String period
+    ) {
+        return ResponseEntity.ok(
+                donationService.searchMonthlyDonations(
+                        period
+                )
+        );
+    }
+
+    /*
+     * GET /api/donations/monthly/filter/payment-method
+     *     ?paymentMethodId=1
+     */
+    @GetMapping("/monthly/filter/payment-method")
+    public ResponseEntity<List<DonationResponse>>
+    filterMonthlyDonationsByPaymentMethod(
+            @RequestParam
+            Short paymentMethodId
+    ) {
+        return ResponseEntity.ok(
+                donationService
+                        .filterMonthlyDonationsByPaymentMethod(
+                                paymentMethodId
+                        )
+        );
+    }
+
+    /*
+     * Backward-compatible monthly search endpoint.
      *
-     * Required format:
-     * yyyy-MM
-     *
-     * Example:
      * GET /api/donations/search?period=2026-07
      */
     @GetMapping("/search")
     public ResponseEntity<List<DonationResponse>>
     searchByDonationPeriod(
-
             @RequestParam
             String period
     ) {
@@ -61,15 +108,13 @@ public class DonationController {
     }
 
     /*
-     * Filter donations by payment method.
+     * Backward-compatible monthly payment-method filter.
      *
-     * Example:
      * GET /api/donations/filter/payment-method?paymentMethodId=1
      */
     @GetMapping("/filter/payment-method")
     public ResponseEntity<List<DonationResponse>>
     filterByPaymentMethod(
-
             @RequestParam
             Short paymentMethodId
     ) {
@@ -80,10 +125,71 @@ public class DonationController {
         );
     }
 
+    /*
+     * ==========================================================
+     * SPONSOR DONATIONS
+     * ==========================================================
+     */
+
+    /*
+     * GET /api/donations/sponsors
+     */
+    @GetMapping("/sponsors")
+    public ResponseEntity<List<DonationResponse>>
+    getSponsorDonations() {
+
+        return ResponseEntity.ok(
+                donationService.getSponsorDonations()
+        );
+    }
+
+    /*
+     * Searches registered sponsor name, phone, or email.
+     *
+     * GET /api/donations/sponsors/search?search=វិសាល
+     */
+    @GetMapping("/sponsors/search")
+    public ResponseEntity<List<DonationResponse>>
+    searchSponsorDonations(
+            @RequestParam
+            String search
+    ) {
+        return ResponseEntity.ok(
+                donationService.searchSponsorDonations(
+                        search
+                )
+        );
+    }
+
+    /*
+     * GET /api/donations/sponsors/filter/payment-method
+     *     ?paymentMethodId=1
+     */
+    @GetMapping("/sponsors/filter/payment-method")
+    public ResponseEntity<List<DonationResponse>>
+    filterSponsorDonationsByPaymentMethod(
+            @RequestParam
+            Short paymentMethodId
+    ) {
+        return ResponseEntity.ok(
+                donationService
+                        .filterSponsorDonationsByPaymentMethod(
+                                paymentMethodId
+                        )
+        );
+    }
+
+    /*
+     * ==========================================================
+     * STANDARD CRUD
+     * ==========================================================
+     */
+
     @GetMapping("/{id}")
     public ResponseEntity<DonationResponse>
     getDonationById(
-            @PathVariable Long id
+            @PathVariable
+            Long id
     ) {
         return ResponseEntity.ok(
                 donationService.getDonationById(
@@ -95,7 +201,6 @@ public class DonationController {
     @PostMapping
     public ResponseEntity<DonationResponse>
     createDonation(
-
             @Valid
             @RequestBody
             DonationRequest request
@@ -112,8 +217,8 @@ public class DonationController {
     @PutMapping("/{id}")
     public ResponseEntity<DonationResponse>
     updateDonation(
-
-            @PathVariable Long id,
+            @PathVariable
+            Long id,
 
             @Valid
             @RequestBody
@@ -130,7 +235,8 @@ public class DonationController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void>
     deleteDonation(
-            @PathVariable Long id
+            @PathVariable
+            Long id
     ) {
         donationService.deleteDonation(
                 id
