@@ -24,17 +24,4 @@ public class DashboardController {
                 dashboardService.getSummary(month)
         );
     }
-
-    /*
-     * Temporary endpoint.
-     * Remove after confirming the month parsing works.
-     */
-    @GetMapping("/test-month")
-    public ResponseEntity<DashboardMonthRange> testMonth(
-            @RequestParam(required = false) String month
-    ) {
-        return ResponseEntity.ok(
-                dashboardMonthResolver.resolve(month)
-        );
-    }
 }
