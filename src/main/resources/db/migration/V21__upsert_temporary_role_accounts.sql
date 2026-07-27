@@ -74,7 +74,7 @@ INSERT INTO users
 )
 VALUES
     (
-        '012121212',
+        '0884001804',
         'phatsaproeun@gmail.com',
         '$2a$12$V6UoKo9i5rQl7XKvsth48eUWQNzexITv5RiAgu6VKeNLw5xxJ85Ti',
         'BRANCH_LEADER',
