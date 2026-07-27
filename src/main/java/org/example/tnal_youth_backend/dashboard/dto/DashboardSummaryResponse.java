@@ -1,10 +1,10 @@
 package org.example.tnal_youth_backend.dashboard.dto;
 
+import lombok.Builder;
+
+@Builder
 public record DashboardSummaryResponse(
         String period,
-        MetricResponse totalMembers,
-        MetricResponse totalBranches,
-        MetricResponse totalActivities,
-        DonationMetricResponse totalDonations
+        DashboardSummaryData summary
 ) {
 }

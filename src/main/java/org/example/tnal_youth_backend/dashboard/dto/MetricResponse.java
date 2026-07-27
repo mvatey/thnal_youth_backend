@@ -1,9 +1,12 @@
 package org.example.tnal_youth_backend.dashboard.dto;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 
+@Builder
 public record MetricResponse(
-        Long value,
+        long value,
         BigDecimal changePercent
 ) {
 }

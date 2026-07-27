@@ -24,20 +24,17 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-                /*
-                 * REST API using JWT, so CSRF sessions are not used.
-                 */
                 .csrf(csrf -> csrf.disable())
 
-                /*
-                 * Uses your CorsConfig configuration.
-                 */
                 .cors(Customizer.withDefaults())
 
                 /*
-                 * Do not create an HTTP session.
-                 * Every secured request must contain a valid JWT.
+                 * Disable Spring's default login page and HTTP Basic login.
+                 * This project authenticates through JWT endpoints.
                  */
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -47,7 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         /*
-                         * Swagger and Spring error endpoint.
+                         * Swagger and error endpoint.
                          */
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -71,10 +68,7 @@ public class SecurityConfig {
                         .permitAll()
 
                         /*
-                         * Current authenticated user's profile.
-                         *
-                         * Keep both temporarily if your project has used
-                         * both route names. Later, remove the unused route.
+                         * Current authenticated user.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -84,14 +78,20 @@ public class SecurityConfig {
                         .authenticated()
 
                         /*
-                         * ==================================================
-                         * ACTIVITY PERMISSIONS
-                         * ==================================================
+                         * Dashboard.
                          */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/dashboard/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "SECRETARY",
+                                "BRANCH_LEADER"
+                        )
 
                         /*
-                         * Create an activity:
-                         * ADMIN, SECRETARY and BRANCH_LEADER only.
+                         * Create activity.
                          */
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -106,7 +106,6 @@ public class SecurityConfig {
 
                         /*
                          * View activity lists and details.
-                         * Any authenticated system user can view them.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -121,7 +120,7 @@ public class SecurityConfig {
                         )
 
                         /*
-                         * Edit an activity.
+                         * Update activities.
                          */
                         .requestMatchers(
                                 HttpMethod.PUT,
@@ -144,11 +143,7 @@ public class SecurityConfig {
                         )
 
                         /*
-                         * Delete an activity.
-                         *
-                         * For now ADMIN and SECRETARY can delete.
-                         * You can allow BRANCH_LEADER later with branch-scope
-                         * validation inside the service.
+                         * Delete activities.
                          */
                         .requestMatchers(
                                 HttpMethod.DELETE,
@@ -160,11 +155,8 @@ public class SecurityConfig {
                         )
 
                         /*
-                         * ==================================================
-                         * FEATURE-LEVEL PERMISSIONS
-                         * ==================================================
+                         * Feature-level permissions.
                          */
-
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
 
@@ -189,15 +181,12 @@ public class SecurityConfig {
                         )
 
                         /*
-                         * Every other endpoint requires authentication.
+                         * Everything else requires a valid JWT.
                          */
                         .anyRequest()
                         .authenticated()
                 )
 
-                /*
-                 * Read JWT before Spring's username/password filter.
-                 */
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

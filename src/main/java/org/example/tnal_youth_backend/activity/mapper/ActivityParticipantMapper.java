@@ -73,11 +73,6 @@ public class ActivityParticipantMapper {
                                 ? member.getBranchId()
                                 : null
                 )
-                .branchCode(
-                        branch != null
-                                ? branch.getBranchCode()
-                                : null
-                )
                 .branchNameKm(
                         branch != null
                                 ? branch.getNameKm()

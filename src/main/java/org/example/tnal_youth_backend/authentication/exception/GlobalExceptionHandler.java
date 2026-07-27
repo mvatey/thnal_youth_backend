@@ -1,6 +1,8 @@
 package org.example.tnal_youth_backend.authentication.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.example.tnal_youth_backend.dashboard.exception.DashboardAccessException;
+import org.example.tnal_youth_backend.dashboard.exception.InvalidDashboardMonthException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -100,15 +102,56 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ErrorResponse.builder()
-                        .success(false)
-                        .code("INTERNAL_SERVER_ERROR")
-                        .message("Something went wrong")
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                        .path(request.getRequestURI())
-                        .timestamp(OffsetDateTime.now())
-                        .build()
-        );
+        ex.printStackTrace();
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(
+                        ErrorResponse.builder()
+                                .success(false)
+                                .code("INTERNAL_SERVER_ERROR")
+                                .message("Something went wrong")
+                                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                                .path(request.getRequestURI())
+                                .timestamp(OffsetDateTime.now())
+                                .build()
+                );
+    }
+    @ExceptionHandler(InvalidDashboardMonthException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDashboardMonth(
+            InvalidDashboardMonthException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        ErrorResponse.builder()
+                                .success(false)
+                                .code("INVALID_DASHBOARD_MONTH")
+                                .message(ex.getMessage())
+                                .status(HttpStatus.BAD_REQUEST.value())
+                                .path(request.getRequestURI())
+                                .timestamp(OffsetDateTime.now())
+                                .build()
+                );
+    }
+
+    @ExceptionHandler(DashboardAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDashboardAccessException(
+            DashboardAccessException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(
+                        ErrorResponse.builder()
+                                .success(false)
+                                .code("DASHBOARD_ACCESS_DENIED")
+                                .message(ex.getMessage())
+                                .status(HttpStatus.FORBIDDEN.value())
+                                .path(request.getRequestURI())
+                                .timestamp(OffsetDateTime.now())
+                                .build()
+                );
     }
 }
