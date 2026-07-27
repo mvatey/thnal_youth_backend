@@ -304,27 +304,18 @@ public class AuthServiceImpl implements AuthService {
     public UserProfileResponse getCurrentUser() {
         User user = SecurityUtil.getCurrentUser();
 
-        String roleCode = null;
+        String roleCode =
+                user.getRole() != null
+                        ? user.getRole().name()
+                        : null;
 
-        if (user.getRole() != null) {
-            user.getRole().name();
-        }
-
-        /*
-         * Member fields are temporarily null because Member.java
-         * does not exist yet.
-         *
-         * Later:
-         * users.member_id -> members.id
-         * members.profile_photo_id -> files.id
-         */
         return UserProfileResponse.builder()
                 .id(user.getId())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .fullNameKm(null)
-                .fullNameEn(null)
-                .profileImage(null)
+                .fullNameKm(user.getFullNameKm())
+                .fullNameEn(user.getFullNameEn())
+                .profileImage(user.getProfileImage())
                 .role(roleCode)
                 .build();
     }
