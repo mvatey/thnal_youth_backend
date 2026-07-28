@@ -8,10 +8,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+<<<<<<< HEAD
     <!-- ===================================================== -->
     <!-- Spring Boot parent                                    -->
     <!-- ===================================================== -->
 
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -19,20 +22,26 @@
         <relativePath/>
     </parent>
 
+<<<<<<< HEAD
     <!-- ===================================================== -->
     <!-- Project information                                   -->
     <!-- ===================================================== -->
 
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
     <groupId>org.example</groupId>
     <artifactId>tnal_youth_backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
     <name>tnal_youth_backend</name>
     <description>TNAL Youth backend application</description>
+<<<<<<< HEAD
 
     <!-- ===================================================== -->
     <!-- Version properties                                    -->
     <!-- ===================================================== -->
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
     <properties>
         <java.version>21</java.version>
@@ -45,13 +54,20 @@
 
     <dependencies>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- Web / REST API                                    -->
         <!-- ================================================= -->
+=======
+        <!-- ===================================================== -->
+        <!-- Spring Boot Web                                       -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+<<<<<<< HEAD
         </dependency>
 
         <!-- ================================================= -->
@@ -61,29 +77,32 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
         </dependency>
 
-        <!-- ================================================= -->
-        <!-- Security                                          -->
-        <!-- ================================================= -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ===================================================== -->
+        <!-- Security                                              -->
+        <!-- ===================================================== -->
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- ================================================= -->
-        <!-- JPA                                               -->
-        <!-- ================================================= -->
+        <!-- ===================================================== -->
+        <!-- Database                                              -->
+        <!-- ===================================================== -->
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-
-        <!-- ================================================= -->
-        <!-- PostgreSQL                                        -->
-        <!-- ================================================= -->
 
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -91,9 +110,9 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- ================================================= -->
-        <!-- Flyway                                            -->
-        <!-- ================================================= -->
+        <!-- ===================================================== -->
+        <!-- Flyway                                                -->
+        <!-- ===================================================== -->
 
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -105,77 +124,106 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- ================================================= -->
-        <!-- MyBatis                                           -->
-        <!-- ================================================= -->
+        <!-- ===================================================== -->
+        <!-- MyBatis                                               -->
+        <!-- Keep only if the project really has @Mapper classes   -->
+        <!-- ===================================================== -->
 
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
-            <version>${mybatis.version}</version>
+            <version>3.0.4</version>
         </dependency>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- Swagger / OpenAPI                                 -->
         <!-- ================================================= -->
+=======
+        <!-- ===================================================== -->
+        <!-- Swagger / OpenAPI                                     -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>${springdoc.version}</version>
+            <version>2.8.17</version>
         </dependency>
 
-        <!-- ================================================= -->
-        <!-- JWT                                               -->
-        <!-- ================================================= -->
+        <!-- ===================================================== -->
+        <!-- JWT                                                   -->
+        <!-- ===================================================== -->
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
+            <version>0.13.0</version>
         </dependency>
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
+            <version>0.13.0</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
+            <version>0.13.0</version>
             <scope>runtime</scope>
         </dependency>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- Email                                             -->
         <!-- ================================================= -->
+=======
+        <!-- ===================================================== -->
+        <!-- Mail                                                  -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- Object mapping                                    -->
         <!-- ================================================= -->
+=======
+        <!-- ===================================================== -->
+        <!-- Mapping                                               -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.modelmapper</groupId>
             <artifactId>modelmapper</artifactId>
+<<<<<<< HEAD
             <version>${modelmapper.version}</version>
         </dependency>
 
         <!-- ================================================= -->
         <!-- Lombok                                            -->
         <!-- ================================================= -->
+=======
+            <version>3.1.1</version>
+        </dependency>
+
+        <!-- ===================================================== -->
+        <!-- Lombok                                                -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+<<<<<<< HEAD
         </dependency>
 
         <!-- Generates metadata for @ConfigurationProperties -->
@@ -188,6 +236,20 @@
         <!-- ================================================= -->
         <!-- Development tools                                 -->
         <!-- ================================================= -->
+=======
+        </dependency>
+
+        <!-- Optional configuration metadata support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ===================================================== -->
+        <!-- Development                                           -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -203,9 +265,15 @@
             <optional>true</optional>
         </dependency>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- Core testing                                      -->
         <!-- ================================================= -->
+=======
+        <!-- ===================================================== -->
+        <!-- Testing                                               -->
+        <!-- ===================================================== -->
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
 
         <!--
             Provides:
@@ -222,18 +290,22 @@
             <scope>test</scope>
         </dependency>
 
+<<<<<<< HEAD
         <!--
             Provides:
             - @WithMockUser
             - @WithAnonymousUser
             - csrf()
         -->
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
 
+<<<<<<< HEAD
         <!-- ================================================= -->
         <!-- MyBatis testing                                   -->
         <!-- ================================================= -->
@@ -268,11 +340,18 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+=======
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter-test</artifactId>
+            <version>4.0.1</version>
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
             <scope>test</scope>
         </dependency>
 
     </dependencies>
 
+<<<<<<< HEAD
     <!-- ===================================================== -->
     <!-- Build configuration                                   -->
     <!-- ===================================================== -->
@@ -281,6 +360,11 @@
         <plugins>
 
             <!-- Spring Boot packaging and execution -->
+=======
+    <build>
+        <plugins>
+
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -295,7 +379,10 @@
                 </configuration>
             </plugin>
 
+<<<<<<< HEAD
             <!-- Java compiler -->
+=======
+>>>>>>> parent of a6bdd0c (Merge feature/donation into feature/member-page)
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
