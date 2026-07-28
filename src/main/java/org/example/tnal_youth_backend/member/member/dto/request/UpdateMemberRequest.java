@@ -54,6 +54,7 @@ public record UpdateMemberRequest(
         String placeOfBirth,
 
         @JsonProperty("phone")
+        @NotBlank(message = "Phone is required")
         @Size(
                 max = 30,
                 message = "Phone must not exceed 30 characters"

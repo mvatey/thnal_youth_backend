@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.PasswordResetToken;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
+import org.example.tnal_youth_backend.authentication.model.enums.OtpPurpose;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.model.request.ForgotPasswordRequest;
 import org.example.tnal_youth_backend.authentication.model.request.ResetPasswordRequest;
@@ -12,6 +13,7 @@ import org.example.tnal_youth_backend.authentication.repository.PasswordResetTok
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.ForgotPasswordService;
+import org.example.tnal_youth_backend.authentication.service.OtpGenerator;
 import org.example.tnal_youth_backend.authentication.service.OtpSender;
 import org.example.tnal_youth_backend.authentication.util.PhoneNumberUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,13 +32,13 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ForgotPasswordServiceImpl implements ForgotPasswordService {
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final OtpSender otpSender;
+    private final OtpGenerator otpGenerator;
 
     @Value("${otp.expire-minutes:5}")
     private long otpExpireMinutes;
@@ -111,17 +113,21 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
          * Invalidate previous active OTPs before issuing a new one.
          */
         passwordResetTokenRepository
-                .invalidateAllUnconsumedTokensForUser(
+                .invalidateAllUnconsumedTokensForUserAndPurpose(
                         user.getId(),
+                        OtpPurpose.PASSWORD_RESET,
                         now
                 );
 
         String plainOtp =
-                generateOtp();
+                otpGenerator.generate();
 
         PasswordResetToken token =
                 PasswordResetToken.builder()
                         .user(user)
+                        .purpose(
+                                OtpPurpose.PASSWORD_RESET
+                        )
                         .otpCodeHash(
                                 passwordEncoder.encode(plainOtp)
                         )
@@ -184,8 +190,9 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
 
         PasswordResetToken token =
                 passwordResetTokenRepository
-                        .findTopByUser_IdAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+                        .findTopByUser_IdAndPurposeAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
                                 user.getId(),
+                                OtpPurpose.PASSWORD_RESET,
                                 now
                         )
                         .orElseThrow(() ->
@@ -348,7 +355,10 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
             OffsetDateTime now
     ) {
         passwordResetTokenRepository
-                .findTopByUser_IdOrderByCreatedAtDesc(userId)
+                .findTopByUser_IdAndPurposeOrderByCreatedAtDesc(
+                        userId,
+                        OtpPurpose.PASSWORD_RESET
+                )
                 .ifPresent(latestToken -> {
 
                     OffsetDateTime nextAllowedTime =
@@ -381,8 +391,9 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     ) {
         long requestsLastHour =
                 passwordResetTokenRepository
-                        .countByUser_IdAndCreatedAtAfter(
+                        .countByUser_IdAndPurposeAndCreatedAtAfter(
                                 userId,
+                                OtpPurpose.PASSWORD_RESET,
                                 now.minusHours(1)
                         );
 
@@ -400,8 +411,9 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     ) {
         long requestsLastDay =
                 passwordResetTokenRepository
-                        .countByUser_IdAndCreatedAtAfter(
+                        .countByUser_IdAndPurposeAndCreatedAtAfter(
                                 userId,
+                                OtpPurpose.PASSWORD_RESET,
                                 now.minusHours(24)
                         );
 
@@ -476,16 +488,6 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     // =========================================================
     // OTP GENERATION AND RESPONSE
     // =========================================================
-
-    private String generateOtp() {
-        int number =
-                SECURE_RANDOM.nextInt(1_000_000);
-
-        return String.format(
-                "%06d",
-                number
-        );
-    }
 
     private ApiResponse genericOtpResponse() {
         return ApiResponse.builder()

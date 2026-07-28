@@ -36,6 +36,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.UUID;
 
 
 import java.util.List;
@@ -56,6 +60,7 @@ public class MemberServiceImpl
 
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private final MemberStatusRepository
             memberStatusRepository;
@@ -279,6 +284,10 @@ public class MemberServiceImpl
                     memberRepository.saveAndFlush(
                             member
                     );
+
+            createPendingUserAccount(
+                    savedMember
+            );
 
             Member detailedMember =
                     findDetailedMember(
@@ -1179,5 +1188,113 @@ public class MemberServiceImpl
                     exception
             );
         }
+    }
+
+    private void createPendingUserAccount(
+            Member member
+    ) {
+        if (member == null
+                || member.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Saved member could not be resolved"
+            );
+        }
+
+        String phone =
+                trimToNull(
+                        member.getPhone()
+                );
+
+        String email =
+                normalizeEmail(
+                        member.getEmail()
+                );
+
+        if (phone == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Phone is required to create a user account"
+            );
+        }
+
+        if (email == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Email is required for account activation"
+            );
+        }
+
+        if (userRepository
+                .findByMemberId(
+                        member.getId()
+                )
+                .isPresent()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This member already has a user account"
+            );
+        }
+
+        if (userRepository
+                .findByPhone(phone)
+                .isPresent()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A user account already exists with phone: "
+                            + phone
+            );
+        }
+
+        if (userRepository
+                .findByEmail(email)
+                .isPresent()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A user account already exists with email: "
+                            + email
+            );
+        }
+
+        /*
+         * Nobody knows this value. It only satisfies the current
+         * password_hash NOT NULL database constraint.
+         */
+        String unusablePasswordHash =
+                passwordEncoder.encode(
+                        UUID.randomUUID().toString()
+                );
+
+        User pendingUser =
+                User.builder()
+                        .memberId(
+                                member.getId()
+                        )
+                        .phone(phone)
+                        .email(email)
+                        .passwordHash(
+                                unusablePasswordHash
+                        )
+                        .role(
+                                UserRole.MEMBER
+                        )
+                        .status(
+                                UserStatus.PENDING_ACTIVATION
+                        )
+                        .fullNameKm(
+                                member.getFullNameKm()
+                        )
+                        .fullNameEn(
+                                member.getFullNameEn()
+                        )
+                        .failedLoginCount(0)
+                        .build();
+
+        userRepository.saveAndFlush(
+                pendingUser
+        );
     }
 }

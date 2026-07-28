@@ -12,8 +12,11 @@ public record MemberPasswordStatusResponse(
         @JsonProperty("user_id")
         Long userId,
 
-        @JsonProperty("has_password")
-        boolean hasPassword,
+        @JsonProperty("has_account")
+        boolean hasAccount,
+
+        @JsonProperty("is_activated")
+        boolean activated,
 
         String phone,
 
@@ -23,7 +26,10 @@ public record MemberPasswordStatusResponse(
 
         String status,
 
-        @JsonProperty("password_updated_at")
-        OffsetDateTime passwordUpdatedAt
+        @JsonProperty("activated_at")
+        OffsetDateTime activatedAt,
+
+        @JsonProperty("last_login_at")
+        OffsetDateTime lastLoginAt
 ) {
 }

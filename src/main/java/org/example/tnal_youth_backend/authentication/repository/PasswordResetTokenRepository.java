@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.authentication.repository;
 
 import org.example.tnal_youth_backend.authentication.model.entity.PasswordResetToken;
+import org.example.tnal_youth_backend.authentication.model.enums.OtpPurpose;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,28 +16,43 @@ public interface PasswordResetTokenRepository
         extends JpaRepository<PasswordResetToken, Long> {
 
     Optional<PasswordResetToken>
-    findTopByUser_IdOrderByCreatedAtDesc(Long userId);
-
-    long countByUser_IdAndCreatedAtAfter(
+    findTopByUser_IdAndPurposeOrderByCreatedAtDesc(
             Long userId,
+            OtpPurpose purpose
+    );
+
+    long countByUser_IdAndPurposeAndCreatedAtAfter(
+            Long userId,
+            OtpPurpose purpose,
             OffsetDateTime createdAfter
     );
 
     Optional<PasswordResetToken>
-    findTopByUser_IdAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+    findTopByUser_IdAndPurposeAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
             Long userId,
+            OtpPurpose purpose,
             OffsetDateTime now
     );
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(
+            clearAutomatically = true,
+            flushAutomatically = true
+    )
     @Query("""
-        UPDATE PasswordResetToken token
-        SET token.consumedAt = :consumedAt
-        WHERE token.user.id = :userId
-          AND token.consumedAt IS NULL
-        """)
-    int invalidateAllUnconsumedTokensForUser(
-            @Param("userId") Long userId,
-            @Param("consumedAt") OffsetDateTime consumedAt
+            UPDATE PasswordResetToken token
+            SET token.consumedAt = :consumedAt
+            WHERE token.user.id = :userId
+              AND token.purpose = :purpose
+              AND token.consumedAt IS NULL
+            """)
+    int invalidateAllUnconsumedTokensForUserAndPurpose(
+            @Param("userId")
+            Long userId,
+
+            @Param("purpose")
+            OtpPurpose purpose,
+
+            @Param("consumedAt")
+            OffsetDateTime consumedAt
     );
 }

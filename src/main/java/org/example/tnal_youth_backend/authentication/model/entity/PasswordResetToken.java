@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.authentication.model.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.tnal_youth_backend.authentication.model.enums.OtpChannel;
+import org.example.tnal_youth_backend.authentication.model.enums.OtpPurpose;
 
 import java.time.OffsetDateTime;
 
@@ -29,6 +30,16 @@ public class PasswordResetToken {
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_channel", nullable = false, length = 20)
     private OtpChannel deliveryChannel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "purpose",
+            nullable = false,
+            length = 50
+    )
+    @Builder.Default
+    private OtpPurpose purpose =
+            OtpPurpose.PASSWORD_RESET;
 
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;

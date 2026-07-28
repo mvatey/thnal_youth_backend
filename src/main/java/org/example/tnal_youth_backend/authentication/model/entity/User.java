@@ -42,6 +42,7 @@ public class User implements UserDetails {
     private UserRole role;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
@@ -61,6 +62,9 @@ public class User implements UserDetails {
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 
+    @Column(name = "activated_at")
+    private OffsetDateTime activatedAt;
+
     @Column(name = "locked_until")
     private OffsetDateTime lockedUntil;
 
@@ -70,10 +74,40 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
+    @PrePersist
+    protected void onCreate() {
+
+        OffsetDateTime now =
+                OffsetDateTime.now();
+
+        if (createdAt == null) {
+            createdAt = now;
+        }
+
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+
+        if (failedLoginCount == null) {
+            failedLoginCount = 0;
+        }
+
+        if (status == null) {
+            status = UserStatus.ACTIVE;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = OffsetDateTime.now();
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(
-                new SimpleGrantedAuthority("ROLE_" + role.name())
+                new SimpleGrantedAuthority(
+                        "ROLE_" + role.name()
+                )
         );
     }
 

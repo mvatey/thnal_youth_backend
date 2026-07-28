@@ -1,7 +1,5 @@
 package org.example.tnal_youth_backend.member.password.service;
 
-import org.example.tnal_youth_backend.member.password.dto.request.ChangeMemberPasswordRequest;
-import org.example.tnal_youth_backend.member.password.dto.request.CreateMemberPasswordRequest;
 import org.example.tnal_youth_backend.member.password.dto.response.MemberPasswordStatusResponse;
 
 public interface MemberPasswordService {
@@ -10,13 +8,15 @@ public interface MemberPasswordService {
             Long memberId
     );
 
-    MemberPasswordStatusResponse createPassword(
-            Long memberId,
-            CreateMemberPasswordRequest request
+    MemberPasswordStatusResponse resendActivationOtp(
+            Long memberId
     );
 
-    MemberPasswordStatusResponse changePassword(
-            Long memberId,
-            ChangeMemberPasswordRequest request
+    MemberPasswordStatusResponse disableAccount(
+            Long memberId
+    );
+
+    MemberPasswordStatusResponse enableAccount(
+            Long memberId
     );
 }
