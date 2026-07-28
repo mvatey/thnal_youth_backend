@@ -29,13 +29,13 @@ public class BranchStaffRepository {
         }
 
         String sql = """
-                SELECT DISTINCT
-                    bs.branch_id
-                FROM branch_staff bs
-                WHERE bs.member_id = :memberId
-                  AND bs.ended_on IS NULL
-                ORDER BY bs.branch_id
-                """;
+            SELECT DISTINCT
+                bs.branch_id
+            FROM branch_staff bs
+            WHERE bs.member_id = :memberId
+              AND bs.ended_on IS NULL
+            ORDER BY bs.branch_id
+            """;
 
         MapSqlParameterSource parameters =
                 new MapSqlParameterSource()
@@ -51,9 +51,7 @@ public class BranchStaffRepository {
                         Long.class
                 );
 
-        return new LinkedHashSet<>(
-                branchIds
-        );
+        return new LinkedHashSet<>(branchIds);
     }
 
     /**

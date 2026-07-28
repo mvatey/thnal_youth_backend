@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
@@ -144,20 +145,25 @@ public class MemberController {
         );
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void>
-    deleteMember(
-            @PathVariable
-            Long id
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberDetailResponse>
+    updateMemberStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody
+            UpdateMemberStatusRequest request
     ) {
-        memberService.deleteMember(
-                id
+        return ResponseEntity.ok(
+                memberService.updateMemberStatus(
+                        id,
+                        request
+                )
         );
-
-        return ResponseEntity
-                .noContent()
-                .build();
     }
-
-
 }

@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.member.service;
 
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
@@ -38,5 +39,10 @@ public interface MemberService {
 
     void deleteMember(
             Long id
+    );
+
+    MemberDetailResponse updateMemberStatus(
+            Long id,
+            UpdateMemberStatusRequest request
     );
 }

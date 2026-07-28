@@ -8,10 +8,12 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
@@ -33,9 +35,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +70,8 @@ public class MemberServiceImpl
     private final MemberMapper memberMapper;
 
     private final BranchRepository branchRepository;
+
+    private final BranchStaffRepository branchStaffRepository;
 
     /*
      * ==========================================================
@@ -123,6 +131,10 @@ public class MemberServiceImpl
         Member member =
                 findDetailedMember(id);
 
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
         return memberMapper.toDetailResponse(
                 member
         );
@@ -139,6 +151,15 @@ public class MemberServiceImpl
     public MemberDetailResponse createMember(
             CreateMemberRequest request
     ) {
+        Branch branch =
+                findBranch(
+                        request.branchId()
+                );
+
+        validateMemberBranchAccess(
+                branch.getId()
+        );
+
         String memberNo =
                 generateMemberNo();
 
@@ -178,6 +199,10 @@ public class MemberServiceImpl
 
         Member member =
                 Member.builder()
+                        .branchId(
+                                branch.getId()
+                        )
+
                         .memberNo(memberNo)
 
                         .fullNameKm(
@@ -191,10 +216,6 @@ public class MemberServiceImpl
                                 trimToNull(
                                         request.fullNameEn()
                                 )
-                        )
-
-                        .branchId(
-                                request.branchId()
                         )
 
                         .status(status)
@@ -290,8 +311,28 @@ public class MemberServiceImpl
             Long id,
             UpdateMemberRequest request
     ) {
+        Branch branch =
+                findBranch(request.branchId());
+
+        validateMemberBranchAccess(
+                branch.getId()
+        );
+
         Member member =
                 findDetailedMember(id);
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        Branch targetBranch =
+                findBranch(
+                        request.branchId()
+                );
+
+        validateMemberBranchAccess(
+                targetBranch.getId()
+        );
 
         String memberNo =
                 member.getMemberNo();
@@ -323,7 +364,7 @@ public class MemberServiceImpl
         );
 
         member.setBranchId(
-                request.branchId()
+                targetBranch.getId()
         );
 
         member.setStatus(
@@ -437,7 +478,7 @@ public class MemberServiceImpl
                 DataIntegrityViolationException exception
         ) {
             throw createDatabaseException(
-                    "Member could not be updated",
+                    "You do not have access to this branch",
                     exception
             );
         }
@@ -981,5 +1022,162 @@ public class MemberServiceImpl
                                         + branchId
                         )
                 );
+    }
+    private void validateMemberBranchAccess(
+            Long requestedBranchId
+    ) {
+        User principalUser =
+                SecurityUtil.getCurrentUser();
+
+        if (principalUser == null
+                || principalUser.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(principalUser.getId())
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        /*
+         * Admin may create members in any existing branch.
+         */
+        if (role == UserRole.ADMIN) {
+            return;
+        }
+
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to create members"
+            );
+        }
+
+        Long currentMemberId =
+                currentUser.getMemberId();
+
+        if (currentMemberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentMemberId
+                                )
+                );
+
+        /*
+         * Fallback only when branch_staff has no assignment.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(currentMemberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        System.out.println(
+                "MEMBER CREATE USER ID: "
+                        + currentUser.getId()
+        );
+        System.out.println(
+                "MEMBER CREATE ROLE: "
+                        + role
+        );
+        System.out.println(
+                "MEMBER CREATE MEMBER ID: "
+                        + currentMemberId
+        );
+        System.out.println(
+                "MEMBER CREATE ACCESSIBLE BRANCHES: "
+                        + accessibleBranchIds
+        );
+        System.out.println(
+                "MEMBER CREATE REQUESTED BRANCH: "
+                        + requestedBranchId
+        );
+
+        if (!accessibleBranchIds.contains(
+                requestedBranchId
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have permission to access this member."
+            );
+        }
+    }
+    @Override
+    @Transactional
+    public MemberDetailResponse updateMemberStatus(
+            Long id,
+            UpdateMemberStatusRequest request
+    ) {
+        Member member =
+                findDetailedMember(id);
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        MemberStatus status =
+                findStatus(
+                        request.statusId()
+                );
+
+        member.setStatus(status);
+
+        try {
+            memberRepository.saveAndFlush(member);
+
+            Member detailedMember =
+                    findDetailedMember(id);
+
+            return memberMapper.toDetailResponse(
+                    detailedMember
+            );
+
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw createDatabaseException(
+                    "Member status could not be updated",
+                    exception
+            );
+        }
     }
 }

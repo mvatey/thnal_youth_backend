@@ -114,24 +114,16 @@ public class MemberCredentialMapper {
                     new MemberCredentialResponse
                             .CredentialKindResponse(
                             "MEMBERSHIP_CARD",
-                            "ប័ណ្ណសមាជិក",
+                            "ប័ណ្ណសម្គាល់សមាជិក",
                             "Membership Card"
                     );
 
-            case "CERTIFICATE" ->
+            case "ACTIVITY_CERTIFICATE" ->
                     new MemberCredentialResponse
                             .CredentialKindResponse(
-                            "CERTIFICATE",
-                            "វិញ្ញាបនបត្រ",
-                            "Certificate"
-                    );
-
-            case "ID_CARD" ->
-                    new MemberCredentialResponse
-                            .CredentialKindResponse(
-                            "ID_CARD",
-                            "អត្តសញ្ញាណប័ណ្ណ",
-                            "ID Card"
+                            "ACTIVITY_CERTIFICATE",
+                            "បណ្ណសរសើរ",
+                            "Activity Certificate"
                     );
 
             default ->
