@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.document.document.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.activity.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
 import org.example.tnal_youth_backend.document.document.dto.response.DocumentResponse;

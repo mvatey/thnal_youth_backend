@@ -1,25 +1,15 @@
 package org.example.tnal_youth_backend.member.participation.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.example.tnal_youth_backend.activity.model.entity.Activity;
-import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
-import org.example.tnal_youth_backend.activity.model.enums.ParticipantRegistrationSource;
-import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
-import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
-import org.example.tnal_youth_backend.authentication.model.entity.User;
-import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
-import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.participation.dto.request.MemberParticipationRequest;
-import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationPageResponse;
 import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationResponse;
+import org.example.tnal_youth_backend.member.participation.entity.ActivityParticipant;
 import org.example.tnal_youth_backend.member.participation.mapper.MemberParticipationMapper;
+import org.example.tnal_youth_backend.member.participation.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.member.participation.service.MemberParticipationService;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,98 +23,28 @@ import java.util.List;
 public class MemberParticipationServiceImpl
         implements MemberParticipationService {
 
-    private final MemberAccessValidator
-            memberAccessValidator;
-
     private final ActivityParticipantRepository
             activityParticipantRepository;
 
-    private final ActivityRepository
-            activityRepository;
-
-    private final MemberRepository
-            memberRepository;
-
-    private final UserRepository
-            userRepository;
+    private final MemberRepository memberRepository;
 
     private final MemberParticipationMapper
             memberParticipationMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public MemberParticipationPageResponse
-    getParticipationsByMemberId(
-            Long memberId,
-            int page,
-            int size,
-            String search,
-            Short typeId
-    ) {
-        memberAccessValidator
-                .validateAccessibleMember(
+    public List<MemberParticipationResponse>
+    getParticipationsByMemberId(Long memberId) {
+
+        verifyMemberExists(memberId);
+
+        return activityParticipantRepository
+                .findAllByMemberIdOrderByRegisteredAtDescIdDesc(
                         memberId
-                );
-
-        if (page < 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Page must not be negative"
-            );
-        }
-
-        if (size < 1 || size > 100) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Size must be between 1 and 100"
-            );
-        }
-
-        if (typeId != null && typeId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Activity type ID must be greater than zero"
-            );
-        }
-
-        String normalizedSearch =
-                trimToNull(search);
-
-        Pageable pageable =
-                PageRequest.of(
-                        page,
-                        size
-                );
-
-        Page<ActivityParticipant>
-                participationPage =
-                activityParticipantRepository
-                        .findMemberParticipationPage(
-                                memberId,
-                                normalizedSearch,
-                                typeId,
-                                pageable
-                        );
-
-        List<MemberParticipationResponse> content =
-                participationPage
-                        .getContent()
-                        .stream()
-                        .map(
-                                memberParticipationMapper
-                                        ::toResponse
-                        )
-                        .toList();
-
-        return new MemberParticipationPageResponse(
-                content,
-                participationPage.getNumber(),
-                participationPage.getSize(),
-                participationPage.getTotalElements(),
-                participationPage.getTotalPages(),
-                participationPage.isFirst(),
-                participationPage.isLast()
-        );
+                )
+                .stream()
+                .map(memberParticipationMapper::toResponse)
+                .toList();
     }
 
     @Override
@@ -133,25 +53,13 @@ public class MemberParticipationServiceImpl
             Long memberId,
             MemberParticipationRequest request
     ) {
-        memberAccessValidator
-                .validateAccessibleMember(
-                        memberId
-                );
-
-        Member member =
-                findMember(memberId);
-
-        Activity activity =
-                findActivity(
-                        request.activityId()
-                );
+        Member member = findMember(memberId);
 
         if (activityParticipantRepository
-                .existsByActivity_IdAndMember_Id(
-                        activity.getId(),
+                .existsByActivityIdAndMemberId(
+                        request.activityId(),
                         memberId
                 )) {
-
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Member already exists in this activity"
@@ -163,14 +71,9 @@ public class MemberParticipationServiceImpl
                 request.checkedInAt()
         );
 
-        User invitedBy =
-                findInvitedByUser(
-                        request.invitedById()
-                );
-
         ActivityParticipant participant =
                 ActivityParticipant.builder()
-                        .activity(activity)
+                        .activityId(request.activityId())
                         .member(member)
                         .attendanceStatusId(
                                 request.attendanceStatusId()
@@ -183,23 +86,16 @@ public class MemberParticipationServiceImpl
                         .checkedInAt(
                                 request.checkedInAt()
                         )
-                        .invitedBy(invitedBy)
-                        .registrationSource(
-                                ParticipantRegistrationSource.MANUAL
+                        .invitedById(
+                                request.invitedById()
                         )
-                        .note(
-                                trimToNull(
-                                        request.note()
-                                )
-                        )
+                        .note(trimToNull(request.note()))
                         .build();
 
         try {
             ActivityParticipant saved =
                     activityParticipantRepository
-                            .saveAndFlush(
-                                    participant
-                            );
+                            .saveAndFlush(participant);
 
             return memberParticipationMapper
                     .toResponse(saved);
@@ -216,26 +112,16 @@ public class MemberParticipationServiceImpl
             Long participationId,
             MemberParticipationRequest request
     ) {
-        memberAccessValidator
-                .validateAccessibleMember(
-                        memberId
-                );
-
         ActivityParticipant participant =
                 findParticipation(
                         memberId,
                         participationId
                 );
 
-        Activity activity =
-                findActivity(
-                        request.activityId()
-                );
-
         boolean duplicate =
                 activityParticipantRepository
-                        .existsByActivity_IdAndMember_IdAndIdNot(
-                                activity.getId(),
+                        .existsByActivityIdAndMemberIdAndIdNot(
+                                request.activityId(),
                                 memberId,
                                 participationId
                         );
@@ -252,41 +138,34 @@ public class MemberParticipationServiceImpl
                 request.checkedInAt()
         );
 
-        User invitedBy =
-                findInvitedByUser(
-                        request.invitedById()
-                );
-
-        participant.setActivity(activity);
+        participant.setActivityId(
+                request.activityId()
+        );
 
         participant.setAttendanceStatusId(
                 request.attendanceStatusId()
         );
 
         participant.setRegisteredAt(
-                request.registeredAt() != null
-                        ? request.registeredAt()
-                        : participant.getRegisteredAt()
+                request.registeredAt()
         );
 
         participant.setCheckedInAt(
                 request.checkedInAt()
         );
 
-        participant.setInvitedBy(invitedBy);
+        participant.setInvitedById(
+                request.invitedById()
+        );
 
         participant.setNote(
-                trimToNull(
-                        request.note()
-                )
+                trimToNull(request.note())
         );
 
         try {
             ActivityParticipant updated =
                     activityParticipantRepository
-                            .saveAndFlush(
-                                    participant
-                            );
+                            .saveAndFlush(participant);
 
             return memberParticipationMapper
                     .toResponse(updated);
@@ -302,26 +181,16 @@ public class MemberParticipationServiceImpl
             Long memberId,
             Long participationId
     ) {
-
-        memberAccessValidator
-                .validateAccessibleMember(
-                        memberId
-                );
-
         ActivityParticipant participant =
                 findParticipation(
                         memberId,
                         participationId
                 );
 
-        activityParticipantRepository.delete(
-                participant
-        );
+        activityParticipantRepository.delete(participant);
     }
 
-    private Member findMember(
-            Long memberId
-    ) {
+    private Member findMember(Long memberId) {
         if (memberId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -329,8 +198,7 @@ public class MemberParticipationServiceImpl
             );
         }
 
-        return memberRepository
-                .findById(memberId)
+        return memberRepository.findById(memberId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -340,48 +208,7 @@ public class MemberParticipationServiceImpl
                 );
     }
 
-    private Activity findActivity(
-            Long activityId
-    ) {
-        if (activityId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Activity ID is required"
-            );
-        }
-
-        return activityRepository
-                .findById(activityId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Activity not found with ID: "
-                                        + activityId
-                        )
-                );
-    }
-
-    private User findInvitedByUser(
-            Long invitedById
-    ) {
-        if (invitedById == null) {
-            return null;
-        }
-
-        return userRepository
-                .findById(invitedById)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Inviting user not found with ID: "
-                                        + invitedById
-                        )
-                );
-    }
-
-    private void verifyMemberExists(
-            Long memberId
-    ) {
+    private void verifyMemberExists(Long memberId) {
         findMember(memberId);
     }
 
@@ -389,15 +216,8 @@ public class MemberParticipationServiceImpl
             Long memberId,
             Long participationId
     ) {
-        if (participationId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Participation ID is required"
-            );
-        }
-
         return activityParticipantRepository
-                .findByIdAndMember_Id(
+                .findByIdAndMemberId(
                         participationId,
                         memberId
                 )
@@ -416,9 +236,7 @@ public class MemberParticipationServiceImpl
     ) {
         if (registeredAt != null
                 && checkedInAt != null
-                && checkedInAt.isBefore(
-                registeredAt
-        )) {
+                && checkedInAt.isBefore(registeredAt)) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -427,15 +245,12 @@ public class MemberParticipationServiceImpl
         }
     }
 
-    private String trimToNull(
-            String value
-    ) {
+    private String trimToNull(String value) {
         if (value == null) {
             return null;
         }
 
-        String trimmed =
-                value.trim();
+        String trimmed = value.trim();
 
         return trimmed.isEmpty()
                 ? null

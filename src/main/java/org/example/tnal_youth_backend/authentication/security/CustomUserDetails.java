@@ -1,11 +1,11 @@
 package org.example.tnal_youth_backend.authentication.security;
 
-import lombok.AllArgsConstructor;
+
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import lombok.AllArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -13,25 +13,14 @@ import java.util.List;
 public class CustomUserDetails implements UserDetails {
 
     private final User user;
-    public Long getUserId() {
-        return user.getId();
-    }
 
     @Override
     public Collection<SimpleGrantedAuthority> getAuthorities() {
 
-        if (user.getRole() == null
-                || user.getRole().name() == null
-                || user.getRole().name().isBlank()) {
-
-            return List.of();
-        }
-
         return List.of(
-                new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().name()
-                )
+                new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
         );
+
     }
 
     @Override
@@ -42,9 +31,7 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public String getUsername() {
 
-        if (user.getEmail() != null
-                && !user.getEmail().isBlank()) {
-
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
             return user.getEmail();
         }
 
@@ -62,11 +49,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-
-        OffsetDateTime lockedUntil = user.getLockedUntil();
-
-        return lockedUntil == null
-                || lockedUntil.isBefore(OffsetDateTime.now());
+        return user.getLockedUntil() == null;
     }
 
     @Override
@@ -76,10 +59,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-
-        return user.getStatus() != null
-                && "ACTIVE".equals(
-                user.getStatus().name()
-        );
+        return user.getStatus().name().equals("ACTIVE");
     }
+
 }

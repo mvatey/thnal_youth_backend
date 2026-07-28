@@ -1,8 +1,9 @@
 package org.example.tnal_youth_backend.authentication.model.entity;
 
+
+
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 
@@ -23,41 +24,15 @@ public class LoginHistory {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(
-            name = "login_identifier",
-            length = 255
-    )
-    private String loginIdentifier;
+    @Column(name = "login_time")
+    private OffsetDateTime loginTime;
 
-    @Column(
-            name = "success",
-            nullable = false
-    )
-    private Boolean success;
-
-    @Column(
-            name = "failure_reason",
-            length = 100
-    )
-    private String failureReason;
-
-    @Column(
-            name = "ip_address",
-            length = 45
-    )
+    @Column(name = "ip_address")
     private String ipAddress;
 
-    @Column(
-            name = "user_agent",
-            columnDefinition = "TEXT"
-    )
-    private String userAgent;
+    private String device;
 
-    @CreationTimestamp
-    @Column(
-            name = "created_at",
-            nullable = false,
-            updatable = false
-    )
-    private OffsetDateTime createdAt;
+    private String browser;
+
+    private Boolean success;
 }

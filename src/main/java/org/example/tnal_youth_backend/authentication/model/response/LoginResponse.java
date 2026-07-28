@@ -1,25 +1,25 @@
 package org.example.tnal_youth_backend.authentication.model.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+
+
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import lombok.*;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class LoginResponse {
-
-    private String accessToken;
-
-    private String refreshToken;
 
     private Long userId;
 
     private String fullName;
 
-    private String role;
+    private UserRole role;
+
+    private String accessToken;
+
+    private String refreshToken;
+
 }

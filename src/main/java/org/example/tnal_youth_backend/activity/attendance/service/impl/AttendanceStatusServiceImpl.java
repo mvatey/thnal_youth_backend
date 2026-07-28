@@ -27,7 +27,7 @@ public class AttendanceStatusServiceImpl
     getActiveAttendanceStatuses() {
 
         return attendanceStatusRepository
-                .findAllByActiveTrueOrderBySortOrderAscIdAsc()
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
                 .stream()
                 .map(attendanceStatusMapper::toResponse)
                 .toList();

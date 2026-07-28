@@ -5,10 +5,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
-import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
@@ -36,40 +34,81 @@ public class MemberController {
      * GET /api/members
      */
     @GetMapping
-    @PreAuthorize("""
-        hasAnyRole(
-            'ADMIN',
-            'SECRETARY',
-            'BRANCH_LEADER'
-        )
-        """)
-    public ResponseEntity<MemberPageResponse>
-    getMembers(
-            @RequestParam(defaultValue = "0")
-            int page,
+    public ResponseEntity<List<MemberListResponse>>
+    getAllMembers() {
 
-            @RequestParam(defaultValue = "15")
-            int size,
+        return ResponseEntity.ok(
+                memberService.getAllMembers()
+        );
+    }
 
-            @RequestParam(required = false)
-            String search,
+    /*
+     * Search by Khmer or English member name.
+     *
+     * GET /api/members/search?name=ស៊ីវនាន
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<MemberListResponse>>
+    searchMembersByName(
+            @RequestParam
+            String name
+    ) {
+        return ResponseEntity.ok(
+                memberService.searchMembersByName(
+                        name
+                )
+        );
+    }
 
-            @RequestParam(required = false)
-            Long branchId,
+    /*
+     * Filter by branch dropdown.
+     *
+     * GET /api/members/filter-by-branch?branchId=4
+     */
+    @GetMapping("/filter-by-branch")
+    public ResponseEntity<List<MemberListResponse>>
+    filterMembersByBranch(
+            @RequestParam
+            Long branchId
+    ) {
+        return ResponseEntity.ok(
+                memberService.filterMembersByBranch(
+                        branchId
+                )
+        );
+    }
 
-            @RequestParam(required = false)
-            Short statusId,
+    /*
+     * Filter by member status dropdown.
+     *
+     * GET /api/members/filter-by-status?statusId=1
+     */
+    @GetMapping("/filter-by-status")
+    public ResponseEntity<List<MemberListResponse>>
+    filterMembersByStatus(
+            @RequestParam
+            Short statusId
+    ) {
+        return ResponseEntity.ok(
+                memberService.filterMembersByStatus(
+                        statusId
+                )
+        );
+    }
 
-            @RequestParam(required = false)
+    /*
+     * Filter by gender dropdown.
+     *
+     * GET /api/members/filter-by-gender?gender=MALE
+     */
+    @GetMapping("/filter-by-gender")
+    public ResponseEntity<List<MemberListResponse>>
+    filterMembersByGender(
+            @RequestParam
             Gender gender
     ) {
         return ResponseEntity.ok(
-                memberService.getMembers(
-                        page,
-                        size,
-                        search,
-                        branchId,
-                        statusId,
+                memberService.filterMembersByGender(
                         gender
                 )
         );
@@ -105,13 +144,6 @@ public class MemberController {
     }
 
     @PostMapping
-    @PreAuthorize("""
-        hasAnyRole(
-            'ADMIN',
-            'SECRETARY',
-            'BRANCH_LEADER'
-        )
-        """)
     public ResponseEntity<MemberDetailResponse>
     createMember(
             @Valid
@@ -145,25 +177,18 @@ public class MemberController {
         );
     }
 
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("""
-        hasAnyRole(
-            'ADMIN',
-            'SECRETARY',
-            'BRANCH_LEADER'
-        )
-        """)
-    public ResponseEntity<MemberDetailResponse>
-    updateMemberStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody
-            UpdateMemberStatusRequest request
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void>
+    deleteMember(
+            @PathVariable
+            Long id
     ) {
-        return ResponseEntity.ok(
-                memberService.updateMemberStatus(
-                        id,
-                        request
-                )
+        memberService.deleteMember(
+                id
         );
+
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }

@@ -18,20 +18,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String phoneOrEmail)
             throws UsernameNotFoundException {
 
-        if (phoneOrEmail == null || phoneOrEmail.isBlank()) {
-            throw new UsernameNotFoundException(
-                    "Phone number or email is required"
-            );
-        }
-
-        String identifier = phoneOrEmail.trim();
-
         User user = userRepository
-                .findByEmailOrPhone(identifier, identifier)
+                .findByEmailOrPhone(phoneOrEmail, phoneOrEmail)
                 .orElseThrow(() ->
-                        new UsernameNotFoundException(
-                                "User not found"
-                        )
+                        new UsernameNotFoundException("User not found")
                 );
 
         return new CustomUserDetails(user);

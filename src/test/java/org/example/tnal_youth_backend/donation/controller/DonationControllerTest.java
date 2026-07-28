@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.donation.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
@@ -12,8 +13,8 @@ import org.example.tnal_youth_backend.donation.dto.DonationUpdateDTO;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -63,8 +64,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(
         controllers = DonationController.class,
         excludeFilters = @ComponentScan.Filter(
-                type = FilterType.REGEX,
-                pattern = ".*JwtAuthenticationFilter"
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = JwtAuthenticationFilter.class
         )
 )
 @Import({

@@ -20,47 +20,27 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Owner of this refresh token.
+     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false
-    )
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(
-            name = "token",
-            nullable = false,
-            unique = true
-    )
+    /**
+     * Refresh token value stored in database.
+     */
+    @Column(nullable = false, unique = true)
     private UUID token;
 
-    @Column(
-            name = "expires_at",
-            nullable = false
-    )
+    @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
-    @Column(name = "revoked_at")
-    private OffsetDateTime revokedAt;
+    @Column(nullable = false)
+    private Boolean revoked;
 
     @CreationTimestamp
-    @Column(
-            name = "created_at",
-            nullable = false,
-            updatable = false
-    )
+    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
-    public boolean isRevoked() {
-        return revokedAt != null;
-    }
-
-    public boolean isExpired() {
-        return expiresAt != null
-                && expiresAt.isBefore(OffsetDateTime.now());
-    }
-
-    public boolean isActive() {
-        return !isRevoked() && !isExpired();
-    }
 }

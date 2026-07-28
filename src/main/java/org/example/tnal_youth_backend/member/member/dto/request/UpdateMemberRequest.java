@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.time.LocalDate;
-import jakarta.validation.constraints.PastOrPresent;
 
 public record UpdateMemberRequest(
 
@@ -77,12 +76,8 @@ public record UpdateMemberRequest(
         Long cvFileId,
 
         @JsonProperty("joined_on")
-        @PastOrPresent(
-                message = "Joined date cannot be in the future"
-        )
         LocalDate joinedOn,
 
-        @JsonProperty("bio")
         String bio
 ) {
 }

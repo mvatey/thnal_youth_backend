@@ -14,6 +14,8 @@ public record AttendanceStatusResponse(
         @JsonProperty("label_en")
         String labelEn,
 
+        String description,
+
         @JsonProperty("sort_order")
         Integer sortOrder
 ) {

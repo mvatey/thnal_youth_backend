@@ -9,13 +9,10 @@ import org.example.tnal_youth_backend.member.credential.mapper.MemberCredentialM
 import org.example.tnal_youth_backend.member.credential.repository.MemberCredentialRepository;
 import org.example.tnal_youth_backend.member.credential.service.MemberCredentialService;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -23,39 +20,20 @@ import java.util.Locale;
 public class MemberCredentialServiceImpl
         implements MemberCredentialService {
 
-    private static final String MEMBERSHIP_CARD_KIND =
-            "ID_CARD";
-
-    private static final String APPOINTMENT_LETTER_KIND =
-            "APPOINTMENT_LETTER";
-
-    private static final String CERTIFICATE_KIND =
-            "CERTIFICATE";
-
-    private final MemberCredentialRepository
-            memberCredentialRepository;
-
-    private final MemberRepository
-            memberRepository;
-
-    private final FileRepository
-            fileRepository;
-
-    private final MemberCredentialMapper
-            memberCredentialMapper;
+    private final MemberCredentialRepository memberCredentialRepository;
+    private final MemberRepository memberRepository;
+    private final FileRepository fileRepository;
+    private final MemberCredentialMapper memberCredentialMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public List<MemberCredentialResponse>
-    getAllByMemberId(
+    public List<MemberCredentialResponse> getAllByMemberId(
             Long memberId
     ) {
         validateMemberExists(memberId);
 
         return memberCredentialRepository
-                .findAllByMemberIdOrderByCreatedAtDesc(
-                        memberId
-                )
+                .findAllByMemberIdOrderByCreatedAtDesc(memberId)
                 .stream()
                 .map(memberCredentialMapper::toResponse)
                 .toList();
@@ -70,13 +48,9 @@ public class MemberCredentialServiceImpl
         validateMemberExists(memberId);
 
         MemberCredential credential =
-                findCredential(
-                        memberId,
-                        credentialId
-                );
+                findCredential(memberId, credentialId);
 
-        return memberCredentialMapper
-                .toResponse(credential);
+        return memberCredentialMapper.toResponse(credential);
     }
 
     @Override
@@ -85,37 +59,22 @@ public class MemberCredentialServiceImpl
             MemberCredentialRequest request
     ) {
         validateMemberExists(memberId);
-
-        validateFileExists(
-                request.getFileId()
-        );
-
-        String normalizedCredentialKind =
-                normalizeCredentialKind(
-                        request.getCredentialKind()
-                );
-
-        validateSingleIdCardOnCreate(
-                memberId,
-                normalizedCredentialKind
-        );
+        validateFileExists(request.getFileId());
 
         String normalizedCredentialNo =
-                normalizeCredentialNo(
-                        request.getCredentialNo()
-                );
+                normalizeCredentialNo(request.getCredentialNo());
 
-        validateUniqueCredentialNoForCreate(
-                normalizedCredentialNo
-        );
+        if (normalizedCredentialNo != null
+                && memberCredentialRepository
+                .existsByCredentialNo(normalizedCredentialNo)) {
 
-        request.setCredentialKind(
-                normalizedCredentialKind
-        );
+            throw new IllegalArgumentException(
+                    "Credential number already exists: "
+                            + normalizedCredentialNo
+            );
+        }
 
-        request.setCredentialNo(
-                normalizedCredentialNo
-        );
+        request.setCredentialNo(normalizedCredentialNo);
 
         MemberCredential credential =
                 memberCredentialMapper.toEntity(
@@ -124,9 +83,7 @@ public class MemberCredentialServiceImpl
                 );
 
         MemberCredential savedCredential =
-                memberCredentialRepository.save(
-                        credential
-                );
+                memberCredentialRepository.save(credential);
 
         return memberCredentialMapper.toResponse(
                 savedCredential
@@ -140,45 +97,28 @@ public class MemberCredentialServiceImpl
             MemberCredentialRequest request
     ) {
         validateMemberExists(memberId);
-
-        validateFileExists(
-                request.getFileId()
-        );
+        validateFileExists(request.getFileId());
 
         MemberCredential credential =
-                findCredential(
-                        memberId,
-                        credentialId
-                );
-
-        String normalizedCredentialKind =
-                normalizeCredentialKind(
-                        request.getCredentialKind()
-                );
-
-        validateSingleIdCardOnUpdate(
-                memberId,
-                credentialId,
-                normalizedCredentialKind
-        );
+                findCredential(memberId, credentialId);
 
         String normalizedCredentialNo =
-                normalizeCredentialNo(
-                        request.getCredentialNo()
-                );
+                normalizeCredentialNo(request.getCredentialNo());
 
-        validateUniqueCredentialNoForUpdate(
-                credentialId,
-                normalizedCredentialNo
-        );
+        if (normalizedCredentialNo != null
+                && memberCredentialRepository
+                .existsByCredentialNoAndIdNot(
+                        normalizedCredentialNo,
+                        credentialId
+                )) {
 
-        request.setCredentialKind(
-                normalizedCredentialKind
-        );
+            throw new IllegalArgumentException(
+                    "Credential number already exists: "
+                            + normalizedCredentialNo
+            );
+        }
 
-        request.setCredentialNo(
-                normalizedCredentialNo
-        );
+        request.setCredentialNo(normalizedCredentialNo);
 
         memberCredentialMapper.updateEntity(
                 credential,
@@ -186,9 +126,7 @@ public class MemberCredentialServiceImpl
         );
 
         MemberCredential savedCredential =
-                memberCredentialRepository.save(
-                        credential
-                );
+                memberCredentialRepository.save(credential);
 
         return memberCredentialMapper.toResponse(
                 savedCredential
@@ -203,36 +141,22 @@ public class MemberCredentialServiceImpl
         validateMemberExists(memberId);
 
         MemberCredential credential =
-                findCredential(
-                        memberId,
-                        credentialId
-                );
+                findCredential(memberId, credentialId);
 
-        memberCredentialRepository.delete(
-                credential
-        );
+        memberCredentialRepository.delete(credential);
     }
 
     private MemberCredential findCredential(
             Long memberId,
             Long credentialId
     ) {
-        if (credentialId == null
-                || credentialId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Credential ID must be greater than zero"
-            );
-        }
-
         return memberCredentialRepository
                 .findByIdAndMemberId(
                         credentialId,
                         memberId
                 )
                 .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
+                        new RuntimeException(
                                 "Member credential not found. "
                                         + "memberId="
                                         + memberId
@@ -242,175 +166,30 @@ public class MemberCredentialServiceImpl
                 );
     }
 
-    private void validateMemberExists(
-            Long memberId
-    ) {
-        if (memberId == null
-                || memberId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Member ID must be greater than zero"
+    private void validateMemberExists(Long memberId) {
+        if (memberId == null) {
+            throw new IllegalArgumentException(
+                    "Member ID is required"
             );
         }
 
-        if (!memberRepository.existsById(
-                memberId
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Member not found with ID: "
-                            + memberId
+        if (!memberRepository.existsById(memberId)) {
+            throw new RuntimeException(
+                    "Member not found with id: " + memberId
             );
         }
     }
 
-    private void validateFileExists(
-            Long fileId
-    ) {
+    private void validateFileExists(Long fileId) {
         if (fileId == null) {
             return;
         }
 
-        if (fileId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "File ID must be greater than zero"
+        if (!fileRepository.existsById(fileId)) {
+            throw new RuntimeException(
+                    "File not found with id: " + fileId
             );
         }
-
-        if (!fileRepository.existsById(
-                fileId
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "File not found with ID: "
-                            + fileId
-            );
-        }
-    }
-
-    private void validateSingleIdCardOnCreate(
-            Long memberId,
-            String credentialKind
-    ) {
-        if (!MEMBERSHIP_CARD_KIND.equals(
-                credentialKind
-        )) {
-            return;
-        }
-
-        boolean alreadyHasIdCard =
-                memberCredentialRepository
-                        .existsByMemberIdAndCredentialKindIgnoreCase(
-                                memberId,
-                                MEMBERSHIP_CARD_KIND
-                        );
-
-        if (alreadyHasIdCard) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This member already has an ID card"
-            );
-        }
-    }
-
-    private void validateSingleIdCardOnUpdate(
-            Long memberId,
-            Long credentialId,
-            String credentialKind
-    ) {
-        if (!MEMBERSHIP_CARD_KIND.equals(
-                credentialKind
-        )) {
-            return;
-        }
-
-        boolean alreadyHasAnotherIdCard =
-                memberCredentialRepository
-                        .existsByMemberIdAndCredentialKindIgnoreCaseAndIdNot(
-                                memberId,
-                                MEMBERSHIP_CARD_KIND,
-                                credentialId
-                        );
-
-        if (alreadyHasAnotherIdCard) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This member already has another ID card"
-            );
-        }
-    }
-
-    private void validateUniqueCredentialNoForCreate(
-            String credentialNo
-    ) {
-        if (credentialNo == null) {
-            return;
-        }
-
-        if (memberCredentialRepository
-                .existsByCredentialNo(
-                        credentialNo
-                )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Credential number already exists: "
-                            + credentialNo
-            );
-        }
-    }
-
-    private void validateUniqueCredentialNoForUpdate(
-            Long credentialId,
-            String credentialNo
-    ) {
-        if (credentialNo == null) {
-            return;
-        }
-
-        if (memberCredentialRepository
-                .existsByCredentialNoAndIdNot(
-                        credentialNo,
-                        credentialId
-                )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Credential number already exists: "
-                            + credentialNo
-            );
-        }
-    }
-
-    private String normalizeCredentialKind(
-            String credentialKind
-    ) {
-        if (credentialKind == null
-                || credentialKind.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Credential kind is required"
-            );
-        }
-
-        String normalizedKind =
-                credentialKind
-                        .trim()
-                        .toUpperCase(
-                                Locale.ROOT
-                        );
-
-        return switch (normalizedKind) {
-            case "MEMBERSHIP_CARD",
-                 "ACTIVITY_CERTIFICATE" ->
-                    normalizedKind;
-
-            default ->
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "Unsupported credential kind: "
-                                    + credentialKind
-                    );
-        };
     }
 
     private String normalizeCredentialNo(

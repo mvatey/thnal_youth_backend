@@ -14,7 +14,6 @@ public class BranchMapper {
 
         return new BranchResponse(
                 branch.getId(),
-                branch.getBranchCode(),
                 branch.getNameKm(),
                 branch.getNameEn(),
                 branch.getBranchLevelId(),

@@ -6,17 +6,12 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
-import org.example.tnal_youth_backend.member.branch.entity.Branch;
-import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
-import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
-import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -28,20 +23,13 @@ import org.example.tnal_youth_backend.member.religion.repository.ReligionReposit
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
 import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepository;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
-
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.LinkedHashSet;
 
 @Service
 @RequiredArgsConstructor
@@ -69,9 +57,104 @@ public class MemberServiceImpl
 
     private final MemberMapper memberMapper;
 
-    private final BranchRepository branchRepository;
+    /*
+     * ==========================================================
+     * GET ALL MEMBERS
+     * ==========================================================
+     */
 
-    private final BranchStaffRepository branchStaffRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> getAllMembers() {
+
+        return memberRepository
+                .findAllListRows()
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> searchMembersByName(
+            String name
+    ) {
+        String normalizedName =
+                trimToNull(name);
+
+        if (normalizedName == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member name is required"
+            );
+        }
+
+        return memberRepository
+                .searchListRowsByName(
+                        normalizedName
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByBranch(
+            Long branchId
+    ) {
+        if (branchId == null || branchId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID must be greater than zero"
+            );
+        }
+
+        return memberRepository
+                .findListRowsByBranchId(
+                        branchId
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByStatus(
+            Short statusId
+    ) {
+        findStatus(statusId);
+
+        return memberRepository
+                .findListRowsByStatusId(
+                        statusId
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberListResponse> filterMembersByGender(
+            Gender gender
+    ) {
+        if (gender == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Gender is required"
+            );
+        }
+
+        return memberRepository
+                .findListRowsByGender(
+                        gender.name()
+                )
+                .stream()
+                .map(memberMapper::toListResponse)
+                .toList();
+    }
 
     /*
      * ==========================================================
@@ -131,10 +214,6 @@ public class MemberServiceImpl
         Member member =
                 findDetailedMember(id);
 
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
-
         return memberMapper.toDetailResponse(
                 member
         );
@@ -151,15 +230,6 @@ public class MemberServiceImpl
     public MemberDetailResponse createMember(
             CreateMemberRequest request
     ) {
-        Branch branch =
-                findBranch(
-                        request.branchId()
-                );
-
-        validateMemberBranchAccess(
-                branch.getId()
-        );
-
         String memberNo =
                 generateMemberNo();
 
@@ -199,10 +269,6 @@ public class MemberServiceImpl
 
         Member member =
                 Member.builder()
-                        .branchId(
-                                branch.getId()
-                        )
-
                         .memberNo(memberNo)
 
                         .fullNameKm(
@@ -216,6 +282,10 @@ public class MemberServiceImpl
                                 trimToNull(
                                         request.fullNameEn()
                                 )
+                        )
+
+                        .branchId(
+                                request.branchId()
                         )
 
                         .status(status)
@@ -311,28 +381,8 @@ public class MemberServiceImpl
             Long id,
             UpdateMemberRequest request
     ) {
-        Branch branch =
-                findBranch(request.branchId());
-
-        validateMemberBranchAccess(
-                branch.getId()
-        );
-
         Member member =
                 findDetailedMember(id);
-
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
-
-        Branch targetBranch =
-                findBranch(
-                        request.branchId()
-                );
-
-        validateMemberBranchAccess(
-                targetBranch.getId()
-        );
 
         String memberNo =
                 member.getMemberNo();
@@ -364,7 +414,7 @@ public class MemberServiceImpl
         );
 
         member.setBranchId(
-                targetBranch.getId()
+                request.branchId()
         );
 
         member.setStatus(
@@ -478,7 +528,7 @@ public class MemberServiceImpl
                 DataIntegrityViolationException exception
         ) {
             throw createDatabaseException(
-                    "You do not have access to this branch",
+                    "Member could not be updated",
                     exception
             );
         }
@@ -925,259 +975,5 @@ public class MemberServiceImpl
         }
 
         return HttpStatus.BAD_REQUEST;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public MemberPageResponse getMembers(
-            int page,
-            int size,
-            String search,
-            Long branchId,
-            Short statusId,
-            Gender gender
-    ) {
-        if (page < 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Page must not be negative"
-            );
-        }
-
-        if (size < 1 || size > 100) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Size must be between 1 and 100"
-            );
-        }
-
-        if (branchId != null && branchId <= 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Branch ID must be greater than zero"
-            );
-        }
-
-        if (statusId != null) {
-            findStatus(statusId);
-        }
-
-        String normalizedSearch =
-                trimToNull(search);
-
-        Pageable pageable =
-                PageRequest.of(
-                        page,
-                        size
-                );
-
-        Page<Object[]> memberPage =
-                memberRepository.findMemberPage(
-                        normalizedSearch,
-                        branchId,
-                        statusId,
-                        gender != null
-                                ? gender.name()
-                                : null,
-                        pageable
-                );
-
-        List<MemberListResponse> content =
-                memberPage.getContent()
-                        .stream()
-                        .map(memberMapper::toListResponse)
-                        .toList();
-
-        return MemberPageResponse.builder()
-                .content(content)
-                .page(memberPage.getNumber())
-                .size(memberPage.getSize())
-                .totalElements(
-                        memberPage.getTotalElements()
-                )
-                .totalPages(
-                        memberPage.getTotalPages()
-                )
-                .first(memberPage.isFirst())
-                .last(memberPage.isLast())
-                .build();
-    }
-
-    private Branch findBranch(
-            Long branchId
-    ) {
-        if (branchId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Branch ID is required"
-            );
-        }
-
-        return branchRepository
-                .findById(branchId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Branch not found with ID: "
-                                        + branchId
-                        )
-                );
-    }
-    private void validateMemberBranchAccess(
-            Long requestedBranchId
-    ) {
-        User principalUser =
-                SecurityUtil.getCurrentUser();
-
-        if (principalUser == null
-                || principalUser.getId() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authenticated user could not be resolved"
-            );
-        }
-
-        User currentUser =
-                userRepository
-                        .findById(principalUser.getId())
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.UNAUTHORIZED,
-                                        "Authenticated user was not found"
-                                )
-                        );
-
-        UserRole role =
-                currentUser.getRole();
-
-        if (role == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Authenticated user does not have a role"
-            );
-        }
-
-        /*
-         * Admin may create members in any existing branch.
-         */
-        if (role == UserRole.ADMIN) {
-            return;
-        }
-
-        if (role != UserRole.SECRETARY
-                && role != UserRole.BRANCH_LEADER) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You are not allowed to create members"
-            );
-        }
-
-        Long currentMemberId =
-                currentUser.getMemberId();
-
-        if (currentMemberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentMemberId
-                                )
-                );
-
-        /*
-         * Fallback only when branch_staff has no assignment.
-         */
-        if (accessibleBranchIds.isEmpty()) {
-            Member currentMember =
-                    memberRepository
-                            .findById(currentMemberId)
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (currentMember.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
-                );
-            }
-        }
-
-        System.out.println(
-                "MEMBER CREATE USER ID: "
-                        + currentUser.getId()
-        );
-        System.out.println(
-                "MEMBER CREATE ROLE: "
-                        + role
-        );
-        System.out.println(
-                "MEMBER CREATE MEMBER ID: "
-                        + currentMemberId
-        );
-        System.out.println(
-                "MEMBER CREATE ACCESSIBLE BRANCHES: "
-                        + accessibleBranchIds
-        );
-        System.out.println(
-                "MEMBER CREATE REQUESTED BRANCH: "
-                        + requestedBranchId
-        );
-
-        if (!accessibleBranchIds.contains(
-                requestedBranchId
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You do not have permission to access this member."
-            );
-        }
-    }
-    @Override
-    @Transactional
-    public MemberDetailResponse updateMemberStatus(
-            Long id,
-            UpdateMemberStatusRequest request
-    ) {
-        Member member =
-                findDetailedMember(id);
-
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
-
-        MemberStatus status =
-                findStatus(
-                        request.statusId()
-                );
-
-        member.setStatus(status);
-
-        try {
-            memberRepository.saveAndFlush(member);
-
-            Member detailedMember =
-                    findDetailedMember(id);
-
-            return memberMapper.toDetailResponse(
-                    detailedMember
-            );
-
-        } catch (
-                DataIntegrityViolationException exception
-        ) {
-            throw createDatabaseException(
-                    "Member status could not be updated",
-                    exception
-            );
-        }
     }
 }

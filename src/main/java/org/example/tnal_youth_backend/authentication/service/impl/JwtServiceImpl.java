@@ -36,23 +36,11 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String generateToken(User user) {
-        String username = resolveUsername(user);
-
-        if (user.getRole() == null
-                || user.getRole().name() == null
-                || user.getRole().name().isBlank()) {
-            throw new IllegalStateException(
-                    "User does not have a valid role"
-            );
-        }
-
         Date issuedAt = new Date();
-        Date expiresAt = new Date(
-                issuedAt.getTime() + accessExpirationMs
-        );
+        Date expiresAt = new Date(issuedAt.getTime() + accessExpirationMs);
 
         return Jwts.builder()
-                .subject(username)
+                .subject(resolveUsername(user))
                 .issuer(issuer)
                 .audience()
                 .add(audience)
@@ -76,14 +64,12 @@ public class JwtServiceImpl implements JwtService {
     public boolean isTokenValid(String token, User user) {
         try {
             String username = extractUsername(token);
-
             String tokenType = extractClaim(
                     token,
                     claims -> claims.get("type", String.class)
             );
 
-            return username != null
-                    && username.equals(resolveUsername(user))
+            return username.equals(resolveUsername(user))
                     && "ACCESS".equals(tokenType)
                     && !isTokenExpired(token);
 
@@ -93,27 +79,15 @@ public class JwtServiceImpl implements JwtService {
     }
 
     private String resolveUsername(User user) {
-        if (user.getEmail() != null
-                && !user.getEmail().isBlank()) {
-            return user.getEmail().trim();
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            return user.getEmail();
         }
 
-        if (user.getPhone() != null
-                && !user.getPhone().isBlank()) {
-            return user.getPhone().trim();
-        }
-
-        throw new IllegalStateException(
-                "User has no phone number or email"
-        );
+        return user.getPhone();
     }
 
     private boolean isTokenExpired(String token) {
-        Date expiration = extractClaim(
-                token,
-                Claims::getExpiration
-        );
-
+        Date expiration = extractClaim(token, Claims::getExpiration);
         return expiration.before(new Date());
     }
 
@@ -133,10 +107,7 @@ public class JwtServiceImpl implements JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = jwtSecret.getBytes(
-                StandardCharsets.UTF_8
-        );
-
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }
