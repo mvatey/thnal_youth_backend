@@ -1,14 +1,19 @@
 package org.example.tnal_youth_backend.member.participation.service;
 
 import org.example.tnal_youth_backend.member.participation.dto.request.MemberParticipationRequest;
+import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationPageResponse;
 import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationResponse;
-
-import java.util.List;
 
 public interface MemberParticipationService {
 
-    List<MemberParticipationResponse>
-    getParticipationsByMemberId(Long memberId);
+    MemberParticipationPageResponse
+    getParticipationsByMemberId(
+            Long memberId,
+            int page,
+            int size,
+            String search,
+            Short typeId
+    );
 
     MemberParticipationResponse create(
             Long memberId,

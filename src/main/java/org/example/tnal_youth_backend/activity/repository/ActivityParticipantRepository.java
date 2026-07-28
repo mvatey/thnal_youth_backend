@@ -1,8 +1,12 @@
 package org.example.tnal_youth_backend.activity.repository;
 
 import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,10 +16,14 @@ import java.util.Optional;
 public interface ActivityParticipantRepository
         extends JpaRepository<ActivityParticipant, Long> {
 
-    // Activity-side participant list
+    /*
+     * Activity-side participant list.
+     */
     @EntityGraph(
             attributePaths = {
                     "activity",
+                    "activity.type",
+                    "activity.sector",
                     "member",
                     "attendanceStatus",
                     "invitedBy",
@@ -27,24 +35,83 @@ public interface ActivityParticipantRepository
             Long activityId
     );
 
-    // Member-side participation history
+    /*
+     * Member participation table with pagination,
+     * search, and activity-type filtering.
+     */
     @EntityGraph(
             attributePaths = {
                     "activity",
+                    "activity.type",
+                    "activity.sector",
                     "member",
                     "attendanceStatus",
                     "invitedBy",
                     "invitedBranch"
             }
     )
-    List<ActivityParticipant>
-    findAllByMember_IdOrderByRegisteredAtDescIdDesc(
-            Long memberId
+    @Query("""
+            SELECT participant
+            FROM ActivityParticipant participant
+            JOIN participant.activity activity
+
+            WHERE participant.member.id = :memberId
+
+              AND (
+                    :search IS NULL
+                    OR :search = ''
+                    OR LOWER(activity.titleKm)
+                        LIKE LOWER(
+                            CONCAT('%', :search, '%')
+                        )
+                    OR LOWER(
+                            COALESCE(
+                                activity.titleEn,
+                                ''
+                            )
+                        )
+                        LIKE LOWER(
+                            CONCAT('%', :search, '%')
+                        )
+                    OR LOWER(
+                            COALESCE(
+                                activity.locationName,
+                                ''
+                            )
+                        )
+                        LIKE LOWER(
+                            CONCAT('%', :search, '%')
+                        )
+              )
+
+              AND (
+                    :typeId IS NULL
+                    OR activity.type.id = :typeId
+              )
+
+            ORDER BY
+                activity.startsAt DESC,
+                participant.id DESC
+            """)
+    Page<ActivityParticipant>
+    findMemberParticipationPage(
+            @Param("memberId")
+            Long memberId,
+
+            @Param("search")
+            String search,
+
+            @Param("typeId")
+            Short typeId,
+
+            Pageable pageable
     );
 
     @EntityGraph(
             attributePaths = {
                     "activity",
+                    "activity.type",
+                    "activity.sector",
                     "member",
                     "attendanceStatus",
                     "invitedBy",
@@ -60,6 +127,8 @@ public interface ActivityParticipantRepository
     @EntityGraph(
             attributePaths = {
                     "activity",
+                    "activity.type",
+                    "activity.sector",
                     "member",
                     "attendanceStatus",
                     "invitedBy",

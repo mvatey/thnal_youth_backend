@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.activity.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatus;
 import org.example.tnal_youth_backend.activity.model.enums.ParticipantRegistrationSource;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -54,6 +55,14 @@ public class ActivityParticipant {
 
     @Column(name = "attendance_status_id")
     private Short attendanceStatusId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "attendance_status_id",
+            insertable = false,
+            updatable = false
+    )
+    private AttendanceStatus attendanceStatus;
 
     @Column(
             name = "registered_at",

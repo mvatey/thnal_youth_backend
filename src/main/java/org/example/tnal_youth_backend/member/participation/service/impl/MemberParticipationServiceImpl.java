@@ -10,11 +10,16 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.participation.dto.request.MemberParticipationRequest;
+import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationPageResponse;
 import org.example.tnal_youth_backend.member.participation.dto.response.MemberParticipationResponse;
 import org.example.tnal_youth_backend.member.participation.mapper.MemberParticipationMapper;
 import org.example.tnal_youth_backend.member.participation.service.MemberParticipationService;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +32,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MemberParticipationServiceImpl
         implements MemberParticipationService {
+
+    private final MemberAccessValidator
+            memberAccessValidator;
 
     private final ActivityParticipantRepository
             activityParticipantRepository;
@@ -45,19 +53,78 @@ public class MemberParticipationServiceImpl
 
     @Override
     @Transactional(readOnly = true)
-    public List<MemberParticipationResponse>
+    public MemberParticipationPageResponse
     getParticipationsByMemberId(
-            Long memberId
+            Long memberId,
+            int page,
+            int size,
+            String search,
+            Short typeId
     ) {
-        verifyMemberExists(memberId);
-
-        return activityParticipantRepository
-                .findAllByMember_IdOrderByRegisteredAtDescIdDesc(
+        memberAccessValidator
+                .validateAccessibleMember(
                         memberId
-                )
-                .stream()
-                .map(memberParticipationMapper::toResponse)
-                .toList();
+                );
+
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        if (typeId != null && typeId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity type ID must be greater than zero"
+            );
+        }
+
+        String normalizedSearch =
+                trimToNull(search);
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size
+                );
+
+        Page<ActivityParticipant>
+                participationPage =
+                activityParticipantRepository
+                        .findMemberParticipationPage(
+                                memberId,
+                                normalizedSearch,
+                                typeId,
+                                pageable
+                        );
+
+        List<MemberParticipationResponse> content =
+                participationPage
+                        .getContent()
+                        .stream()
+                        .map(
+                                memberParticipationMapper
+                                        ::toResponse
+                        )
+                        .toList();
+
+        return new MemberParticipationPageResponse(
+                content,
+                participationPage.getNumber(),
+                participationPage.getSize(),
+                participationPage.getTotalElements(),
+                participationPage.getTotalPages(),
+                participationPage.isFirst(),
+                participationPage.isLast()
+        );
     }
 
     @Override
@@ -66,6 +133,11 @@ public class MemberParticipationServiceImpl
             Long memberId,
             MemberParticipationRequest request
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
         Member member =
                 findMember(memberId);
 
@@ -144,6 +216,11 @@ public class MemberParticipationServiceImpl
             Long participationId,
             MemberParticipationRequest request
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
         ActivityParticipant participant =
                 findParticipation(
                         memberId,
@@ -225,6 +302,12 @@ public class MemberParticipationServiceImpl
             Long memberId,
             Long participationId
     ) {
+
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
         ActivityParticipant participant =
                 findParticipation(
                         memberId,
