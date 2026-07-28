@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
-@RequestMapping("/api/donations")
+//@RestController
+//@RequestMapping("/api/donations")
 @RequiredArgsConstructor
 @Tag(
         name = "B. Member Page - Donations",
         description = "Manage monthly member donations and sponsor donations"
 )
-public class DonationController {
+public class LegacyMemberDonationController {
 
     private final DonationService donationService;
 
