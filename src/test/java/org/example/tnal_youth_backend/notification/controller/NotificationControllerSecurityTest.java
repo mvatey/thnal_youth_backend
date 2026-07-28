@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.notification.controller;
 
-import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
 import org.example.tnal_youth_backend.notification.config.NotificationProperties;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
@@ -9,8 +8,8 @@ import org.example.tnal_youth_backend.notification.dto.NotificationPageDTO;
 import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -42,14 +41,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Authorization tests for notification endpoints.
  *
- * <p>The JWT filter is excluded. Test users are provided through
+ * <p>The real JWT filter is excluded. Test users are provided using
  * {@code @WithMockUser} and {@code @WithAnonymousUser}.</p>
  */
 @WebMvcTest(
         controllers = NotificationController.class,
         excludeFilters = @ComponentScan.Filter(
-                type = FilterType.ASSIGNABLE_TYPE,
-                classes = JwtAuthenticationFilter.class
+                type = FilterType.REGEX,
+                pattern = ".*JwtAuthenticationFilter"
         )
 )
 @Import({
@@ -196,12 +195,6 @@ class NotificationControllerSecurityTest {
                 """;
     }
 
-    /**
-     * Test security configuration.
-     *
-     * <p>All routes require authentication. Controller method authorization,
-     * such as ADMIN-only creation, is handled by method security.</p>
-     */
     @TestConfiguration
     @EnableMethodSecurity
     static class AuthenticatedSecurityConfig {

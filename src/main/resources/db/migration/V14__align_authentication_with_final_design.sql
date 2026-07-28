@@ -46,22 +46,54 @@ ALTER TABLE users
     ADD COLUMN IF NOT EXISTS branch_id BIGINT;
 
 -- Copy role code from the team lookup-based model.
+-- Copy role code only when the older lookup-based columns exist.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'users'
+          AND column_name = 'role_id'
+    )
+    AND to_regclass('public.roles') IS NOT NULL THEN
+        EXECUTE $sql$
 UPDATE users u
 SET role = r.code
-FROM roles r
+    FROM roles r
 WHERE u.role_id = r.id
-  AND u.role IS NULL;
+  AND u.role IS NULL
+    $sql$;
+END IF;
+END;
+$$;
 
 -- Copy account status and translate SUSPENDED to LOCKED,
 -- because the completed Authentication module uses LOCKED.
+-- Copy account status only when the older lookup-based columns exist.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'users'
+          AND column_name = 'account_status_id'
+    )
+    AND to_regclass('public.account_statuses') IS NOT NULL THEN
+        EXECUTE $sql$
 UPDATE users u
 SET status = CASE
                  WHEN s.code = 'SUSPENDED' THEN 'LOCKED'
                  ELSE s.code
-             END
-FROM account_statuses s
+    END
+    FROM account_statuses s
 WHERE u.account_status_id = s.id
-  AND u.status IS NULL;
+  AND u.status IS NULL
+    $sql$;
+END IF;
+END;
+$$;
 
 -- Copy profile information from the linked member when available.
 UPDATE users u

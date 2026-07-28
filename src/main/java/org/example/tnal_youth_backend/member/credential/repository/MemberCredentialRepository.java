@@ -26,4 +26,15 @@ public interface MemberCredentialRepository
             String credentialNo,
             Long id
     );
+
+    boolean existsByMemberIdAndCredentialKindIgnoreCase(
+            Long memberId,
+            String credentialKind
+    );
+
+    boolean existsByMemberIdAndCredentialKindIgnoreCaseAndIdNot(
+            Long memberId,
+            String credentialKind,
+            Long id
+    );
 }

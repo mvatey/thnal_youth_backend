@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.example.tnal_youth_backend.activity.activity.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.document.type.entity.DocumentType;
 import org.example.tnal_youth_backend.file.entity.FileEntity;

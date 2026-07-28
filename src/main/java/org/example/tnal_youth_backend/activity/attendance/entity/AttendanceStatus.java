@@ -1,11 +1,7 @@
 package org.example.tnal_youth_backend.activity.attendance.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.OffsetDateTime;
 
@@ -13,90 +9,32 @@ import java.time.OffsetDateTime;
 @Table(name = "attendance_statuses")
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class AttendanceStatus {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Short id;
 
-    @Column(
-            name = "code",
-            nullable = false,
-            unique = true,
-            length = 50
-    )
+    @Column(nullable = false, unique = true)
     private String code;
 
-    @Column(
-            name = "label_km",
-            nullable = false,
-            length = 100
-    )
+    @Column(name = "label_km", nullable = false)
     private String labelKm;
 
-    @Column(
-            name = "label_en",
-            length = 100
-    )
+    @Column(name = "label_en")
     private String labelEn;
 
-    @Column(
-            name = "description",
-            columnDefinition = "TEXT"
-    )
-    private String description;
+    @Column(name = "is_active")
+    private Boolean active;
 
-    @Column(
-            name = "is_active",
-            nullable = false
-    )
-    private Boolean isActive;
-
-    @Column(
-            name = "sort_order",
-            nullable = false
-    )
+    @Column(name = "sort_order")
     private Integer sortOrder;
 
-    @Column(
-            name = "created_at",
-            nullable = false,
-            updatable = false
-    )
+    @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
-    @Column(
-            name = "updated_at",
-            nullable = false
-    )
+    @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
-
-        if (isActive == null) {
-            isActive = true;
-        }
-
-        if (sortOrder == null) {
-            sortOrder = 0;
-        }
-
-        if (createdAt == null) {
-            createdAt = now;
-        }
-
-        if (updatedAt == null) {
-            updatedAt = now;
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
-    }
 }

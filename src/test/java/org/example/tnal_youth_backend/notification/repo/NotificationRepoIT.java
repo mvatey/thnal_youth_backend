@@ -7,14 +7,14 @@ import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -24,15 +24,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Real PostgreSQL integration test for {@link NotificationRepo}.
- *
- * <p>This test executes the actual MyBatis SQL against a temporary PostgreSQL
- * Testcontainer. It also runs the project's Flyway migrations before testing
- * notification repository operations.
- *
- * <p>Docker Desktop must be running before executing this test.
- */
 @Testcontainers
 @MybatisTest
 @AutoConfigureTestDatabase(
@@ -47,8 +38,8 @@ class NotificationRepoIT {
 
     @Container
     @ServiceConnection
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine");
+    static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     private NotificationRepo repo;
@@ -58,20 +49,11 @@ class NotificationRepoIT {
 
     private JdbcTemplate jdbc;
 
-    /**
-     * Active notification type ID loaded from Flyway seed data.
-     */
     private short typeId;
-
-    /**
-     * Active user IDs loaded from Flyway seed data.
-     */
     private List<Long> activeUserIds;
-
-    /**
-     * User who creates test notifications.
-     */
     private long actorId;
+
+    // Keep the remaining existing test methods.
 
     @BeforeEach
     void setUp() {

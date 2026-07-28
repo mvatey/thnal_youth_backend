@@ -2,52 +2,41 @@ package org.example.tnal_youth_backend.authentication.repository;
 
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface UserRepository
         extends JpaRepository<User, Long> {
 
-    /*
-     * Authentication
-     */
-
     Optional<User> findByPhone(String phone);
 
-    Optional<User> findByEmailIgnoreCase(String email);
+    Optional<User> findByEmail(String email);
 
     Optional<User> findByEmailOrPhone(
             String email,
             String phone
     );
 
-    Optional<User> findByPhoneOrEmailIgnoreCase(
-            String phone,
-            String email
+    Optional<User> findByMemberId(
+            Long memberId
     );
 
-    /*
-     * Member account relationship
-     */
+    // -------------------------
+    // Exists
+    // -------------------------
 
-    Optional<User> findByMemberId(Long memberId);
+    boolean existsByMemberId(
+            Long memberId
+    );
 
-    boolean existsByMemberId(Long memberId);
+    boolean existsByPhone(
+            String phone
+    );
 
-    /*
-     * Create validation
-     */
-
-    boolean existsByPhone(String phone);
-
-    boolean existsByEmailIgnoreCase(String email);
-
-    /*
-     * Update validation
-     */
+    boolean existsByEmailIgnoreCase(
+            String email
+    );
 
     boolean existsByPhoneAndIdNot(
             String phone,
@@ -59,9 +48,10 @@ public interface UserRepository
             Long id
     );
 
-    /*
-     * User listing
-     */
+    // -------------------------
+    // Lists
+    // -------------------------
 
     List<User> findAllByOrderByCreatedAtDescIdDesc();
+
 }

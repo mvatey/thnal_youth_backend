@@ -19,7 +19,6 @@ public class AttendanceStatusMapper {
                 attendanceStatus.getCode(),
                 attendanceStatus.getLabelKm(),
                 attendanceStatus.getLabelEn(),
-                attendanceStatus.getDescription(),
                 attendanceStatus.getSortOrder()
         );
     }

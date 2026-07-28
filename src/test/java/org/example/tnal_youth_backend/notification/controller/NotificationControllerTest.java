@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.notification.controller;
 
-import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
 import org.example.tnal_youth_backend.notification.config.NotificationProperties;
@@ -11,8 +12,8 @@ import org.example.tnal_youth_backend.notification.dto.NotificationPageDTO;
 import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -26,8 +27,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -35,7 +34,6 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,8 +52,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(
         controllers = NotificationController.class,
         excludeFilters = @ComponentScan.Filter(
-                type = FilterType.ASSIGNABLE_TYPE,
-                classes = JwtAuthenticationFilter.class
+                type = FilterType.REGEX,
+                pattern = ".*JwtAuthenticationFilter"
         )
 )
 @Import({
@@ -68,7 +66,8 @@ class NotificationControllerTest {
     @Autowired
     private MockMvc mvc;
 
-    private final JsonMapper json = JsonMapper.builder().build();
+    @Autowired
+    private ObjectMapper json;
 
     @MockitoBean
     private NotificationService service;

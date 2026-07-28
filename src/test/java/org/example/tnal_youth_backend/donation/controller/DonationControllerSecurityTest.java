@@ -1,7 +1,8 @@
 package org.example.tnal_youth_backend.donation.controller;
 
-import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
+import org.example.tnal_youth_backend.config.JwtAuthenticationFilter;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateResultDTO;
 import org.example.tnal_youth_backend.donation.dto.DonationDTO;
@@ -11,8 +12,8 @@ import org.example.tnal_youth_backend.donation.dto.DonationUpdateDTO;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -20,12 +21,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
