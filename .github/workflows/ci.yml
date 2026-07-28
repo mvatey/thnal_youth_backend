@@ -1,0 +1,77 @@
+name: CI
+
+# Save as .github/workflows/ci.yml
+#
+# Runs `mvn verify` on every push / PR:
+#   - surefire  -> unit + @WebMvcTest slices (NotificationControllerTest,
+#                  NotificationControllerSecurityTest, LinkUrlSafetyTest)
+#   - failsafe  -> NotificationRepoIT (Testcontainers Postgres 16 + Flyway V1..V22)
+#   - @SpringBootTest contextLoads() -> full app context against the
+#                  Postgres service below + the placeholder env vars.
+#
+# ubuntu-latest ships a Docker daemon, which Testcontainers needs.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # --- env consumed by application.properties during tests ---
+    env:
+      # DB — application.properties points at localhost:5433
+      POSTGRES_DB: cyna
+      POSTGRES_USER: cyna
+      POSTGRES_PASSWORD: cyna
+      # JWT — HS256 key must be >= 32 bytes; CI-only dummy
+      JWT_SECRET: ci-only-dummy-secret-change-me-0123456789-abcdef-0123456789
+      JWT_ACCESS_EXPIRATION: "900000"
+      JWT_REFRESH_EXPIRATION: "604800000"
+      JWT_ISSUER: cyna-ci
+      JWT_AUDIENCE: cyna-ci
+      # Mail — placeholders; SMTP is never contacted in tests
+      MAIL_HOST: localhost
+      MAIL_PORT: "1025"
+      MAIL_USERNAME: ci
+      MAIL_PASSWORD: ci
+      MAIL_FROM: ci@example.com
+      # Plasgate SMS — placeholders
+      PLASGATE_BASE_URL: http://localhost
+      PLASGATE_PRIVATE_KEY: ci
+      PLASGATE_SECRET_KEY: ci
+      PLASGATE_SENDER: ci
+
+    # --- Postgres for the full-context @SpringBootTest (Flyway builds the schema) ---
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: cyna
+          POSTGRES_USER: cyna
+          POSTGRES_PASSWORD: cyna
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd="pg_isready -U cyna"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Build, test & integration-test
+        run: ./mvnw --batch-mode --no-transfer-progress verify
