@@ -1,9 +1,12 @@
 package org.example.tnal_youth_backend.activity.media.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.media.dto.response.ActivityAttachmentResponse;
 import org.example.tnal_youth_backend.activity.media.dto.response.ActivityCoverImageResponse;
 import org.example.tnal_youth_backend.activity.media.dto.response.ActivityPhotoResponse;
+import org.example.tnal_youth_backend.activity.media.entity.ActivityAttachment;
 import org.example.tnal_youth_backend.activity.media.entity.ActivityPhoto;
+import org.example.tnal_youth_backend.activity.media.repository.ActivityAttachmentRepository;
 import org.example.tnal_youth_backend.activity.media.repository.ActivityPhotoRepository;
 import org.example.tnal_youth_backend.activity.media.service.ActivityMediaService;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
@@ -25,6 +28,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
 
     private final ActivityRepository activityRepository;
     private final ActivityPhotoRepository activityPhotoRepository;
+    private final ActivityAttachmentRepository activityAttachmentRepository;
     private final FileService fileService;
 
     // ============================================================
@@ -274,6 +278,124 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     }
 
     // ============================================================
+    // ATTACHMENTS
+    // ============================================================
+
+    @Override
+    @Transactional
+    public ActivityAttachmentResponse uploadAttachment(
+            Long activityId,
+            MultipartFile file,
+            String title,
+            String description,
+            Integer sortOrder,
+            Long currentUserId
+    ) {
+        Activity activity = findActivity(activityId);
+        validateCurrentUser(currentUserId);
+        validateAttachmentFile(file);
+
+        int resolvedSortOrder = sortOrder == null
+                ? activityAttachmentRepository
+                  .findTopByActivityIdOrderBySortOrderDescIdDesc(activityId)
+                  .map(ActivityAttachment::getSortOrder)
+                  .orElse(-1) + 1
+                : sortOrder;
+
+        if (resolvedSortOrder < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Attachment sort order must be zero or greater"
+            );
+        }
+
+        FileEntity uploadedFile = fileService.uploadAttachment(
+                file,
+                currentUserId
+        );
+
+        try {
+            if (activityAttachmentRepository.existsByActivityIdAndFileId(
+                    activityId,
+                    uploadedFile.getId()
+            )) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "This file is already attached to the activity"
+                );
+            }
+
+            ActivityAttachment attachment = ActivityAttachment.builder()
+                    .activityId(activity.getId())
+                    .fileId(uploadedFile.getId())
+                    .title(normalizeText(title))
+                    .description(normalizeText(description))
+                    .sortOrder(resolvedSortOrder)
+                    .uploadedBy(currentUserId)
+                    .build();
+
+            ActivityAttachment savedAttachment =
+                    activityAttachmentRepository.saveAndFlush(attachment);
+
+            return toAttachmentResponse(savedAttachment);
+        } catch (RuntimeException exception) {
+            try {
+                fileService.deleteFile(uploadedFile.getId());
+            } catch (RuntimeException ignored) {
+                // Preserve the original exception.
+            }
+
+            throw exception;
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityAttachmentResponse> getAttachments(
+            Long activityId
+    ) {
+        findActivity(activityId);
+
+        return activityAttachmentRepository
+                .findByActivityIdOrderBySortOrderAscIdAsc(activityId)
+                .stream()
+                .map(this::toAttachmentResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteAttachment(
+            Long activityId,
+            Long attachmentId,
+            Long currentUserId
+    ) {
+        findActivity(activityId);
+        validateCurrentUser(currentUserId);
+
+        if (attachmentId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Attachment ID is required"
+            );
+        }
+
+        ActivityAttachment attachment = activityAttachmentRepository
+                .findByIdAndActivityId(attachmentId, activityId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Attachment not found with ID: " + attachmentId
+                ));
+
+        Long fileId = attachment.getFileId();
+
+        activityAttachmentRepository.delete(attachment);
+        activityAttachmentRepository.flush();
+
+        fileService.deleteFile(fileId);
+    }
+
+    // ============================================================
     // HELPERS
     // ============================================================
 
@@ -288,18 +410,13 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
         }
 
         return activityRepository.findById(activityId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Activity not found with ID: "
-                                        + activityId
-                        )
-                );
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Activity not found with ID: " + activityId
+                ));
     }
 
-    private void validateCurrentUser(
-            Long currentUserId
-    ) {
+    private void validateCurrentUser(Long currentUserId) {
         if (currentUserId == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -308,25 +425,11 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
         }
     }
 
-    private void validateGalleryFiles(
-            List<MultipartFile> files
-    ) {
+    private void validateGalleryFiles(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "At least one gallery image is required"
-            );
-        }
-
-        boolean hasValidFile = files.stream()
-                .anyMatch(file ->
-                        file != null && !file.isEmpty()
-                );
-
-        if (!hasValidFile) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "At least one non-empty gallery image is required"
             );
         }
 
@@ -340,21 +443,29 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
         }
     }
 
-    private String getCaption(
-            List<String> captions,
-            int index
-    ) {
+    private void validateAttachmentFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Attachment file is required"
+            );
+        }
+    }
+
+    private String getCaption(List<String> captions, int index) {
         if (captions == null || index >= captions.size()) {
             return null;
         }
 
-        String caption = captions.get(index);
+        return normalizeText(captions.get(index));
+    }
 
-        if (caption == null || caption.isBlank()) {
+    private String normalizeText(String value) {
+        if (value == null || value.isBlank()) {
             return null;
         }
 
-        return caption.trim();
+        return value.trim();
     }
 
     private ActivityCoverImageResponse toCoverResponse(
@@ -368,11 +479,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                 .originalName(file.getOriginalName())
                 .mimeType(file.getMimeType())
                 .sizeBytes(file.getSizeBytes())
-                .downloadUrl(
-                        "/api/files/"
-                                + file.getId()
-                                + "/content"
-                )
+                .downloadUrl("/api/files/" + file.getId() + "/content")
                 .build();
     }
 
@@ -391,11 +498,29 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                 .originalName(file.getOriginalName())
                 .mimeType(file.getMimeType())
                 .sizeBytes(file.getSizeBytes())
-                .downloadUrl(
-                        "/api/files/"
-                                + file.getId()
-                                + "/content"
-                )
+                .downloadUrl("/api/files/" + file.getId() + "/content")
+                .build();
+    }
+
+    private ActivityAttachmentResponse toAttachmentResponse(
+            ActivityAttachment attachment
+    ) {
+        FileEntity file = fileService.getFileEntity(attachment.getFileId());
+
+        return ActivityAttachmentResponse.builder()
+                .attachmentId(attachment.getId())
+                .activityId(attachment.getActivityId())
+                .fileId(file.getId())
+                .title(attachment.getTitle())
+                .description(attachment.getDescription())
+                .sortOrder(attachment.getSortOrder())
+                .uploadedBy(attachment.getUploadedBy())
+                .uploadedAt(attachment.getUploadedAt())
+                .filePath(file.getFilePath())
+                .originalName(file.getOriginalName())
+                .mimeType(file.getMimeType())
+                .sizeBytes(file.getSizeBytes())
+                .downloadUrl("/api/files/" + file.getId() + "/content")
                 .build();
     }
 }

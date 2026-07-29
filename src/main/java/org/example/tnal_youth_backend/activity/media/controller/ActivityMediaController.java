@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.activity.media.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.media.dto.response.ActivityAttachmentResponse;
 import org.example.tnal_youth_backend.activity.media.dto.response.ActivityCoverImageResponse;
 import org.example.tnal_youth_backend.activity.media.dto.response.ActivityPhotoResponse;
 import org.example.tnal_youth_backend.activity.media.service.ActivityMediaService;
@@ -151,6 +152,62 @@ public class ActivityMediaController {
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+
+    // ============================================================
+    // ATTACHMENTS
+    // ============================================================
+
+    @PostMapping(
+            value = "/attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    public ResponseEntity<ActivityAttachmentResponse> uploadAttachment(
+            @PathVariable Long activityId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "sortOrder", required = false) Integer sortOrder,
+            Authentication authentication
+    ) {
+        ActivityAttachmentResponse response =
+                activityMediaService.uploadAttachment(
+                        activityId,
+                        file,
+                        title,
+                        description,
+                        sortOrder,
+                        getCurrentUserId(authentication)
+                );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/attachments")
+    public ResponseEntity<List<ActivityAttachmentResponse>> getAttachments(
+            @PathVariable Long activityId
+    ) {
+        return ResponseEntity.ok(
+                activityMediaService.getAttachments(activityId)
+        );
+    }
+
+    @DeleteMapping("/attachments/{attachmentId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    public ResponseEntity<Void> deleteAttachment(
+            @PathVariable Long activityId,
+            @PathVariable Long attachmentId,
+            Authentication authentication
+    ) {
+        activityMediaService.deleteAttachment(
+                activityId,
+                attachmentId,
+                getCurrentUserId(authentication)
+        );
+
+        return ResponseEntity.noContent().build();
     }
 
     // ============================================================
