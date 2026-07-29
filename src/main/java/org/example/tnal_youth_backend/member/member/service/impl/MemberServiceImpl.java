@@ -1,9 +1,13 @@
 package org.example.tnal_youth_backend.member.member.service.impl;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
+import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
@@ -14,10 +18,7 @@ import org.example.tnal_youth_backend.member.level.repository.MemberLevelReposit
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
@@ -39,6 +40,8 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 
@@ -51,6 +54,9 @@ import java.util.LinkedHashSet;
 @RequiredArgsConstructor
 public class MemberServiceImpl
         implements MemberService {
+
+    private final ActivityParticipantRepository activityParticipantRepository;
+    private final ActivityRepository activityRepository;
 
     private static final String BUDDHISM_CODE =
             "BUDDHISM";
@@ -88,16 +94,14 @@ public class MemberServiceImpl
     @Transactional(readOnly = true)
     public MemberSummaryResponse getMemberSummary() {
 
-        long maleMembers =
-                memberRepository.countByGender(
-                        Gender.MALE
-                );
+        long totalMembers =
+                memberRepository.count();
 
         long femaleMembers =
                 memberRepository.countByGender(
                         Gender.FEMALE
                 );
-        
+
         long monkMembers =
                 memberRepository.countByGender(
                         Gender.MONK
@@ -114,7 +118,7 @@ public class MemberServiceImpl
                 );
 
         return new MemberSummaryResponse(
-                maleMembers,
+                totalMembers,
                 femaleMembers,
                 monkMembers,
                 buddhistMembers,
@@ -1295,6 +1299,35 @@ public class MemberServiceImpl
 
         userRepository.saveAndFlush(
                 pendingUser
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberDetailSummaryResponse getMemberDetailSummary(Long memberId) {
+
+        if (!memberRepository.existsById(memberId)) {
+            throw new ResourceNotFoundException(
+                    "Member not found with id: " + memberId
+            );
+        }
+
+        long joinedActivityCount =
+                activityParticipantRepository
+                        .countJoinedActivitiesByMemberId(memberId);
+
+        long notJoinedActivityCount =
+                activityRepository
+                        .countCompletedRelevantActivitiesNotJoined(
+                                memberId,
+                                OffsetDateTime.now()
+                        );
+
+        return new MemberDetailSummaryResponse(
+                joinedActivityCount,
+                notJoinedActivityCount,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
         );
     }
 }

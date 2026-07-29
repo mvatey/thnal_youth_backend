@@ -3,13 +3,8 @@ package org.example.tnal_youth_backend.member.member.service;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
-
-import java.util.List;
 
 public interface MemberService {
 
@@ -23,6 +18,10 @@ public interface MemberService {
     );
 
     MemberSummaryResponse getMemberSummary();
+
+    MemberDetailSummaryResponse getMemberDetailSummary(
+            Long memberId
+    );
 
     MemberDetailResponse getMemberById(
             Long id

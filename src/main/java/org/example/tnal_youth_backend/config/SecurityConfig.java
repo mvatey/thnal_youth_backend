@@ -63,7 +63,9 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
+                                "/api/auth/reset-password",
+                                "/api/auth/activation/**",
+                                "/api/auth/account-status"
                         )
                         .permitAll()
 

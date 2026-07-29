@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.authentication.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 import org.example.tnal_youth_backend.dashboard.exception.DashboardAccessException;
 import org.example.tnal_youth_backend.dashboard.exception.InvalidDashboardMonthException;
 import org.springframework.http.HttpStatus;
@@ -97,43 +98,21 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneralException(
-            Exception ex,
-            HttpServletRequest request
-    ) {
-        ex.printStackTrace();
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(
-                        ErrorResponse.builder()
-                                .success(false)
-                                .code("INTERNAL_SERVER_ERROR")
-                                .message("Something went wrong")
-                                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                                .path(request.getRequestURI())
-                                .timestamp(OffsetDateTime.now())
-                                .build()
-                );
-    }
     @ExceptionHandler(InvalidDashboardMonthException.class)
     public ResponseEntity<ErrorResponse> handleInvalidDashboardMonth(
             InvalidDashboardMonthException ex,
             HttpServletRequest request
     ) {
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(
-                        ErrorResponse.builder()
-                                .success(false)
-                                .code("INVALID_DASHBOARD_MONTH")
-                                .message(ex.getMessage())
-                                .status(HttpStatus.BAD_REQUEST.value())
-                                .path(request.getRequestURI())
-                                .timestamp(OffsetDateTime.now())
-                                .build()
-                );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponse.builder()
+                        .success(false)
+                        .code("INVALID_DASHBOARD_MONTH")
+                        .message(ex.getMessage())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .path(request.getRequestURI())
+                        .timestamp(OffsetDateTime.now())
+                        .build()
+        );
     }
 
     @ExceptionHandler(DashboardAccessException.class)
@@ -141,17 +120,51 @@ public class GlobalExceptionHandler {
             DashboardAccessException ex,
             HttpServletRequest request
     ) {
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(
-                        ErrorResponse.builder()
-                                .success(false)
-                                .code("DASHBOARD_ACCESS_DENIED")
-                                .message(ex.getMessage())
-                                .status(HttpStatus.FORBIDDEN.value())
-                                .path(request.getRequestURI())
-                                .timestamp(OffsetDateTime.now())
-                                .build()
-                );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ErrorResponse.builder()
+                        .success(false)
+                        .code("DASHBOARD_ACCESS_DENIED")
+                        .message(ex.getMessage())
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .path(request.getRequestURI())
+                        .timestamp(OffsetDateTime.now())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ErrorResponse.builder()
+                        .success(false)
+                        .code("RESOURCE_NOT_FOUND")
+                        .message(ex.getMessage())
+                        .status(HttpStatus.NOT_FOUND.value())
+                        .path(request.getRequestURI())
+                        .timestamp(OffsetDateTime.now())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGeneralException(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        ex.printStackTrace();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ErrorResponse.builder()
+                        .success(false)
+                        .code("INTERNAL_SERVER_ERROR")
+                        .message("Something went wrong")
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .path(request.getRequestURI())
+                        .timestamp(OffsetDateTime.now())
+                        .build()
+        );
     }
 }

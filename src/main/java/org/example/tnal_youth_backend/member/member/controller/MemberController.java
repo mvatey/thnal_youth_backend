@@ -6,10 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.springframework.http.HttpStatus;
@@ -164,6 +161,15 @@ public class MemberController {
                         id,
                         request
                 )
+        );
+    }
+
+    @GetMapping("/{memberId}/summary")
+    public ResponseEntity<MemberDetailSummaryResponse> getMemberDetailSummary(
+            @PathVariable Long memberId
+    ) {
+        return ResponseEntity.ok(
+                memberService.getMemberDetailSummary(memberId)
         );
     }
 }

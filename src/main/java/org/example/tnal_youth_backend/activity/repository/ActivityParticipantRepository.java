@@ -155,4 +155,13 @@ public interface ActivityParticipantRepository
     long countByActivity_Id(
             Long activityId
     );
+
+    @Query("""
+    SELECT COUNT(DISTINCT participant.activity.id)
+    FROM ActivityParticipant participant
+    WHERE participant.member.id = :memberId
+""")
+    long countJoinedActivitiesByMemberId(
+            @Param("memberId") Long memberId
+    );
 }
