@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.activity.media.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.media.dto.response.ActivityCoverImageResponse;
+import org.example.tnal_youth_backend.activity.media.dto.response.ActivityPhotoResponse;
 import org.example.tnal_youth_backend.activity.media.service.ActivityMediaService;
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.springframework.http.HttpStatus;
@@ -19,21 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/activities/{activityId}/cover-image")
+@RequestMapping("/api/activities/{activityId}")
 @RequiredArgsConstructor
 public class ActivityMediaController {
 
     private final ActivityMediaService activityMediaService;
 
+    // ============================================================
+    // COVER IMAGE
+    // ============================================================
+
     @PostMapping(
+            value = "/cover-image",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize(
             "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
-    public ResponseEntity<ActivityCoverImageResponse>
-    uploadCoverImage(
+    public ResponseEntity<ActivityCoverImageResponse> uploadCoverImage(
             @PathVariable Long activityId,
             @RequestParam("file") MultipartFile file,
             Authentication authentication
@@ -50,19 +57,19 @@ public class ActivityMediaController {
                 .body(response);
     }
 
-    @GetMapping
-    public ResponseEntity<ActivityCoverImageResponse>
-    getCoverImage(
+    @GetMapping("/cover-image")
+    public ResponseEntity<ActivityCoverImageResponse> getCoverImage(
             @PathVariable Long activityId
     ) {
-        return ResponseEntity.ok(
+        ActivityCoverImageResponse response =
                 activityMediaService.getCoverImage(
                         activityId
-                )
-        );
+                );
+
+        return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/cover-image")
     @PreAuthorize(
             "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
@@ -80,6 +87,76 @@ public class ActivityMediaController {
                 .build();
     }
 
+    // ============================================================
+    // GALLERY IMAGES
+    // ============================================================
+
+    @PostMapping(
+            value = "/gallery",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize(
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+    )
+    public ResponseEntity<List<ActivityPhotoResponse>> uploadGalleryImages(
+            @PathVariable Long activityId,
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(
+                    value = "captions",
+                    required = false
+            )
+            List<String> captions,
+            Authentication authentication
+    ) {
+        List<ActivityPhotoResponse> responses =
+                activityMediaService.uploadGalleryImages(
+                        activityId,
+                        files,
+                        captions,
+                        getCurrentUserId(authentication)
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(responses);
+    }
+
+    @GetMapping("/gallery")
+    public ResponseEntity<List<ActivityPhotoResponse>> getGalleryImages(
+            @PathVariable Long activityId
+    ) {
+        List<ActivityPhotoResponse> responses =
+                activityMediaService.getGalleryImages(
+                        activityId
+                );
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @DeleteMapping("/gallery/{photoId}")
+    @PreAuthorize(
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+    )
+    public ResponseEntity<Void> deleteGalleryImage(
+            @PathVariable Long activityId,
+            @PathVariable Long photoId,
+            Authentication authentication
+    ) {
+        activityMediaService.deleteGalleryImage(
+                activityId,
+                photoId,
+                getCurrentUserId(authentication)
+        );
+
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    // ============================================================
+    // AUTHENTICATED USER
+    // ============================================================
+
     private Long getCurrentUserId(
             Authentication authentication
     ) {
@@ -95,9 +172,7 @@ public class ActivityMediaController {
         Object principal =
                 authentication.getPrincipal();
 
-        if (principal
-                instanceof CustomUserDetails userDetails) {
-
+        if (principal instanceof CustomUserDetails userDetails) {
             return userDetails.getUserId();
         }
 
