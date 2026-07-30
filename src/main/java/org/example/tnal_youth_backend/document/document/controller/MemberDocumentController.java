@@ -1,0 +1,217 @@
+package org.example.tnal_youth_backend.document.document.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.document.document.dto.request.DocumentFilterRequest;
+import org.example.tnal_youth_backend.document.document.dto.request.MemberDocumentRequest;
+import org.example.tnal_youth_backend.document.document.dto.response.DocumentDetailResponse;
+import org.example.tnal_youth_backend.document.document.dto.response.DocumentPageResponse;
+import org.example.tnal_youth_backend.document.document.service.DocumentService;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/documents/members")
+@RequiredArgsConstructor
+@PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+@Tag(
+        name = "F. Document - Member Personal Documents"
+)
+public class MemberDocumentController {
+
+    private final DocumentService documentService;
+
+    // =========================================================
+    // GET MEMBER DOCUMENTS
+    // =========================================================
+
+    @GetMapping
+    @Operation(
+            summary = "Get member personal documents",
+            description = """
+                    Returns member-owned documents with search, document-type,
+                    branch, date, sorting and pagination filters.
+                    """
+    )
+    public ResponseEntity<DocumentPageResponse> getMemberDocuments(
+            @ParameterObject
+            DocumentFilterRequest filter,
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "10")
+            int size,
+
+            @RequestParam(defaultValue = "documentDate")
+            String sortBy,
+
+            @RequestParam(defaultValue = "desc")
+            String direction
+    ) {
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                createSort(
+                        sortBy,
+                        direction
+                )
+        );
+
+        DocumentPageResponse response =
+                documentService.getMemberDocuments(
+                        filter,
+                        pageable
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================
+    // GET MEMBER DOCUMENT BY ID
+    // =========================================================
+
+    @GetMapping("/{documentId}")
+    @Operation(
+            summary = "Get member document detail",
+            description = """
+                    Returns one member-owned document for preview or download.
+                    This endpoint does not modify the document.
+                    """
+    )
+    public ResponseEntity<DocumentDetailResponse> getMemberDocumentById(
+            @PathVariable
+            Long documentId
+    ) {
+        DocumentDetailResponse response =
+                documentService.getMemberDocumentById(
+                        documentId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================
+    // CREATE MEMBER DOCUMENT
+    // =========================================================
+
+    @PostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @Operation(
+            summary = "Create a member document",
+            description = """
+                    Creates a member-owned document using multipart form data.
+
+                    Supported document types for this Create UI:
+
+                    - MEMBER_CARD
+                    - MEMBER_LETTER
+                    - MEMBER_CERTIFICATE
+                    - MEMBER_DOCUMENT
+
+                    The uploaded file may be either:
+
+                    1. An image generated by the frontend card, letter or
+                       certificate designer.
+
+                    2. A personal document selected from the user's device.
+
+                    Ownership saved in the database:
+
+                    member_id = selected member
+                    branch_id = null
+                    activity_id = null
+
+                    The branch selected in the frontend is used only to filter
+                    members. It is not saved as the document owner.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(
+                            implementation =
+                                    MemberDocumentRequest.Create.class
+                    )
+            )
+    )
+    public ResponseEntity<DocumentDetailResponse> createMemberDocument(
+            @Valid
+            @ModelAttribute
+            MemberDocumentRequest.Create request
+    ) {
+        DocumentDetailResponse response =
+                documentService.createMemberDocument(
+                        request
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    // =========================================================
+    // SORTING
+    // =========================================================
+
+    private Sort createSort(
+            String requestedSortBy,
+            String requestedDirection
+    ) {
+        String safeSortBy = switch (
+                requestedSortBy == null
+                        ? ""
+                        : requestedSortBy
+                ) {
+            case "title" -> "title";
+            case "createdAt" -> "createdAt";
+            case "updatedAt" -> "updatedAt";
+            case "documentDate" -> "documentDate";
+            default -> "documentDate";
+        };
+
+        Sort.Direction safeDirection =
+                "asc".equalsIgnoreCase(requestedDirection)
+                        ? Sort.Direction.ASC
+                        : Sort.Direction.DESC;
+
+        return Sort
+                .by(
+                        safeDirection,
+                        safeSortBy
+                )
+                .and(
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "id"
+                        )
+                );
+    }
+}

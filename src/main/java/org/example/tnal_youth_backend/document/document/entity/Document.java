@@ -27,6 +27,7 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -197,6 +198,9 @@ public class Document {
     )
     private User uploadedBy;
 
+    @Column(name = "document_date")
+    private LocalDate documentDate;
+
     @Column(
             name = "created_at",
             nullable = false,
@@ -260,6 +264,12 @@ public class Document {
     public void assignMemberOwner(Long newMemberId) {
         clearOwners();
         memberId = newMemberId;
+    }
+
+    public void assignMemberOwner(Long newMemberId, Long newBranchId) {
+        clearOwners();
+        memberId = newMemberId;
+        branchId = newBranchId;
     }
 
     public void assignActivityCertificateOwner(

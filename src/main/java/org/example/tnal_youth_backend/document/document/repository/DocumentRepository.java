@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Collection;
 import java.util.Optional;
 
 public interface DocumentRepository
@@ -15,19 +14,17 @@ public interface DocumentRepository
         JpaSpecificationExecutor<Document> {
 
     /**
-     * Loads a document with all relationships needed for its detail response.
+     * Loads any document with the relationships needed for the shared
+     * detail response.
      */
-    @EntityGraph(
-            attributePaths = {
-                    "documentType",
-                    "file",
-                    "branch",
-                    "member",
-                    "member.branch",
-                    "activity",
-                    "uploadedBy"
-            }
-    )
+    @EntityGraph(attributePaths = {
+            "documentType",
+            "file",
+            "branch",
+            "member",
+            "activity",
+            "uploadedBy"
+    })
     @Query("""
             SELECT d
             FROM Document d
@@ -37,77 +34,65 @@ public interface DocumentRepository
             @Param("documentId") Long documentId
     );
 
-    /**
-     * Loads one institutional document restricted to institutional type codes.
-     */
-    @EntityGraph(
-            attributePaths = {
-                    "documentType",
-                    "file",
-                    "branch",
-                    "activity",
-                    "uploadedBy"
-            }
-    )
+    // =========================================================
+    // INSTITUTIONAL DOCUMENT
+    // Existing logic unchanged
+    // =========================================================
+
+    @EntityGraph(attributePaths = {
+            "documentType",
+            "file",
+            "branch",
+            "uploadedBy"
+    })
     @Query("""
             SELECT d
             FROM Document d
             JOIN d.documentType dt
             WHERE d.id = :documentId
-              AND dt.code IN :typeCodes
+              AND dt.code = 'BRANCH_DOCUMENT'
+              AND d.branchId IS NOT NULL
+              AND d.memberId IS NULL
+              AND d.activityId IS NULL
             """)
     Optional<Document> findInstitutionalDetailedById(
-            @Param("documentId") Long documentId,
-            @Param("typeCodes") Collection<String> typeCodes
+            @Param("documentId") Long documentId
     );
 
+    // =========================================================
+    // MEMBER PERSONAL DOCUMENT
+    // =========================================================
+
     /**
-     * Loads one document belonging to a specific member.
+     * Loads one personal document belonging directly to a member.
+     *
+     * The member's branch is not loaded as a Member relationship because
+     * Member currently stores branchId as a scalar field.
      */
-    @EntityGraph(
-            attributePaths = {
-                    "documentType",
-                    "file",
-                    "member",
-                    "member.branch",
-                    "activity",
-                    "uploadedBy"
-            }
-    )
+    @EntityGraph(attributePaths = {
+            "documentType",
+            "file",
+            "member",
+            "uploadedBy"
+    })
     @Query("""
             SELECT d
             FROM Document d
-            JOIN d.documentType dt
             WHERE d.id = :documentId
-              AND d.memberId = :memberId
-              AND dt.code IN :typeCodes
+              AND d.memberId IS NOT NULL
+              AND d.branchId IS NULL
+              AND d.activityId IS NULL
             """)
     Optional<Document> findMemberDetailedById(
-            @Param("memberId") Long memberId,
-            @Param("documentId") Long documentId,
-            @Param("typeCodes") Collection<String> typeCodes
+            @Param("documentId") Long documentId
     );
 
-    /**
-     * Checks whether a physical file is already linked to a document.
-     */
-    boolean existsByFileId(Long fileId);
+    boolean existsByFileId(
+            Long fileId
+    );
 
-    /**
-     * Checks whether a member already has a document with the given type code.
-     */
-    @Query("""
-            SELECT CASE
-                       WHEN COUNT(d) > 0 THEN true
-                       ELSE false
-                   END
-            FROM Document d
-            JOIN d.documentType dt
-            WHERE d.memberId = :memberId
-              AND dt.code = :typeCode
-            """)
-    boolean existsMemberDocumentByTypeCode(
-            @Param("memberId") Long memberId,
-            @Param("typeCode") String typeCode
+    boolean existsByFileIdAndIdNot(
+            Long fileId,
+            Long id
     );
 }

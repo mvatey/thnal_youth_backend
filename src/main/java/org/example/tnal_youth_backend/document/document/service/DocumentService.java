@@ -9,58 +9,81 @@ import org.springframework.data.domain.Pageable;
 
 public interface DocumentService {
 
+    // =========================================================
+    // INSTITUTIONAL DOCUMENTS
+    // =========================================================
+
+    /**
+     * Returns paginated institutional documents.
+     */
     DocumentPageResponse getInstitutionalDocuments(
             DocumentFilterRequest filter,
             Pageable pageable
     );
 
+    /**
+     * Returns one institutional document.
+     */
     DocumentDetailResponse getInstitutionalDocumentById(
             Long documentId
     );
 
+    /**
+     * Creates a new institutional document.
+     */
     DocumentDetailResponse createInstitutionalDocument(
-            InstitutionalDocumentRequest request,
-            Long uploadedById
+            InstitutionalDocumentRequest.Create request
     );
 
+    /**
+     * Updates an existing institutional document.
+     */
     DocumentDetailResponse updateInstitutionalDocument(
             Long documentId,
-            InstitutionalDocumentRequest request
+            InstitutionalDocumentRequest.Update request
     );
 
+    /**
+     * Deletes an institutional document.
+     */
     void deleteInstitutionalDocument(
             Long documentId
     );
 
+    // =========================================================
+    // MEMBER PERSONAL DOCUMENTS
+    // =========================================================
+
+    /**
+     * Returns all member-owned documents required by the Member Documents tab.
+     */
     DocumentPageResponse getMemberDocuments(
             DocumentFilterRequest filter,
             Pageable pageable
     );
 
-    DocumentPageResponse getMemberDocumentsByMemberId(
-            Long memberId,
-            DocumentFilterRequest filter,
-            Pageable pageable
-    );
-
+    /**
+     * Returns one member-owned document for preview or download.
+     */
     DocumentDetailResponse getMemberDocumentById(
-            Long memberId,
             Long documentId
     );
 
+    /**
+     * Creates a member-owned document.
+     *
+     * The same method supports:
+     *
+     * 1. Generated member cards, letters, and certificates.
+     * 2. Uploaded member personal documents.
+     *
+     * The service uploads the multipart file, creates the file record,
+     * assigns the selected member as the owner, and creates the document.
+     *
+     * There is intentionally no member-document update or delete operation
+     * because the current UI does not provide those actions.
+     */
     DocumentDetailResponse createMemberDocument(
-            Long memberId,
-            MemberDocumentRequest request
-    );
-
-    DocumentDetailResponse updateMemberDocument(
-            Long memberId,
-            Long documentId,
-            MemberDocumentRequest request
-    );
-
-    void deleteMemberDocument(
-            Long memberId,
-            Long documentId
+            MemberDocumentRequest.Create request
     );
 }
