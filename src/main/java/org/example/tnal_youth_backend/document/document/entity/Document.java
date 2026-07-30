@@ -1,6 +1,19 @@
 package org.example.tnal_youth_backend.document.document.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,6 +22,7 @@ import lombok.Setter;
 import org.example.tnal_youth_backend.activity.activity.entity.Activity;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.document.type.entity.DocumentType;
+import org.example.tnal_youth_backend.document.type.enums.DocumentTypeCode;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -42,6 +56,10 @@ import java.time.OffsetDateTime;
                 @Index(
                         name = "idx_documents_uploaded_by",
                         columnList = "uploaded_by"
+                ),
+                @Index(
+                        name = "idx_documents_created_at",
+                        columnList = "created_at"
                 )
         }
 )
@@ -57,12 +75,16 @@ public class Document {
     private Long id;
 
     /*
-     * ==========================================================
-     * Foreign Key IDs
-     * ==========================================================
+     * Writable foreign-key values.
+     *
+     * The relationship objects below are read-only because the same database
+     * columns are already mapped here.
      */
 
-    @Column(name = "document_type_id")
+    @Column(
+            name = "document_type_id",
+            nullable = false
+    )
     private Short typeId;
 
     @Column(
@@ -80,68 +102,11 @@ public class Document {
     @Column(name = "activity_id")
     private Long activityId;
 
-    @Column(name = "uploaded_by")
-    private Long uploadedById;
-
-    /*
-     * ==========================================================
-     * Read-only Relationships
-     * ==========================================================
-     */
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "document_type_id",
-            insertable = false,
-            updatable = false
-    )
-    private DocumentType documentType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "file_id",
-            insertable = false,
-            updatable = false
-    )
-    private FileEntity file;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "branch_id",
-            insertable = false,
-            updatable = false
-    )
-    private Branch branch;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "member_id",
-            insertable = false,
-            updatable = false
-    )
-    private Member member;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "activity_id",
-            insertable = false,
-            updatable = false
-    )
-    private Activity activity;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
+    @Column(
             name = "uploaded_by",
-            insertable = false,
-            updatable = false
+            nullable = false
     )
-    private User uploadedBy;
-
-    /*
-     * ==========================================================
-     * Document Information
-     * ==========================================================
-     */
+    private Long uploadedById;
 
     @Column(
             name = "title",
@@ -157,10 +122,80 @@ public class Document {
     private String description;
 
     /*
-     * ==========================================================
-     * Metadata
-     * ==========================================================
+     * Read-only relationships.
      */
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "document_type_id",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_document_type"
+            )
+    )
+    private DocumentType documentType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "file_id",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_file"
+            )
+    )
+    private FileEntity file;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "branch_id",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_branch"
+            )
+    )
+    private Branch branch;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "member_id",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_member"
+            )
+    )
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "activity_id",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_activity"
+            )
+    )
+    private Activity activity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "uploaded_by",
+            referencedColumnName = "id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_documents_uploaded_by"
+            )
+    )
+    private User uploadedBy;
 
     @Column(
             name = "created_at",
@@ -177,8 +212,9 @@ public class Document {
 
     @PrePersist
     protected void onCreate() {
-
         OffsetDateTime now = OffsetDateTime.now();
+
+        normalizeText();
 
         if (createdAt == null) {
             createdAt = now;
@@ -191,6 +227,119 @@ public class Document {
 
     @PreUpdate
     protected void onUpdate() {
+        normalizeText();
         updatedAt = OffsetDateTime.now();
+    }
+
+    /**
+     * Clears all possible document owners.
+     *
+     * The service calls this before assigning the correct owner according
+     * to the selected document type.
+     */
+    public void clearOwners() {
+        branchId = null;
+        memberId = null;
+        activityId = null;
+    }
+
+    public void assignOrganizationOwner() {
+        clearOwners();
+    }
+
+    public void assignBranchOwner(Long newBranchId) {
+        clearOwners();
+        branchId = newBranchId;
+    }
+
+    public void assignActivityOwner(Long newActivityId) {
+        clearOwners();
+        activityId = newActivityId;
+    }
+
+    public void assignMemberOwner(Long newMemberId) {
+        clearOwners();
+        memberId = newMemberId;
+    }
+
+    public void assignActivityCertificateOwner(
+            Long newMemberId,
+            Long newActivityId
+    ) {
+        clearOwners();
+        memberId = newMemberId;
+        activityId = newActivityId;
+    }
+
+    @Transient
+    public DocumentTypeCode getTypeCode() {
+        if (documentType == null) {
+            return null;
+        }
+
+        return documentType.getTypeCode();
+    }
+
+    @Transient
+    public boolean isInstitutionalDocument() {
+        DocumentTypeCode typeCode = getTypeCode();
+
+        return typeCode != null
+                && typeCode.isInstitutional();
+    }
+
+    @Transient
+    public boolean isMemberDocument() {
+        DocumentTypeCode typeCode = getTypeCode();
+
+        return typeCode != null
+                && typeCode.isMember();
+    }
+
+    @Transient
+    public boolean hasOrganizationOwner() {
+        return branchId == null
+                && memberId == null
+                && activityId == null;
+    }
+
+    @Transient
+    public boolean hasBranchOwner() {
+        return branchId != null
+                && memberId == null
+                && activityId == null;
+    }
+
+    @Transient
+    public boolean hasActivityOwner() {
+        return activityId != null
+                && memberId == null;
+    }
+
+    @Transient
+    public boolean hasMemberOwner() {
+        return memberId != null;
+    }
+
+    private void normalizeText() {
+        if (title != null) {
+            title = title.trim();
+        }
+
+        if (description != null) {
+            description = trimToNull(description);
+        }
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmedValue = value.trim();
+
+        return trimmedValue.isEmpty()
+                ? null
+                : trimmedValue;
     }
 }

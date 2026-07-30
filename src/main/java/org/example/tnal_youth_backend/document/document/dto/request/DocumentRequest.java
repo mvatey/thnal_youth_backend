@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.document.document.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 public record DocumentRequest(
 
         @JsonProperty("type_id")
+        @NotNull(message = "Document type ID is required")
         @Positive(message = "Document type ID must be positive")
         Short typeId,
 
@@ -20,8 +22,8 @@ public record DocumentRequest(
 
         @NotBlank(message = "Document title is required")
         @Size(
-                max = 500,
-                message = "Document title must not exceed 500 characters"
+                max = 255,
+                message = "Document title must not exceed 255 characters"
         )
         String title,
 
@@ -41,34 +43,62 @@ public record DocumentRequest(
 
         @JsonProperty("activity_id")
         @Positive(message = "Activity ID must be positive")
-        Long activityId,
+        Long activityId
 
-        @JsonProperty("uploaded_by")
-        @Positive(message = "Uploaded-by user ID must be positive")
-        Long uploadedById
 ) {
 
+    /**
+     * A document can belong to:
+     *
+     * 1. The whole organization: no owner ID is supplied.
+     * 2. A branch: branch_id only.
+     * 3. A member: member_id only.
+     * 4. An activity: activity_id only.
+     */
+    @JsonIgnore
     @AssertTrue(
-            message = """
-                    Exactly one owner is required: branch_id, \
-                    member_id, or activity_id
-                    """
+            message = "Only one owner may be provided: branch_id, member_id, or activity_id"
     )
     public boolean isOwnerSelectionValid() {
-        int count = 0;
+        return getOwnerCount() <= 1;
+    }
+
+    @JsonIgnore
+    public boolean isOrganizationDocument() {
+        return getOwnerCount() == 0;
+    }
+
+    @JsonIgnore
+    public String normalizedTitle() {
+        return title == null ? null : title.trim();
+    }
+
+    @JsonIgnore
+    public String normalizedDescription() {
+        if (description == null) {
+            return null;
+        }
+
+        String normalized = description.trim();
+
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private int getOwnerCount() {
+        int ownerCount = 0;
 
         if (branchId != null) {
-            count++;
+            ownerCount++;
         }
 
         if (memberId != null) {
-            count++;
+            ownerCount++;
         }
 
         if (activityId != null) {
-            count++;
+            ownerCount++;
         }
 
-        return count == 1;
+        return ownerCount;
     }
 }
