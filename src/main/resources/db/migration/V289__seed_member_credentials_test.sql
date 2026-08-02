@@ -1,6 +1,6 @@
 DO $$
 DECLARE
-target_member_id BIGINT := 12;
+target_member_id BIGINT := 11;
     issuer_user_id BIGINT := 1;
     certificate_activity_id BIGINT;
 BEGIN

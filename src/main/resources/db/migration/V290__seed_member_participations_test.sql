@@ -1,6 +1,6 @@
 DO $$
 DECLARE
-target_member_id BIGINT := 12;
+target_member_id BIGINT := 11;
 BEGIN
     IF NOT EXISTS (
         SELECT 1

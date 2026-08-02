@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.credential.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -28,29 +29,28 @@ public class MemberCredentialRequest {
         @JsonAlias("credential_kind")
         @NotBlank(message = "Credential kind is required")
         @Size(
-                max = 100,
-                message = "Credential kind must not exceed 100 characters"
+                max = 30,
+                message = "Credential kind must not exceed 30 characters"
         )
         private String credentialKind;
 
         @JsonProperty("credentialNo")
         @JsonAlias("credential_no")
+        @NotBlank(message = "Credential number is required")
         @Size(
-                max = 150,
-                message = "Credential number must not exceed 150 characters"
+                max = 100,
+                message = "Credential number must not exceed 100 characters"
         )
         private String credentialNo;
 
+        @JsonProperty("activityId")
+        @JsonAlias("activity_id")
+        private Long activityId;
+
         @JsonProperty("issuedOn")
         @JsonAlias("issued_on")
+        @NotNull(message = "Issued date is required")
         private LocalDate issuedOn;
-
-        @JsonProperty("issuedById")
-        @JsonAlias({
-                "issued_by_id",
-                "issued_by"
-        })
-        private Long issuedById;
 
         @JsonProperty("fileId")
         @JsonAlias("file_id")

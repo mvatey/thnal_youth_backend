@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -18,7 +19,7 @@ import java.time.OffsetDateTime;
         name = "member_credentials",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_member_credentials_credential_no",
+                        name = "member_credentials_credential_no_key",
                         columnNames = "credential_no"
                 )
         },
@@ -26,6 +27,10 @@ import java.time.OffsetDateTime;
                 @Index(
                         name = "idx_member_credentials_member_id",
                         columnList = "member_id"
+                ),
+                @Index(
+                        name = "idx_member_credentials_activity_id",
+                        columnList = "activity_id"
                 ),
                 @Index(
                         name = "idx_member_credentials_issued_by",
@@ -50,7 +55,7 @@ public class MemberCredential {
 
     /*
      * ==========================================================
-     * Foreign Key IDs
+     * Foreign-key IDs
      * ==========================================================
      */
 
@@ -60,7 +65,20 @@ public class MemberCredential {
     )
     private Long memberId;
 
-    @Column(name = "issued_by")
+    /**
+     * Required only for ACTIVITY_CERTIFICATE.
+     *
+     * Must be null for:
+     * - MEMBERSHIP_CARD
+     * - APPOINTMENT_LETTER
+     */
+    @Column(name = "activity_id")
+    private Long activityId;
+
+    @Column(
+            name = "issued_by",
+            nullable = false
+    )
     private Long issuedById;
 
     @Column(name = "file_id")
@@ -68,9 +86,24 @@ public class MemberCredential {
 
     /*
      * ==========================================================
-     * Credential Information
+     * Credential information
      * ==========================================================
      */
+
+    @Column(
+            name = "credential_kind",
+            nullable = false,
+            length = 30
+    )
+    private String credentialKind;
+
+    @Column(
+            name = "credential_no",
+            nullable = false,
+            unique = true,
+            length = 100
+    )
+    private String credentialNo;
 
     @Column(
             name = "title",
@@ -80,29 +113,29 @@ public class MemberCredential {
     private String title;
 
     @Column(
-            name = "credential_kind",
-            nullable = false,
-            length = 100
+            name = "issued_on",
+            nullable = false
     )
-    private String credentialKind;
-
-    @Column(
-            name = "credential_no",
-            unique = true,
-            length = 150
-    )
-    private String credentialNo;
-
-    @Column(name = "issued_on")
     private LocalDate issuedOn;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "status",
+            nullable = false,
+            length = 20
+    )
+    @Builder.Default
+    private CredentialStatus status =
+            CredentialStatus.ACTIVE;
 
     /*
      * ==========================================================
-     * Read-only Relationships
+     * Read-only relationships
      * ==========================================================
      *
-     * The ID fields above remain responsible for insert/update.
-     * These relationships are only used when building API responses.
+     * The ID fields above are responsible for inserts and updates.
+     * These relationships are used only when reading and mapping
+     * API responses.
      */
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -112,6 +145,14 @@ public class MemberCredential {
             updatable = false
     )
     private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "activity_id",
+            insertable = false,
+            updatable = false
+    )
+    private Activity activity;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
@@ -152,6 +193,11 @@ public class MemberCredential {
     protected void onCreate() {
         OffsetDateTime now =
                 OffsetDateTime.now();
+
+        if (status == null) {
+            status =
+                    CredentialStatus.ACTIVE;
+        }
 
         if (createdAt == null) {
             createdAt = now;

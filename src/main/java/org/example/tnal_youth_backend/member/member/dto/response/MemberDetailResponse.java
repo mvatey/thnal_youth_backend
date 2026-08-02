@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.member.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -27,6 +28,8 @@ public record MemberDetailResponse(
         LookupResponse level,
 
         LookupResponse religion,
+
+        NationalityResponse nationality,
 
         Gender gender,
 

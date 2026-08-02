@@ -4,8 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialResponse;
+import org.example.tnal_youth_backend.member.credential.entity.CredentialStatus;
 import org.example.tnal_youth_backend.member.credential.entity.MemberCredential;
 import org.springframework.stereotype.Component;
+
+import java.util.Locale;
 
 @Component
 @RequiredArgsConstructor
@@ -13,14 +16,15 @@ public class MemberCredentialMapper {
 
     public MemberCredential toEntity(
             Long memberId,
+            Long issuedById,
             MemberCredentialRequest request
     ) {
         MemberCredential credential =
                 new MemberCredential();
 
-        credential.setMemberId(
-                memberId
-        );
+        credential.setMemberId(memberId);
+        credential.setIssuedById(issuedById);
+        credential.setStatus(CredentialStatus.ACTIVE);
 
         copyRequestToEntity(
                 credential,
@@ -54,6 +58,14 @@ public class MemberCredentialMapper {
                 credential.getId()
         );
 
+        response.setMemberId(
+                credential.getMemberId()
+        );
+
+        response.setActivityId(
+                credential.getActivityId()
+        );
+
         response.setTitle(
                 credential.getTitle()
         );
@@ -66,6 +78,10 @@ public class MemberCredentialMapper {
                 credential.getIssuedOn()
         );
 
+        response.setStatus(
+                credential.getStatus()
+        );
+
         response.setCreatedAt(
                 credential.getCreatedAt()
         );
@@ -74,23 +90,26 @@ public class MemberCredentialMapper {
                 credential.getUpdatedAt()
         );
 
-        /*
-         * Credential Kind
-         */
         response.setCredentialKind(
                 toCredentialKindResponse(
                         credential.getCredentialKind()
                 )
         );
 
-        /*
-         * File
-         */
         response.setFile(
                 toFileResponse(
                         credential.getFile()
                 )
         );
+
+        if (credential.getIssuedBy() != null) {
+            response.setIssuedBy(
+                    new MemberCredentialResponse.IssuedByResponse(
+                            credential.getIssuedBy().getId(),
+                            resolveIssuerName(credential)
+                    )
+            );
+        }
 
         return response;
     }
@@ -101,12 +120,13 @@ public class MemberCredentialMapper {
     ) {
         if (credentialKind == null
                 || credentialKind.isBlank()) {
-
             return null;
         }
 
         String normalizedKind =
-                credentialKind.trim();
+                normalizeCredentialKind(
+                        credentialKind
+                );
 
         return switch (normalizedKind) {
 
@@ -124,6 +144,14 @@ public class MemberCredentialMapper {
                             "ACTIVITY_CERTIFICATE",
                             "បណ្ណសរសើរ",
                             "Activity Certificate"
+                    );
+
+            case "APPOINTMENT_LETTER" ->
+                    new MemberCredentialResponse
+                            .CredentialKindResponse(
+                            "APPOINTMENT_LETTER",
+                            "លិខិតតែងតាំង",
+                            "Appointment Letter"
                     );
 
             default ->
@@ -153,20 +181,14 @@ public class MemberCredentialMapper {
         if (sizeBytes != null) {
             sizeKb =
                     Math.round(
-                            (
-                                    sizeBytes / 1024.0
-                            ) * 100.0
+                            sizeBytes / 1024.0 * 100.0
                     ) / 100.0;
 
             sizeMb =
                     Math.round(
-                            (
-                                    sizeBytes
-                                            / (
-                                            1024.0
-                                                    * 1024.0
-                                    )
-                            ) * 100.0
+                            sizeBytes
+                                    / (1024.0 * 1024.0)
+                                    * 100.0
                     ) / 100.0;
         }
 
@@ -181,9 +203,6 @@ public class MemberCredentialMapper {
         );
     }
 
-    /**
-     * Copies request values into the entity.
-     */
     private void copyRequestToEntity(
             MemberCredential credential,
             MemberCredentialRequest request
@@ -195,28 +214,40 @@ public class MemberCredentialMapper {
         );
 
         credential.setCredentialKind(
-                normalizeRequired(
+                normalizeCredentialKind(
                         request.getCredentialKind()
                 )
         );
 
         credential.setCredentialNo(
-                normalizeOptional(
+                normalizeRequired(
                         request.getCredentialNo()
                 )
+        );
+
+        credential.setActivityId(
+                request.getActivityId()
         );
 
         credential.setIssuedOn(
                 request.getIssuedOn()
         );
 
-        credential.setIssuedById(
-                request.getIssuedById()
-        );
-
         credential.setFileId(
                 request.getFileId()
         );
+    }
+
+    private String normalizeCredentialKind(
+            String value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        return value
+                .trim()
+                .toUpperCase(Locale.ROOT);
     }
 
     private String normalizeRequired(
@@ -229,15 +260,19 @@ public class MemberCredentialMapper {
         return value.trim();
     }
 
-    private String normalizeOptional(
-            String value
+    private String resolveIssuerName(
+            MemberCredential credential
     ) {
-        if (value == null
-                || value.isBlank()) {
-
+        if (credential.getIssuedBy() == null) {
             return null;
         }
 
-        return value.trim();
+        /*
+         * Replace this with the actual available user/member
+         * name field in your User entity.
+         */
+        return credential
+                .getIssuedBy()
+                .getEmail();
     }
 }

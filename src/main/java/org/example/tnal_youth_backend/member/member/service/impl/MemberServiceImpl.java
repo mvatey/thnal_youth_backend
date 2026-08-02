@@ -24,6 +24,8 @@ import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
+import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
+import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
 import org.example.tnal_youth_backend.member.religion.entity.Religion;
 import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
@@ -75,6 +77,7 @@ public class MemberServiceImpl
             memberLevelRepository;
 
     private final ReligionRepository religionRepository;
+    private final NationalityService nationalityService;
 
     private final FileRepository fileRepository;
 
@@ -194,6 +197,11 @@ public class MemberServiceImpl
         Religion religion =
                 findReligion(request.religionId());
 
+        Nationality nationality =
+                resolveNationality(
+                        request.nationalityId()
+                );
+
         FileEntity profilePhoto =
                 findFile(
                         request.profilePhotoId(),
@@ -232,6 +240,8 @@ public class MemberServiceImpl
                         .level(level)
 
                         .religion(religion)
+
+                        .nationality(nationality)
 
                         .gender(
                                 request.gender()
@@ -395,6 +405,12 @@ public class MemberServiceImpl
         member.setReligion(
                 findReligion(
                         request.religionId()
+                )
+        );
+
+        member.setNationality(
+                resolveNationality(
+                        request.nationalityId()
                 )
         );
 
@@ -1329,5 +1345,18 @@ public class MemberServiceImpl
                 BigDecimal.ZERO,
                 BigDecimal.ZERO
         );
+    }
+
+    private Nationality resolveNationality(
+            Short nationalityId
+    ) {
+        if (nationalityId == null) {
+            return null;
+        }
+
+        return nationalityService
+                .getActiveNationalityEntityById(
+                        nationalityId
+                );
     }
 }

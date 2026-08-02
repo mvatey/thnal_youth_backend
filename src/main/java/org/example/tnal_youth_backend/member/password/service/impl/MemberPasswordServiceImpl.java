@@ -3,17 +3,22 @@ package org.example.tnal_youth_backend.member.password.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
+import org.example.tnal_youth_backend.member.password.dto.request.MemberPasswordResetRequest;
 import org.example.tnal_youth_backend.member.password.dto.response.MemberPasswordStatusResponse;
 import org.example.tnal_youth_backend.member.password.exception.MemberPasswordException;
 import org.example.tnal_youth_backend.member.password.service.MemberPasswordService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +32,10 @@ public class MemberPasswordServiceImpl
 
     private final MemberAccessValidator
             memberAccessValidator;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final RefreshTokenRepository refreshTokenRepository;
 
     /*
      * ==========================================================
@@ -354,5 +363,49 @@ public class MemberPasswordServiceImpl
         return email
                 .trim()
                 .toLowerCase();
+    }
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse resetPassword(
+            Long memberId,
+            MemberPasswordResetRequest request
+    ) {
+        if (!request.getNewPassword().equals(
+                request.getConfirmPassword()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation does not match"
+            );
+        }
+
+        User user = userRepository
+                .findByMemberId(memberId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "This member does not have a user account"
+                        )
+                );
+
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        request.getNewPassword()
+                )
+        );
+
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        userRepository.save(user);
+
+        /*
+         * Revoke old sessions so the previous password/session
+         * cannot continue being used.
+         */
+        refreshTokenRepository.deleteByUser(user);
+
+        return getPasswordStatus(memberId);
     }
 }

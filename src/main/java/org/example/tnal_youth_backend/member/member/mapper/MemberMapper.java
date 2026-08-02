@@ -5,6 +5,8 @@ import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailRes
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.stereotype.Component;
+import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
+import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -66,6 +68,7 @@ public class MemberMapper {
                 toDetailLookup(member.getStatus()),
                 toDetailLookup(member.getLevel()),
                 toDetailLookup(member.getReligion()),
+                toNationalityResponse(member.getNationality()),
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
@@ -266,6 +269,21 @@ public class MemberMapper {
         throw new IllegalArgumentException(
                 "Unsupported member date value: "
                         + value.getClass().getName()
+        );
+    }
+
+    private NationalityResponse toNationalityResponse(
+            Nationality nationality
+    ) {
+        if (nationality == null) {
+            return null;
+        }
+
+        return new NationalityResponse(
+                nationality.getId(),
+                nationality.getCode(),
+                nationality.getLabelKm(),
+                nationality.getLabelEn()
         );
     }
 }

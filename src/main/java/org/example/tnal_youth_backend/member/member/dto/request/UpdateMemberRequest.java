@@ -42,6 +42,9 @@ public record UpdateMemberRequest(
         @JsonProperty("religion_id")
         Short religionId,
 
+        @JsonProperty("nationality_id")
+        Short nationalityId,
+
         @JsonProperty("gender")
         @NotNull(message = "Gender is required")
         Gender gender,

@@ -5,47 +5,52 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialResponse;
+import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialTabResponse;
 import org.example.tnal_youth_backend.member.credential.service.MemberCredentialService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/members/{memberId}/credentials")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Credentials ",
-        description = "Manage credential for a selected member"
+        name = "B. Member Page - Credentials",
+        description = "Manage credentials for a selected member"
 )
 public class MemberCredentialController {
 
     private final MemberCredentialService memberCredentialService;
 
     @GetMapping
-    public ResponseEntity<List<MemberCredentialResponse>> getAll(
+    public ResponseEntity<MemberCredentialTabResponse> getAll(
             @PathVariable Long memberId
     ) {
-        List<MemberCredentialResponse> credentials =
-                memberCredentialService.getAllByMemberId(memberId);
+        MemberCredentialTabResponse credentials =
+                memberCredentialService.getCredentialTab(
+                        memberId
+                );
 
-        return ResponseEntity.ok(credentials);
+        return ResponseEntity.ok(
+                credentials
+        );
     }
 
-//    @GetMapping("/{credentialId}")
-//    public ResponseEntity<MemberCredentialResponse> getById(
-//            @PathVariable Long memberId,
-//            @PathVariable Long credentialId
-//    ) {
-//        MemberCredentialResponse credential =
-//                memberCredentialService.getById(
-//                        memberId,
-//                        credentialId
-//                );
-//
-//        return ResponseEntity.ok(credential);
-//    }
+    @GetMapping("/{credentialId}")
+    public ResponseEntity<MemberCredentialResponse> getById(
+            @PathVariable Long memberId,
+            @PathVariable Long credentialId
+    ) {
+        MemberCredentialResponse credential =
+                memberCredentialService.getById(
+                        memberId,
+                        credentialId
+                );
+
+        return ResponseEntity.ok(
+                credential
+        );
+    }
 
     @PostMapping
     public ResponseEntity<MemberCredentialResponse> create(
@@ -76,7 +81,9 @@ public class MemberCredentialController {
                         request
                 );
 
-        return ResponseEntity.ok(credential);
+        return ResponseEntity.ok(
+                credential
+        );
     }
 
     @DeleteMapping("/{credentialId}")
@@ -89,6 +96,8 @@ public class MemberCredentialController {
                 credentialId
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }

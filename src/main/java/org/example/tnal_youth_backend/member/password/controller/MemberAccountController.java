@@ -1,7 +1,9 @@
 package org.example.tnal_youth_backend.member.password.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.member.password.dto.request.MemberPasswordResetRequest;
 import org.example.tnal_youth_backend.member.password.dto.response.MemberPasswordStatusResponse;
 import org.example.tnal_youth_backend.member.password.service.MemberPasswordService;
 import org.springframework.http.ResponseEntity;
@@ -30,16 +32,12 @@ public class MemberAccountController {
             memberPasswordService;
 
     /*
-     * Returns whether the member has an account and whether
-     * it is pending activation, active, inactive, or locked.
-     *
      * GET /api/members/{memberId}/account/status
      */
     @GetMapping("/status")
     public ResponseEntity<MemberPasswordStatusResponse>
     getAccountStatus(
-            @PathVariable
-            Long memberId
+            @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
                 memberPasswordService
@@ -50,16 +48,12 @@ public class MemberAccountController {
     }
 
     /*
-     * Sends another activation OTP to a member whose
-     * account is still pending activation.
-     *
      * POST /api/members/{memberId}/account/resend-activation
      */
     @PostMapping("/resend-activation")
     public ResponseEntity<MemberPasswordStatusResponse>
     resendActivationOtp(
-            @PathVariable
-            Long memberId
+            @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
                 memberPasswordService
@@ -70,15 +64,34 @@ public class MemberAccountController {
     }
 
     /*
-     * Disables access without deleting the member or user.
+     * PATCH /api/members/{memberId}/account/password
      *
+     * Replaces the selected member's password without requiring
+     * the previous password.
+     */
+    @PatchMapping("/password")
+    public ResponseEntity<MemberPasswordStatusResponse>
+    resetPassword(
+            @PathVariable Long memberId,
+            @Valid @RequestBody
+            MemberPasswordResetRequest request
+    ) {
+        return ResponseEntity.ok(
+                memberPasswordService
+                        .resetPassword(
+                                memberId,
+                                request
+                        )
+        );
+    }
+
+    /*
      * PATCH /api/members/{memberId}/account/disable
      */
     @PatchMapping("/disable")
     public ResponseEntity<MemberPasswordStatusResponse>
     disableAccount(
-            @PathVariable
-            Long memberId
+            @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
                 memberPasswordService
@@ -89,15 +102,12 @@ public class MemberAccountController {
     }
 
     /*
-     * Re-enables a previously inactive account.
-     *
      * PATCH /api/members/{memberId}/account/enable
      */
     @PatchMapping("/enable")
     public ResponseEntity<MemberPasswordStatusResponse>
     enableAccount(
-            @PathVariable
-            Long memberId
+            @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
                 memberPasswordService

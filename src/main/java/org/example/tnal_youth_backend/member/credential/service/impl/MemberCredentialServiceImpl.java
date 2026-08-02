@@ -1,15 +1,21 @@
 package org.example.tnal_youth_backend.member.credential.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialResponse;
+import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialTabResponse;
+import org.example.tnal_youth_backend.member.credential.entity.CredentialStatus;
 import org.example.tnal_youth_backend.member.credential.entity.MemberCredential;
 import org.example.tnal_youth_backend.member.credential.mapper.MemberCredentialMapper;
 import org.example.tnal_youth_backend.member.credential.repository.MemberCredentialRepository;
 import org.example.tnal_youth_backend.member.credential.service.MemberCredentialService;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,13 +30,13 @@ public class MemberCredentialServiceImpl
         implements MemberCredentialService {
 
     private static final String MEMBERSHIP_CARD_KIND =
-            "ID_CARD";
+            "MEMBERSHIP_CARD";
+
+    private static final String ACTIVITY_CERTIFICATE_KIND =
+            "ACTIVITY_CERTIFICATE";
 
     private static final String APPOINTMENT_LETTER_KIND =
             "APPOINTMENT_LETTER";
-
-    private static final String CERTIFICATE_KIND =
-            "CERTIFICATE";
 
     private final MemberCredentialRepository
             memberCredentialRepository;
@@ -38,16 +44,27 @@ public class MemberCredentialServiceImpl
     private final MemberRepository
             memberRepository;
 
+    private final ActivityRepository
+            activityRepository;
+
     private final FileRepository
             fileRepository;
 
     private final MemberCredentialMapper
             memberCredentialMapper;
 
+    /*
+     * Replace this dependency with the authenticated-user
+     * helper already used elsewhere in your project.
+     *
+     * Example:
+     *
+     * private final CurrentUserService currentUserService;
+     */
+
     @Override
     @Transactional(readOnly = true)
-    public List<MemberCredentialResponse>
-    getAllByMemberId(
+    public List<MemberCredentialResponse> getAllByMemberId(
             Long memberId
     ) {
         validateMemberExists(memberId);
@@ -86,42 +103,55 @@ public class MemberCredentialServiceImpl
     ) {
         validateMemberExists(memberId);
 
-        validateFileExists(
-                request.getFileId()
-        );
-
-        String normalizedCredentialKind =
+        String credentialKind =
                 normalizeCredentialKind(
                         request.getCredentialKind()
                 );
 
-        validateSingleIdCardOnCreate(
-                memberId,
-                normalizedCredentialKind
+        request.setCredentialKind(
+                credentialKind
         );
 
-        String normalizedCredentialNo =
+        validateCredentialActivity(
+                credentialKind,
+                request.getActivityId()
+        );
+
+        validateFileExists(
+                request.getFileId()
+        );
+
+        validateSingleMembershipCardOnCreate(
+                memberId,
+                credentialKind
+        );
+
+        String credentialNo =
                 normalizeCredentialNo(
                         request.getCredentialNo()
                 );
 
-        validateUniqueCredentialNoForCreate(
-                normalizedCredentialNo
-        );
-
-        request.setCredentialKind(
-                normalizedCredentialKind
-        );
-
         request.setCredentialNo(
-                normalizedCredentialNo
+                credentialNo
         );
+
+        validateUniqueCredentialNoForCreate(
+                credentialNo
+        );
+
+        Long issuedById =
+                resolveCurrentUserId();
 
         MemberCredential credential =
                 memberCredentialMapper.toEntity(
                         memberId,
+                        issuedById,
                         request
                 );
+
+        credential.setStatus(
+                CredentialStatus.ACTIVE
+        );
 
         MemberCredential savedCredential =
                 memberCredentialRepository.save(
@@ -141,45 +171,59 @@ public class MemberCredentialServiceImpl
     ) {
         validateMemberExists(memberId);
 
-        validateFileExists(
-                request.getFileId()
-        );
-
         MemberCredential credential =
                 findCredential(
                         memberId,
                         credentialId
                 );
 
-        String normalizedCredentialKind =
+        String credentialKind =
                 normalizeCredentialKind(
                         request.getCredentialKind()
                 );
 
-        validateSingleIdCardOnUpdate(
-                memberId,
-                credentialId,
-                normalizedCredentialKind
+        request.setCredentialKind(
+                credentialKind
         );
 
-        String normalizedCredentialNo =
+        validateCredentialActivity(
+                credentialKind,
+                request.getActivityId()
+        );
+
+        validateFileExists(
+                request.getFileId()
+        );
+
+        validateSingleMembershipCardOnUpdate(
+                memberId,
+                credentialId,
+                credentialKind
+        );
+
+        String credentialNo =
                 normalizeCredentialNo(
                         request.getCredentialNo()
                 );
 
+        request.setCredentialNo(
+                credentialNo
+        );
+
         validateUniqueCredentialNoForUpdate(
                 credentialId,
-                normalizedCredentialNo
+                credentialNo
         );
 
-        request.setCredentialKind(
-                normalizedCredentialKind
-        );
-
-        request.setCredentialNo(
-                normalizedCredentialNo
-        );
-
+        /*
+         * Do not overwrite:
+         *
+         * issuedById
+         * status
+         * memberId
+         *
+         * during a normal update.
+         */
         memberCredentialMapper.updateEntity(
                 credential,
                 request
@@ -208,8 +252,92 @@ public class MemberCredentialServiceImpl
                         credentialId
                 );
 
+        /*
+         * Membership cards are created automatically and should
+         * normally not be deleted through the standard endpoint.
+         */
+        if (MEMBERSHIP_CARD_KIND.equals(
+                credential.getCredentialKind()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Membership cards cannot be deleted"
+            );
+        }
+
         memberCredentialRepository.delete(
                 credential
+        );
+    }
+
+    /*
+     * Used automatically after creating a member.
+     */
+    @Override
+    public MemberCredentialResponse createDefaultMembershipCard(
+            Long memberId,
+            Long issuedById
+    ) {
+        validateMemberExists(memberId);
+
+        boolean alreadyExists =
+                memberCredentialRepository
+                        .existsByMemberIdAndCredentialKindIgnoreCase(
+                                memberId,
+                                MEMBERSHIP_CARD_KIND
+                        );
+
+        if (alreadyExists) {
+            return memberCredentialRepository
+                    .findAllByMemberIdOrderByCreatedAtDesc(
+                            memberId
+                    )
+                    .stream()
+                    .filter(credential ->
+                            MEMBERSHIP_CARD_KIND.equalsIgnoreCase(
+                                    credential.getCredentialKind()
+                            )
+                    )
+                    .findFirst()
+                    .map(memberCredentialMapper::toResponse)
+                    .orElseThrow(() ->
+                            new ResponseStatusException(
+                                    HttpStatus.CONFLICT,
+                                    "Membership card already exists"
+                            )
+                    );
+        }
+
+        MemberCredential credential =
+                MemberCredential.builder()
+                        .memberId(memberId)
+                        .issuedById(issuedById)
+                        .credentialKind(
+                                MEMBERSHIP_CARD_KIND
+                        )
+                        .credentialNo(
+                                generateMembershipCardNumber(
+                                        memberId
+                                )
+                        )
+                        .title(
+                                "ប័ណ្ណសម្គាល់សមាជិក"
+                        )
+                        .issuedOn(
+                                java.time.LocalDate.now()
+                        )
+                        .status(
+                                CredentialStatus.ACTIVE
+                        )
+                        .build();
+
+        MemberCredential savedCredential =
+                memberCredentialRepository.save(
+                        credential
+                );
+
+        return memberCredentialMapper.toResponse(
+                savedCredential
         );
     }
 
@@ -289,7 +417,50 @@ public class MemberCredentialServiceImpl
         }
     }
 
-    private void validateSingleIdCardOnCreate(
+    private void validateCredentialActivity(
+            String credentialKind,
+            Long activityId
+    ) {
+        if (ACTIVITY_CERTIFICATE_KIND.equals(
+                credentialKind
+        )) {
+            if (activityId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Activity ID is required for an activity certificate"
+                );
+            }
+
+            if (activityId <= 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Activity ID must be greater than zero"
+                );
+            }
+
+            if (!activityRepository.existsById(
+                    activityId
+            )) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Activity not found with ID: "
+                                + activityId
+                );
+            }
+
+            return;
+        }
+
+        if (activityId != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity ID is not allowed for credential kind: "
+                            + credentialKind
+            );
+        }
+    }
+
+    private void validateSingleMembershipCardOnCreate(
             Long memberId,
             String credentialKind
     ) {
@@ -299,22 +470,22 @@ public class MemberCredentialServiceImpl
             return;
         }
 
-        boolean alreadyHasIdCard =
+        boolean alreadyHasMembershipCard =
                 memberCredentialRepository
                         .existsByMemberIdAndCredentialKindIgnoreCase(
                                 memberId,
                                 MEMBERSHIP_CARD_KIND
                         );
 
-        if (alreadyHasIdCard) {
+        if (alreadyHasMembershipCard) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "This member already has an ID card"
+                    "This member already has a membership card"
             );
         }
     }
 
-    private void validateSingleIdCardOnUpdate(
+    private void validateSingleMembershipCardOnUpdate(
             Long memberId,
             Long credentialId,
             String credentialKind
@@ -325,7 +496,7 @@ public class MemberCredentialServiceImpl
             return;
         }
 
-        boolean alreadyHasAnotherIdCard =
+        boolean alreadyHasAnotherMembershipCard =
                 memberCredentialRepository
                         .existsByMemberIdAndCredentialKindIgnoreCaseAndIdNot(
                                 memberId,
@@ -333,10 +504,10 @@ public class MemberCredentialServiceImpl
                                 credentialId
                         );
 
-        if (alreadyHasAnotherIdCard) {
+        if (alreadyHasAnotherMembershipCard) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "This member already has another ID card"
+                    "This member already has another membership card"
             );
         }
     }
@@ -345,7 +516,10 @@ public class MemberCredentialServiceImpl
             String credentialNo
     ) {
         if (credentialNo == null) {
-            return;
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Credential number is required"
+            );
         }
 
         if (memberCredentialRepository
@@ -365,7 +539,10 @@ public class MemberCredentialServiceImpl
             String credentialNo
     ) {
         if (credentialNo == null) {
-            return;
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Credential number is required"
+            );
         }
 
         if (memberCredentialRepository
@@ -400,8 +577,9 @@ public class MemberCredentialServiceImpl
                         );
 
         return switch (normalizedKind) {
-            case "MEMBERSHIP_CARD",
-                 "ACTIVITY_CERTIFICATE" ->
+            case MEMBERSHIP_CARD_KIND,
+                 ACTIVITY_CERTIFICATE_KIND,
+                 APPOINTMENT_LETTER_KIND ->
                     normalizedKind;
 
             default ->
@@ -422,5 +600,99 @@ public class MemberCredentialServiceImpl
         }
 
         return credentialNo.trim();
+    }
+
+    private String generateMembershipCardNumber(
+            Long memberId
+    ) {
+        return String.format(
+                "TNAL-CARD-%05d",
+                memberId
+        );
+    }
+
+    private Long resolveCurrentUserId() {
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (authentication == null
+                || !(authentication.getPrincipal()
+                instanceof CustomUserDetails userDetails)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not authenticated"
+            );
+        }
+
+        return userDetails.getUserId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberCredentialTabResponse getCredentialTab(
+            Long memberId
+    ) {
+        validateMemberExists(
+                memberId
+        );
+
+        List<MemberCredentialResponse> credentials =
+                memberCredentialRepository
+                        .findAllByMemberIdOrderByCreatedAtDesc(
+                                memberId
+                        )
+                        .stream()
+                        .map(memberCredentialMapper::toResponse)
+                        .toList();
+
+        MemberCredentialResponse membershipCard =
+                credentials
+                        .stream()
+                        .filter(credential ->
+                                credential.getCredentialKind() != null
+                                        && MEMBERSHIP_CARD_KIND.equals(
+                                        credential
+                                                .getCredentialKind()
+                                                .getCode()
+                                )
+                        )
+                        .findFirst()
+                        .orElse(null);
+
+        List<MemberCredentialResponse> certificates =
+                credentials
+                        .stream()
+                        .filter(credential ->
+                                credential.getCredentialKind() != null
+                                        && ACTIVITY_CERTIFICATE_KIND.equals(
+                                        credential
+                                                .getCredentialKind()
+                                                .getCode()
+                                )
+                        )
+                        .toList();
+
+        List<MemberCredentialResponse> appointmentLetters =
+                credentials
+                        .stream()
+                        .filter(credential ->
+                                credential.getCredentialKind() != null
+                                        && APPOINTMENT_LETTER_KIND.equals(
+                                        credential
+                                                .getCredentialKind()
+                                                .getCode()
+                                )
+                        )
+                        .toList();
+
+        return new MemberCredentialTabResponse(
+                membershipCard,
+                certificates,
+                appointmentLetters
+        );
     }
 }
