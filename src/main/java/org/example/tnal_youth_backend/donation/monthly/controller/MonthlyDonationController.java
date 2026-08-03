@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationPageResponse;
 import org.example.tnal_youth_backend.donation.monthly.service.MonthlyDonationService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -37,11 +39,7 @@ public class MonthlyDonationController {
             @RequestParam(defaultValue = "10") int size
     ) {
         return ApiResponse.ok(monthlyDonationService.listMembers(
-                branchId,
-                donationPeriod,
-                search,
-                page,
-                size
+                branchId, donationPeriod, search, page, size
         ));
     }
 
@@ -52,5 +50,34 @@ public class MonthlyDonationController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(monthlyDonationService.createBatch(request)));
+    }
+
+    @GetMapping
+    @PreAuthorize(STAFF)
+    public ApiResponse<MonthlyDonationPageResponse> listMonthlyDonations(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate donationPeriod,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ApiResponse.ok(monthlyDonationService.listMonthlyDonations(
+                branchId, donationPeriod, search, page, size
+        ));
+    }
+
+    @GetMapping("/{branchId}")
+    @PreAuthorize(STAFF)
+    public ApiResponse<MonthlyDonationDetailResponse> getMonthlyDonationDetail(
+            @PathVariable Long branchId,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate donationPeriod
+    ) {
+        return ApiResponse.ok(
+                monthlyDonationService.getMonthlyDonationDetail(branchId, donationPeriod)
+        );
     }
 }

@@ -3,7 +3,7 @@ package org.example.tnal_youth_backend.donation.monthly.repo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -103,8 +103,140 @@ public interface MonthlyDonationRepo {
             "  </if>",
             "</script>"
     })
-    long countMembers(
+    long countMembers(@Param("branchId") Long branchId, @Param("search") String search);
+
+    @Select("""
+        SELECT branch_id
+        FROM users
+        WHERE id = #{userId}
+        """)
+    Long findBranchIdByUserId(@Param("userId") Long userId);
+
+    @Select({
+            "<script>",
+            "SELECT",
+            "  d.branch_id AS branchId,",
+            "  b.branch_code AS branchCode,",
+            "  b.name_km AS branchNameKm,",
+            "  b.name_en AS branchNameEn,",
+            "  d.donation_period AS donationPeriod,",
+            "  COUNT(DISTINCT d.member_id) AS donorCount,",
+            "  COALESCE(SUM(d.amount_khr), 0) AS totalKhr,",
+            "  COALESCE(SUM(d.amount_usd), 0) AS totalUsd,",
+            "  COALESCE(SUM(d.total_amount_usd), 0) AS overallTotalUsd,",
+            "  MAX(d.paid_at) AS latestPaidAt",
+            "FROM donations d",
+            "JOIN donation_types dt ON dt.id = d.donation_type_id",
+            "JOIN branches b ON b.id = d.branch_id",
+            "WHERE dt.code = 'MONTHLY_DONATION'",
+            "  <if test='branchId != null'> AND d.branch_id = #{branchId} </if>",
+            "  <if test='donationPeriod != null'> AND d.donation_period = #{donationPeriod} </if>",
+            "  <if test='search != null and search != \"\"'>",
+            "    AND (",
+            "      b.branch_code ILIKE ('%' || #{search} || '%')",
+            "      OR b.name_km ILIKE ('%' || #{search} || '%')",
+            "      OR b.name_en ILIKE ('%' || #{search} || '%')",
+            "    )",
+            "  </if>",
+            "GROUP BY d.branch_id, b.branch_code, b.name_km, b.name_en, d.donation_period",
+            "ORDER BY d.donation_period DESC, MAX(d.paid_at) DESC, d.branch_id",
+            "LIMIT #{limit} OFFSET #{offset}",
+            "</script>"
+    })
+    List<MonthlyDonationListItemResponse> listMonthlyDonationGroups(
             @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod,
+            @Param("search") String search,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
+    @Select({
+            "<script>",
+            "SELECT COUNT(*) FROM (",
+            "  SELECT d.branch_id, d.donation_period",
+            "  FROM donations d",
+            "  JOIN donation_types dt ON dt.id = d.donation_type_id",
+            "  JOIN branches b ON b.id = d.branch_id",
+            "  WHERE dt.code = 'MONTHLY_DONATION'",
+            "    <if test='branchId != null'> AND d.branch_id = #{branchId} </if>",
+            "    <if test='donationPeriod != null'> AND d.donation_period = #{donationPeriod} </if>",
+            "    <if test='search != null and search != \"\"'>",
+            "      AND (",
+            "        b.branch_code ILIKE ('%' || #{search} || '%')",
+            "        OR b.name_km ILIKE ('%' || #{search} || '%')",
+            "        OR b.name_en ILIKE ('%' || #{search} || '%')",
+            "      )",
+            "    </if>",
+            "  GROUP BY d.branch_id, d.donation_period",
+            ") grouped_monthly_donations",
+            "</script>"
+    })
+    long countMonthlyDonationGroups(
+            @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod,
             @Param("search") String search
+    );
+
+    @Select("""
+        SELECT
+            id,
+            branch_code AS branchCode,
+            name_km AS nameKm,
+            name_en AS nameEn
+        FROM branches
+        WHERE id = #{branchId}
+        """)
+    MonthlyDonationBranchResponse findBranch(@Param("branchId") Long branchId);
+
+    @Select("""
+        SELECT
+            COUNT(DISTINCT d.member_id) AS memberCount,
+            COALESCE(SUM(d.amount_khr), 0) AS totalKhr,
+            COALESCE(SUM(d.amount_usd), 0) AS totalUsd,
+            COALESCE(SUM(d.total_amount_usd), 0) AS overallTotalUsd
+        FROM donations d
+        JOIN donation_types dt ON dt.id = d.donation_type_id
+        WHERE dt.code = 'MONTHLY_DONATION'
+          AND d.branch_id = #{branchId}
+          AND d.donation_period = #{donationPeriod}
+        """)
+    MonthlyDonationSummaryResponse summarizeMonthlyDonations(
+            @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod
+    );
+
+    @Select("""
+        SELECT
+            d.id AS donationId,
+            d.donation_no AS donationNo,
+            d.member_id AS memberId,
+            m.member_no AS memberNo,
+            m.full_name_km AS memberNameKm,
+            m.full_name_en AS memberNameEn,
+            d.amount_khr AS amountKhr,
+            d.amount_usd AS amountUsd,
+            d.exchange_rate_khr_per_usd AS exchangeRateKhrPerUsd,
+            d.total_amount_usd AS totalAmountUsd,
+            d.payment_method_id AS paymentMethodId,
+            pm.code AS paymentMethodCode,
+            pm.label_km AS paymentMethodLabelKm,
+            pm.label_en AS paymentMethodLabelEn,
+            d.payment_reference AS paymentReference,
+            d.receipt_file_id AS receiptFileId,
+            d.note AS description,
+            d.paid_at AS paidAt
+        FROM donations d
+        JOIN donation_types dt ON dt.id = d.donation_type_id
+        JOIN payment_methods pm ON pm.id = d.payment_method_id
+        LEFT JOIN members m ON m.id = d.member_id
+        WHERE dt.code = 'MONTHLY_DONATION'
+          AND d.branch_id = #{branchId}
+          AND d.donation_period = #{donationPeriod}
+        ORDER BY m.full_name_km ASC NULLS LAST, d.id ASC
+        """)
+    List<MonthlyDonationRowResponse> findMonthlyDonationRows(
+            @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod
     );
 }

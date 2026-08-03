@@ -6,13 +6,13 @@ import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateResultDTO;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationItemRequest;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSavedItemResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.*;
 import org.example.tnal_youth_backend.donation.monthly.repo.MonthlyDonationRepo;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.exchangerate.dto.response.ExchangeRateResponse;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
+import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,20 +28,19 @@ public class MonthlyDonationService {
 
     private static final String USD = "USD";
     private static final String KHR = "KHR";
+    private static final String ROLE_BRANCH_LEADER = "BRANCH_LEADER";
 
     private final MonthlyDonationRepo monthlyDonationRepo;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
 
+    @Transactional(readOnly = true)
     public MonthlyDonationMemberPageResponse listMembers(
-            Long branchId,
-            LocalDate donationPeriod,
-            String search,
-            int page,
-            int size
+            Long branchId, LocalDate donationPeriod, String search, int page, int size
     ) {
         validatePage(page, size);
         validatePeriod(donationPeriod);
+        enforceBranchAccess(branchId);
 
         String normalizedSearch = normalizeToNull(search);
         int offset = page * size;
@@ -50,11 +49,7 @@ public class MonthlyDonationService {
                 .branchId(branchId)
                 .donationPeriod(donationPeriod)
                 .items(monthlyDonationRepo.listMembers(
-                        branchId,
-                        donationPeriod,
-                        normalizedSearch,
-                        size,
-                        offset
+                        branchId, donationPeriod, normalizedSearch, size, offset
                 ))
                 .total(monthlyDonationRepo.countMembers(branchId, normalizedSearch))
                 .page(page)
@@ -65,6 +60,7 @@ public class MonthlyDonationService {
     @Transactional
     public MonthlyDonationBatchResponse createBatch(MonthlyDonationBatchRequest request) {
         validatePeriod(request.getDonationPeriod());
+        enforceBranchAccess(request.getBranchId());
         validateUniqueMembers(request.getItems());
 
         Short donationTypeId = monthlyDonationRepo.findMonthlyDonationTypeId();
@@ -77,9 +73,7 @@ public class MonthlyDonationService {
 
         for (MonthlyDonationItemRequest item : request.getItems()) {
             if (monthlyDonationRepo.countExistingMonthlyDonation(
-                    item.getMemberId(),
-                    request.getBranchId(),
-                    request.getDonationPeriod()
+                    item.getMemberId(), request.getBranchId(), request.getDonationPeriod()
             ) > 0) {
                 throw new BusinessException(
                         "MONTHLY_DONATION_ALREADY_EXISTS",
@@ -98,15 +92,12 @@ public class MonthlyDonationService {
         BigDecimal exchangeRate = null;
         if (containsKhr) {
             ExchangeRateResponse rate = exchangeRateService.getRateForDate(
-                    USD,
-                    KHR,
-                    request.getPaidAt().toLocalDate()
+                    USD, KHR, request.getPaidAt().toLocalDate()
             );
             exchangeRate = rate.getRate();
         }
 
         BigDecimal resolvedRate = exchangeRate;
-
         List<MonthlyDonationSavedItemResponse> savedItems = request.getItems().stream()
                 .map(item -> saveOne(request, item, donationTypeId, resolvedRate))
                 .toList();
@@ -114,11 +105,9 @@ public class MonthlyDonationService {
         BigDecimal totalKhr = request.getItems().stream()
                 .map(item -> zeroIfNull(item.getAmountKhr()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
         BigDecimal totalUsd = request.getItems().stream()
                 .map(item -> zeroIfNull(item.getAmountUsd()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
         BigDecimal overallTotalUsd = savedItems.stream()
                 .map(MonthlyDonationSavedItemResponse::getTotalAmountUsd)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -134,6 +123,62 @@ public class MonthlyDonationService {
                 .overallTotalUsd(overallTotalUsd)
                 .items(savedItems)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MonthlyDonationPageResponse listMonthlyDonations(
+            Long branchId, LocalDate donationPeriod, String search, int page, int size
+    ) {
+        validatePage(page, size);
+        if (donationPeriod != null) {
+            validatePeriod(donationPeriod);
+        }
+
+        Long effectiveBranchId = effectiveBranchFilter(branchId);
+        String normalizedSearch = normalizeToNull(search);
+        int offset = page * size;
+
+        return new MonthlyDonationPageResponse(
+                monthlyDonationRepo.listMonthlyDonationGroups(
+                        effectiveBranchId, donationPeriod, normalizedSearch, size, offset
+                ),
+                monthlyDonationRepo.countMonthlyDonationGroups(
+                        effectiveBranchId, donationPeriod, normalizedSearch
+                ),
+                page,
+                size
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public MonthlyDonationDetailResponse getMonthlyDonationDetail(
+            Long branchId, LocalDate donationPeriod
+    ) {
+        validatePeriod(donationPeriod);
+        enforceBranchAccess(branchId);
+
+        MonthlyDonationBranchResponse branch = monthlyDonationRepo.findBranch(branchId);
+        if (branch == null) {
+            throw new BusinessException(
+                    "BRANCH_NOT_FOUND",
+                    "Branch " + branchId + " does not exist"
+            );
+        }
+
+        MonthlyDonationSummaryResponse summary =
+                monthlyDonationRepo.summarizeMonthlyDonations(branchId, donationPeriod);
+        if (summary == null) {
+            summary = new MonthlyDonationSummaryResponse(
+                    0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
+            );
+        }
+
+        List<MonthlyDonationRowResponse> items =
+                monthlyDonationRepo.findMonthlyDonationRows(branchId, donationPeriod);
+
+        return new MonthlyDonationDetailResponse(
+                branch, donationPeriod, summary, items
+        );
     }
 
     private MonthlyDonationSavedItemResponse saveOne(
@@ -169,6 +214,33 @@ public class MonthlyDonationService {
                 .totalAmountUsd(result.getTotalAmountUsd())
                 .createdAt(result.getCreatedAt())
                 .build();
+    }
+
+    private Long effectiveBranchFilter(Long requestedBranchId) {
+        Long scopedBranchId = scopedBranchIdOrNull();
+        return scopedBranchId != null ? scopedBranchId : requestedBranchId;
+    }
+
+    private void enforceBranchAccess(Long requestedBranchId) {
+        Long scopedBranchId = scopedBranchIdOrNull();
+        if (scopedBranchId != null && !scopedBranchId.equals(requestedBranchId)) {
+            throw new AccessDeniedException("This branch is outside your permitted scope");
+        }
+    }
+
+    private Long scopedBranchIdOrNull() {
+        if (!ROLE_BRANCH_LEADER.equals(SecurityUtils.getCurrentUserRole())) {
+            return null;
+        }
+        Long branchId = monthlyDonationRepo.findBranchIdByUserId(
+                SecurityUtils.getCurrentUserId()
+        );
+        if (branchId == null) {
+            throw new AccessDeniedException(
+                    "Your account is a branch leader but is not assigned to a branch"
+            );
+        }
+        return branchId;
     }
 
     private void validateUniqueMembers(List<MonthlyDonationItemRequest> items) {
