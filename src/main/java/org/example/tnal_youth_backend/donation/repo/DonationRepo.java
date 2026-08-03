@@ -44,6 +44,15 @@ public interface DonationRepo {
     String findTypeCode(@Param("typeId") Short typeId);
 
     @Select("""
+        SELECT id
+        FROM donation_types
+        WHERE UPPER(code) = UPPER(#{code})
+          AND is_active = TRUE
+        LIMIT 1
+        """)
+    Short findActiveTypeIdByCode(@Param("code") String code);
+
+    @Select("""
         SELECT COUNT(*)
         FROM payment_methods
         WHERE id = #{pmId} AND is_active = TRUE
@@ -381,12 +390,12 @@ public interface DonationRepo {
             "</script>"
     })
     DonationSummaryDTO summary(@Param("branchId") Long branchId,
-                              @Param("donationTypeId") Short donationTypeId,
-                              @Param("paymentMethodId") Short paymentMethodId,
-                              @Param("memberId") Long memberId,
-                              @Param("sponsorId") Long sponsorId,
-                              @Param("activityId") Long activityId,
-                              @Param("paidFrom") OffsetDateTime paidFrom,
-                              @Param("paidTo") OffsetDateTime paidTo,
-                              @Param("search") String search);
+                               @Param("donationTypeId") Short donationTypeId,
+                               @Param("paymentMethodId") Short paymentMethodId,
+                               @Param("memberId") Long memberId,
+                               @Param("sponsorId") Long sponsorId,
+                               @Param("activityId") Long activityId,
+                               @Param("paidFrom") OffsetDateTime paidFrom,
+                               @Param("paidTo") OffsetDateTime paidTo,
+                               @Param("search") String search);
 }
