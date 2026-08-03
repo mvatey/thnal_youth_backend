@@ -47,6 +47,7 @@ public interface MemberRepository
             "level",
             "religion",
             "nationality",
+            "ethnicity",
             "profilePhoto",
             "cvFile"
     })

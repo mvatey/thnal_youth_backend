@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.member.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
 
@@ -30,6 +31,8 @@ public record MemberDetailResponse(
         LookupResponse religion,
 
         NationalityResponse nationality,
+
+        EthnicityResponse ethnicity,
 
         Gender gender,
 

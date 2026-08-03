@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.religion.entity.Religion;
@@ -79,6 +80,10 @@ public class Member {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nationality_id")
     private Nationality nationality;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ethnicity_id")
+    private Ethnicity ethnicity;
 
     @Enumerated(EnumType.STRING)
     @Column(

@@ -41,6 +41,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
+import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -78,6 +80,7 @@ public class MemberServiceImpl
 
     private final ReligionRepository religionRepository;
     private final NationalityService nationalityService;
+    private final EthnicityRepository ethnicityRepository;
 
     private final FileRepository fileRepository;
 
@@ -202,6 +205,11 @@ public class MemberServiceImpl
                         request.nationalityId()
                 );
 
+        Ethnicity ethnicity =
+                findEthnicity(
+                        request.ethnicityId()
+                );
+
         FileEntity profilePhoto =
                 findFile(
                         request.profilePhotoId(),
@@ -242,6 +250,8 @@ public class MemberServiceImpl
                         .religion(religion)
 
                         .nationality(nationality)
+
+                        .ethnicity(ethnicity)
 
                         .gender(
                                 request.gender()
@@ -411,6 +421,12 @@ public class MemberServiceImpl
         member.setNationality(
                 resolveNationality(
                         request.nationalityId()
+                )
+        );
+
+        member.setEthnicity(
+                findEthnicity(
+                        request.ethnicityId()
                 )
         );
 
@@ -1357,6 +1373,24 @@ public class MemberServiceImpl
         return nationalityService
                 .getActiveNationalityEntityById(
                         nationalityId
+                );
+    }
+
+    private Ethnicity findEthnicity(
+            Short id
+    ) {
+        if (id == null) {
+            return null;
+        }
+
+        return ethnicityRepository
+                .findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Ethnicity not found with ID: "
+                                        + id
+                        )
                 );
     }
 }

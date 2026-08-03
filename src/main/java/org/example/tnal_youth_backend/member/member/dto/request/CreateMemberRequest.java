@@ -45,6 +45,9 @@ public record CreateMemberRequest(
         @JsonProperty("nationality_id")
         Short nationalityId,
 
+        @JsonProperty("ethnicity_id")
+        Short ethnicityId,
+
         @JsonProperty("gender")
         @NotNull(message = "Gender is required")
         Gender gender,

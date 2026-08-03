@@ -7,6 +7,8 @@ import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.stereotype.Component;
 import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
+import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -69,6 +71,7 @@ public class MemberMapper {
                 toDetailLookup(member.getLevel()),
                 toDetailLookup(member.getReligion()),
                 toNationalityResponse(member.getNationality()),
+                toEthnicityResponse(member.getEthnicity()),
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
@@ -284,6 +287,20 @@ public class MemberMapper {
                 nationality.getCode(),
                 nationality.getLabelKm(),
                 nationality.getLabelEn()
+        );
+    }
+    private EthnicityResponse toEthnicityResponse(
+            Ethnicity ethnicity
+    ) {
+        if (ethnicity == null) {
+            return null;
+        }
+
+        return new EthnicityResponse(
+                ethnicity.getId(),
+                ethnicity.getCode(),
+                ethnicity.getLabelKm(),
+                ethnicity.getLabelEn()
         );
     }
 }
