@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -17,6 +18,9 @@ public class ActivityIncomeMemberRowResponse {
     private String memberNo;
     private String memberNameKm;
     private String memberNameEn;
+    private Long profilePhotoId;
+    private String gender;
+    private LocalDate dateOfBirth;
     private BigDecimal amountKhr;
     private BigDecimal amountUsd;
     private BigDecimal exchangeRateKhrPerUsd;
