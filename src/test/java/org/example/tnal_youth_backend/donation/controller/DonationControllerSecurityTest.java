@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.donation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
+import org.example.tnal_youth_backend.config.JwtAuthenticationFilter;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
 import org.example.tnal_youth_backend.donation.dto.DonationCreateResultDTO;
@@ -310,3 +310,4 @@ class DonationControllerSecurityTest {
         }
     }
 }
+

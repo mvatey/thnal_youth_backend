@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.notification.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.tnal_youth_backend.authentication.config.JwtAuthenticationFilter;
+import org.example.tnal_youth_backend.config.JwtAuthenticationFilter;
 import org.example.tnal_youth_backend.common.exception.GlobalExceptionHandler;
 import org.example.tnal_youth_backend.notification.config.NotificationProperties;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
@@ -182,3 +182,4 @@ class NotificationControllerSecurityTest {
         }
     }
 }
+
