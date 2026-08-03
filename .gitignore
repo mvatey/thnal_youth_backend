@@ -32,4 +32,14 @@ build/
 ### VS Code ###
 .vscode/
 
-.env
+*.env
+*.md
+!pom.xml
+*.xml
+*.jar
+*.jar.original
+
+notification_context/
+donation_context/
+AGENT.md
+!AGENTS.md

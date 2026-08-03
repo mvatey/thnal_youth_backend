@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.file.dto.request.CreateFileRequest;
 import org.example.tnal_youth_backend.file.dto.request.UpdateFileRequest;
 import org.example.tnal_youth_backend.file.dto.response.FileResponse;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +16,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.charset.StandardCharsets;
 
 import java.util.List;
 
@@ -95,5 +101,46 @@ public class FileController {
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+
+    @GetMapping("/{id}/content")
+    public ResponseEntity<Resource> getFileContent(
+            @PathVariable Long id
+    ) {
+        FileEntity file =
+                fileService.getFileEntity(id);
+
+        Resource resource =
+                fileService.loadFileResource(id);
+
+        MediaType mediaType;
+
+        try {
+            mediaType = MediaType.parseMediaType(
+                    file.getMimeType()
+            );
+
+        } catch (Exception exception) {
+            mediaType =
+                    MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        ContentDisposition disposition =
+                ContentDisposition.inline()
+                        .filename(
+                                file.getOriginalName(),
+                                StandardCharsets.UTF_8
+                        )
+                        .build();
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .contentLength(file.getSizeBytes())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        disposition.toString()
+                )
+                .body(resource);
     }
 }
