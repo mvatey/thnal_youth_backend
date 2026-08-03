@@ -30,10 +30,12 @@ public class ActivityInvitedBranchServiceImpl
         implements ActivityInvitedBranchService {
 
     private final ActivityRepository activityRepository;
+
     private final ActivityInvitedBranchRepository
             invitedBranchRepository;
 
     private final BranchRepository branchRepository;
+
     private final UserRepository userRepository;
 
     private final ActivityInvitedBranchMapper
@@ -48,12 +50,33 @@ public class ActivityInvitedBranchServiceImpl
     ) {
         Activity activity = findActivity(activityId);
 
-        validateExternalActivity(activity);
+        /*
+         * Both INTERNAL and EXTERNAL activities can invite
+         * another branch.
+         *
+         * Activity type must not restrict branch invitation.
+         */
         validateActivityCanBeModified(activity);
 
-        Branch branch = findBranch(request.getBranchId());
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invitation request is required"
+            );
+        }
+
+        Branch branch = findBranch(
+                request.getBranchId()
+        );
+
         User invitedBy = findUser(currentUserId);
 
+        /*
+         * The activity host branch must not invite itself.
+         *
+         * Members from the host branch are already directly
+         * available for participant invitation.
+         */
         validateBranchIsNotHostBranch(
                 activity,
                 branch
@@ -67,6 +90,12 @@ public class ActivityInvitedBranchServiceImpl
                         )
                         .orElse(null);
 
+        /*
+         * A branch can only have one invitation record
+         * for an activity.
+         *
+         * A cancelled invitation can be reactivated.
+         */
         if (existingInvitation != null) {
             if (existingInvitation.getInvitationStatus()
                     != ActivityInvitationStatus.CANCELLED) {
@@ -111,8 +140,14 @@ public class ActivityInvitedBranchServiceImpl
                                 )
                         )
                         .invitedBy(invitedBy)
-                        .invitedAt(OffsetDateTime.now())
-                        .note(trimToNull(request.getNote()))
+                        .invitedAt(
+                                OffsetDateTime.now()
+                        )
+                        .note(
+                                trimToNull(
+                                        request.getNote()
+                                )
+                        )
                         .build();
 
         try {
@@ -164,6 +199,13 @@ public class ActivityInvitedBranchServiceImpl
                         invitationId
                 );
 
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invitation response request is required"
+            );
+        }
+
         if (invitation.getInvitationStatus()
                 != ActivityInvitationStatus.PENDING) {
 
@@ -192,8 +234,14 @@ public class ActivityInvitedBranchServiceImpl
 
         User respondedBy = findUser(currentUserId);
 
-        invitation.setInvitationStatus(responseStatus);
-        invitation.setRespondedBy(respondedBy);
+        invitation.setInvitationStatus(
+                responseStatus
+        );
+
+        invitation.setRespondedBy(
+                respondedBy
+        );
+
         invitation.setRespondedAt(
                 OffsetDateTime.now()
         );
@@ -234,6 +282,9 @@ public class ActivityInvitedBranchServiceImpl
             );
         }
 
+        /*
+         * Confirm that the current authenticated user exists.
+         */
         findUser(currentUserId);
 
         invitation.setInvitationStatus(
@@ -245,18 +296,21 @@ public class ActivityInvitedBranchServiceImpl
         );
 
         /*
-         * respondedBy is intentionally left unchanged here.
+         * respondedBy is intentionally not changed here.
          *
-         * Later, if you add cancelled_by and cancelled_at
-         * columns, use those fields instead.
+         * A future migration may add:
+         *
+         * cancelled_by
+         * cancelled_at
          */
-
         invitedBranchRepository.saveAndFlush(
                 invitation
         );
     }
 
-    private Activity findActivity(Long activityId) {
+    private Activity findActivity(
+            Long activityId
+    ) {
         if (activityId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -264,7 +318,8 @@ public class ActivityInvitedBranchServiceImpl
             );
         }
 
-        return activityRepository.findById(activityId)
+        return activityRepository
+                .findById(activityId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -274,7 +329,9 @@ public class ActivityInvitedBranchServiceImpl
                 );
     }
 
-    private Branch findBranch(Long branchId) {
+    private Branch findBranch(
+            Long branchId
+    ) {
         if (branchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -282,7 +339,8 @@ public class ActivityInvitedBranchServiceImpl
             );
         }
 
-        return branchRepository.findById(branchId)
+        return branchRepository
+                .findById(branchId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -292,7 +350,9 @@ public class ActivityInvitedBranchServiceImpl
                 );
     }
 
-    private User findUser(Long userId) {
+    private User findUser(
+            Long userId
+    ) {
         if (userId == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -300,7 +360,8 @@ public class ActivityInvitedBranchServiceImpl
             );
         }
 
-        return userRepository.findById(userId)
+        return userRepository
+                .findById(userId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.UNAUTHORIZED,
@@ -313,6 +374,13 @@ public class ActivityInvitedBranchServiceImpl
             Long activityId,
             Long invitationId
     ) {
+        if (activityId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Activity ID is required"
+            );
+        }
+
         if (invitationId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -333,33 +401,22 @@ public class ActivityInvitedBranchServiceImpl
                 );
     }
 
-    private void validateExternalActivity(
-            Activity activity
-    ) {
-        if (activity.getType() == null
-                || activity.getType().getCode() == null
-                || !"EXTERNAL".equalsIgnoreCase(
-                activity.getType().getCode()
-        )) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    """
-                    Other branches can only be invited
-                    to an EXTERNAL activity
-                    """
-            );
-        }
-    }
-
     private void validateBranchIsNotHostBranch(
             Activity activity,
             Branch invitedBranch
     ) {
-        if (activity.getBranchId() != null
-                && activity.getBranchId()
-                .equals(invitedBranch.getId())) {
+        Long hostBranchId = activity.getBranchId();
 
+        if (hostBranchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The activity does not have a host branch"
+            );
+        }
+
+        if (hostBranchId.equals(
+                invitedBranch.getId()
+        )) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     """
@@ -389,7 +446,10 @@ public class ActivityInvitedBranchServiceImpl
 
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "A completed or cancelled activity cannot be modified"
+                    """
+                    A completed or cancelled activity
+                    cannot be modified
+                    """
             );
         }
     }
@@ -415,19 +475,27 @@ public class ActivityInvitedBranchServiceImpl
                 )
         );
 
-        invitation.setInvitedBy(invitedBy);
+        invitation.setInvitedBy(
+                invitedBy
+        );
+
         invitation.setInvitedAt(
                 OffsetDateTime.now()
         );
 
         invitation.setRespondedBy(null);
         invitation.setRespondedAt(null);
+
         invitation.setNote(
-                trimToNull(request.getNote())
+                trimToNull(
+                        request.getNote()
+                )
         );
     }
 
-    private String trimToNull(String value) {
+    private String trimToNull(
+            String value
+    ) {
         if (value == null) {
             return null;
         }

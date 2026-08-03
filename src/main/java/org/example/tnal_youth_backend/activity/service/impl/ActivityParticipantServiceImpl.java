@@ -15,8 +15,6 @@ import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityParticipantService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
-import org.example.tnal_youth_backend.member.branch.entity.Branch;
-import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
@@ -36,6 +34,7 @@ public class ActivityParticipantServiceImpl
         implements ActivityParticipantService {
 
     private final ActivityRepository activityRepository;
+
     private final ActivityParticipantRepository
             participantRepository;
 
@@ -43,11 +42,11 @@ public class ActivityParticipantServiceImpl
             invitedBranchRepository;
 
     private final MemberRepository memberRepository;
+
     private final UserRepository userRepository;
 
-    private final ActivityParticipantMapper participantMapper;
-
-    private final BranchRepository branchRepository;
+    private final ActivityParticipantMapper
+            participantMapper;
 
     @Override
     @Transactional
@@ -57,10 +56,31 @@ public class ActivityParticipantServiceImpl
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
+
         User invitedBy = findUser(currentUserId);
 
         validateActivityCanBeModified(activity);
 
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Participant invitation request is required"
+            );
+        }
+
+        if (request.getMemberIds() == null
+                || request.getMemberIds().isEmpty()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "At least one member ID is required"
+            );
+        }
+
+        /*
+         * LinkedHashSet removes duplicate IDs from the request
+         * while preserving the original request order.
+         */
         Set<Long> requestedMemberIds =
                 new LinkedHashSet<>(
                         request.getMemberIds()
@@ -78,11 +98,19 @@ public class ActivityParticipantServiceImpl
                         requestedMemberIds
                 );
 
-        if (members.size() != requestedMemberIds.size()) {
-            Set<Long> foundIds = new LinkedHashSet<>();
+        /*
+         * Confirm that every requested member exists.
+         */
+        if (members.size()
+                != requestedMemberIds.size()) {
+
+            Set<Long> foundIds =
+                    new LinkedHashSet<>();
 
             for (Member member : members) {
-                foundIds.add(member.getId());
+                foundIds.add(
+                        member.getId()
+                );
             }
 
             Set<Long> missingIds =
@@ -90,12 +118,36 @@ public class ActivityParticipantServiceImpl
                             requestedMemberIds
                     );
 
-            missingIds.removeAll(foundIds);
+            missingIds.removeAll(
+                    foundIds
+            );
 
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Members not found: " + missingIds
             );
+        }
+
+        /*
+         * Check duplicate participants before capacity
+         * validation so only truly new members are considered.
+         */
+        for (Member member : members) {
+            boolean alreadyParticipant =
+                    participantRepository
+                            .existsByActivity_IdAndMember_Id(
+                                    activityId,
+                                    member.getId()
+                            );
+
+            if (alreadyParticipant) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Member "
+                                + member.getId()
+                                + " is already a participant"
+                );
+            }
         }
 
         validateCapacity(
@@ -107,20 +159,6 @@ public class ActivityParticipantServiceImpl
                 new ArrayList<>();
 
         for (Member member : members) {
-            if (participantRepository
-                    .existsByActivity_IdAndMember_Id(
-                            activityId,
-                            member.getId()
-                    )) {
-
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Member "
-                                + member.getId()
-                                + " is already a participant"
-                );
-            }
-
             ParticipantAccess participantAccess =
                     resolveParticipantAccess(
                             activity,
@@ -150,7 +188,9 @@ public class ActivityParticipantServiceImpl
                             )
                             .build();
 
-            participants.add(participant);
+            participants.add(
+                    participant
+            );
         }
 
         List<ActivityParticipant> savedParticipants =
@@ -189,10 +229,22 @@ public class ActivityParticipantServiceImpl
             Long memberId,
             Long currentUserId
     ) {
-        Activity activity = findActivity(activityId);
+        Activity activity = findActivity(
+                activityId
+        );
 
-        validateActivityCanBeModified(activity);
+        validateActivityCanBeModified(
+                activity
+        );
+
         findUser(currentUserId);
+
+        if (memberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member ID is required"
+            );
+        }
 
         ActivityParticipant participant =
                 participantRepository
@@ -207,6 +259,10 @@ public class ActivityParticipantServiceImpl
                                 )
                         );
 
+        /*
+         * A participant who has already checked in must remain
+         * in the activity participation history.
+         */
         if (participant.getCheckedInAt() != null) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -217,14 +273,17 @@ public class ActivityParticipantServiceImpl
             );
         }
 
-        participantRepository.delete(participant);
+        participantRepository.delete(
+                participant
+        );
     }
 
     private ParticipantAccess resolveParticipantAccess(
             Activity activity,
             Member member
     ) {
-        Long memberBranchId = member.getBranchId();
+        Long memberBranchId =
+                member.getBranchId();
 
         if (memberBranchId == null) {
             throw new ResponseStatusException(
@@ -235,54 +294,31 @@ public class ActivityParticipantServiceImpl
             );
         }
 
-        Long hostBranchId = activity.getBranchId();
+        Long hostBranchId =
+                activity.getBranchId();
 
-        boolean sameBranch =
-                hostBranchId != null
-                        && hostBranchId.equals(memberBranchId);
-
-        String activityTypeCode =
-                activity.getType() != null
-                        ? activity.getType().getCode()
-                        : null;
-
-        boolean internalActivity =
-                "INTERNAL".equalsIgnoreCase(activityTypeCode);
-
-        boolean externalActivity =
-                "EXTERNAL".equalsIgnoreCase(activityTypeCode);
-
-        if (!internalActivity && !externalActivity) {
+        if (hostBranchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Unsupported activity type"
+                    "The activity does not have a host branch"
             );
         }
 
-        /*
-         * INTERNAL activity:
-         * only members from the host branch are allowed.
-         */
-        if (internalActivity) {
-            if (!sameBranch) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "An INTERNAL activity may only include "
-                                + "members from the host branch"
+        boolean isHostBranchMember =
+                hostBranchId.equals(
+                        memberBranchId
                 );
-            }
-
-            return new ParticipantAccess(
-                    ParticipantRegistrationSource.HOST_BRANCH,
-                    null
-            );
-        }
 
         /*
-         * EXTERNAL activity:
-         * host-branch members are allowed directly.
+         * Members from the activity's host branch can be
+         * invited directly.
+         *
+         * This rule applies to both:
+         *
+         * INTERNAL
+         * EXTERNAL
          */
-        if (sameBranch) {
+        if (isHostBranchMember) {
             return new ParticipantAccess(
                     ParticipantRegistrationSource.HOST_BRANCH,
                     null
@@ -290,8 +326,13 @@ public class ActivityParticipantServiceImpl
         }
 
         /*
-         * A member from another branch is allowed only when
-         * that branch has accepted the activity invitation.
+         * Members from another branch can be invited only
+         * after that branch accepts its activity invitation.
+         *
+         * This rule also applies to both:
+         *
+         * INTERNAL
+         * EXTERNAL
          */
         ActivityInvitedBranch acceptedInvitation =
                 invitedBranchRepository
@@ -304,8 +345,8 @@ public class ActivityParticipantServiceImpl
                                 new ResponseStatusException(
                                         HttpStatus.FORBIDDEN,
                                         "The member's branch has not "
-                                                + "accepted an invitation for "
-                                                + "this external activity"
+                                                + "accepted an invitation "
+                                                + "for this activity"
                                 )
                         );
 
@@ -323,17 +364,26 @@ public class ActivityParticipantServiceImpl
             return;
         }
 
+        if (activity.getCapacity() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Activity capacity cannot be negative"
+            );
+        }
+
         long existingParticipants =
                 participantRepository
                         .countByActivity_Id(
                                 activity.getId()
                         );
 
-        long total =
+        long totalParticipants =
                 existingParticipants
                         + numberOfNewParticipants;
 
-        if (total > activity.getCapacity()) {
+        if (totalParticipants
+                > activity.getCapacity()) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Activity capacity would be exceeded"
@@ -341,7 +391,9 @@ public class ActivityParticipantServiceImpl
         }
     }
 
-    private Activity findActivity(Long activityId) {
+    private Activity findActivity(
+            Long activityId
+    ) {
         if (activityId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -349,7 +401,8 @@ public class ActivityParticipantServiceImpl
             );
         }
 
-        return activityRepository.findById(activityId)
+        return activityRepository
+                .findById(activityId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -359,7 +412,9 @@ public class ActivityParticipantServiceImpl
                 );
     }
 
-    private User findUser(Long userId) {
+    private User findUser(
+            Long userId
+    ) {
         if (userId == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -367,7 +422,8 @@ public class ActivityParticipantServiceImpl
             );
         }
 
-        return userRepository.findById(userId)
+        return userRepository
+                .findById(userId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.UNAUTHORIZED,
@@ -403,12 +459,15 @@ public class ActivityParticipantServiceImpl
         }
     }
 
-    private String trimToNull(String value) {
+    private String trimToNull(
+            String value
+    ) {
         if (value == null) {
             return null;
         }
 
-        String trimmed = value.trim();
+        String trimmed =
+                value.trim();
 
         return trimmed.isEmpty()
                 ? null
