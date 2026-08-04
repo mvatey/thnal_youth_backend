@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.model;
+package org.example.tnal_youth_backend.donation.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,7 +14,7 @@ import java.time.OffsetDateTime;
  *
  * <p>Plain POJO written for MyBatis (same style as {@code NotificationModel}) —
  * this is NOT a JPA entity, so column names are mapped explicitly in
- * {@code DonationRepo}. Money is {@link BigDecimal} to preserve the NUMERIC
+ * {@code DonationRepository}. Money is {@link BigDecimal} to preserve the NUMERIC
  * precision of the schema (amounts 14,2; exchange rate 14,4).
  *
  * <p>Invariants enforced by the schema (and pre-validated in the service so the
@@ -32,7 +32,7 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DonationModel {
+public class Donation {
 
     private Long id;
 

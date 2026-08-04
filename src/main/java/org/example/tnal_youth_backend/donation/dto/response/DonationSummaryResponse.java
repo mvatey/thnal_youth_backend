@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.dto;
+package org.example.tnal_youth_backend.donation.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class DonationSummaryDTO {
+public class DonationSummaryResponse {
     /** Number of donations matching the filters. */
     private long count;
     /** Sum of total_amount_usd (USD-normalised grand total). */

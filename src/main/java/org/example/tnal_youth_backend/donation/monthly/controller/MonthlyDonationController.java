@@ -31,16 +31,22 @@ public class MonthlyDonationController {
     @PreAuthorize(STAFF)
     public ApiResponse<MonthlyDonationMemberPageResponse> listMembers(
             @RequestParam Long branchId,
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate donationPeriod,
+            @RequestParam Integer month,
+            @RequestParam Integer year,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ApiResponse.ok(monthlyDonationService.listMembers(
-                branchId, donationPeriod, search, page, size
-        ));
+        return ApiResponse.ok(
+                monthlyDonationService.listMembers(
+                        branchId,
+                        month,
+                        year,
+                        search,
+                        page,
+                        size
+                )
+        );
     }
 
     @PostMapping("/batch")
@@ -56,16 +62,22 @@ public class MonthlyDonationController {
     @PreAuthorize(STAFF)
     public ApiResponse<MonthlyDonationPageResponse> listMonthlyDonations(
             @RequestParam(required = false) Long branchId,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate donationPeriod,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ApiResponse.ok(monthlyDonationService.listMonthlyDonations(
-                branchId, donationPeriod, search, page, size
-        ));
+        return ApiResponse.ok(
+                monthlyDonationService.listMonthlyDonations(
+                        branchId,
+                        month,
+                        year,
+                        search,
+                        page,
+                        size
+                )
+        );
     }
 
     @GetMapping("/{branchId}")
@@ -80,4 +92,15 @@ public class MonthlyDonationController {
                 monthlyDonationService.getMonthlyDonationDetail(branchId, donationPeriod)
         );
     }
+
+
+    @DeleteMapping("/{donationId}")
+    @PreAuthorize(STAFF)
+    public ResponseEntity<Void> deleteMonthlyDonation(
+            @PathVariable Long donationId
+    ) {
+        monthlyDonationService.deleteMonthlyDonation(donationId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

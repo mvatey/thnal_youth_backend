@@ -54,7 +54,9 @@ public class SponsorDonationRowResponse {
 
     private String materialCategory;
 
-    private Integer materialQuantity;
+    private BigDecimal materialQuantity;
+
+    private String materialQuantityType;
 
     private String purpose;
 

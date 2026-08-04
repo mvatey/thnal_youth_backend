@@ -1,17 +1,18 @@
-package org.example.tnal_youth_backend.donation.sponsorflow.service;
+package org.example.tnal_youth_backend.donation.sponsorflow.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
-import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationCreateResultDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationUpdateDTO;
+import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest;
+import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
+import org.example.tnal_youth_backend.donation.dto.request.DonationUpdateRequest;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.request.SponsorDonationUpsertRequest;
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorDonationPageResponse;
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorDonationRowResponse;
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorDonationSummaryResponse;
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorLookupResponse;
-import org.example.tnal_youth_backend.donation.sponsorflow.repo.SponsorDonationUiRepo;
+import org.example.tnal_youth_backend.donation.sponsorflow.repository.SponsorDonationRepository;
+import org.example.tnal_youth_backend.donation.sponsorflow.service.SponsorDonationService;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,28 +21,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
-public class SponsorDonationUiService {
+public class SponsorDonationServiceImpl implements SponsorDonationService {
 
     private static final String DONOR_INDIVIDUAL = "INDIVIDUAL";
     private static final String DONOR_INSTITUTION = "INSTITUTION";
     private static final String DONOR_MEMBER = "MEMBER";
 
-    private static final String PAYMENT_MATERIAL = "MATERIAL";
-
-    private final SponsorDonationUiRepo repo;
+    private final SponsorDonationRepository repo;
 
     private final DonationService donationService;
 
     private final ExchangeRateService exchangeRateService;
 
     @Transactional
+    @Override
     public SponsorDonationRowResponse create(
             SponsorDonationUpsertRequest request
     ) {
@@ -65,7 +66,7 @@ public class SponsorDonationUiService {
              */
             sponsorId = request.getSponsorId();
         } else {
-            SponsorDonationUiRepo.SponsorInsert sponsor =
+            SponsorDonationRepository.SponsorInsert sponsor =
                     sponsorRow(
                             request,
                             actorId
@@ -83,8 +84,8 @@ public class SponsorDonationUiService {
             }
         }
 
-        DonationCreateDTO donation =
-                new DonationCreateDTO();
+        DonationCreateRequest donation =
+                new DonationCreateRequest();
 
         donation.setDonationTypeId(
                 requiredTypeId()
@@ -140,7 +141,7 @@ public class SponsorDonationUiService {
                 clean(request.getClientRequestId())
         );
 
-        DonationCreateResultDTO result =
+        DonationCreateResultResponse result =
                 donationService.create(donation);
 
         repo.upsertDetails(
@@ -148,6 +149,7 @@ public class SponsorDonationUiService {
                 request.getDonorKind(),
                 clean(request.getMaterialCategory()),
                 normalizedMaterialQuantity(request),
+                clean(request.getMaterialQuantityType()),
                 clean(request.getPurpose())
         );
 
@@ -155,6 +157,7 @@ public class SponsorDonationUiService {
     }
 
     @Transactional
+    @Override
     public SponsorDonationRowResponse update(
             Long donationId,
             SponsorDonationUpsertRequest request
@@ -193,7 +196,7 @@ public class SponsorDonationUiService {
              */
             sponsorId = current.getSponsorId();
         } else {
-            SponsorDonationUiRepo.SponsorInsert sponsor =
+            SponsorDonationRepository.SponsorInsert sponsor =
                     sponsorRow(
                             request,
                             SecurityUtils.getCurrentUserId()
@@ -211,8 +214,8 @@ public class SponsorDonationUiService {
             }
         }
 
-        DonationUpdateDTO donation =
-                new DonationUpdateDTO();
+        DonationUpdateRequest donation =
+                new DonationUpdateRequest();
 
         donation.setDonationTypeId(
                 requiredTypeId()
@@ -278,6 +281,7 @@ public class SponsorDonationUiService {
                 request.getDonorKind(),
                 clean(request.getMaterialCategory()),
                 normalizedMaterialQuantity(request),
+                clean(request.getMaterialQuantityType()),
                 clean(request.getPurpose())
         );
 
@@ -285,67 +289,48 @@ public class SponsorDonationUiService {
     }
 
     @Transactional(readOnly = true)
+    @Override
     public SponsorDonationPageResponse list(
             Long branchId,
             String donorKind,
-            OffsetDateTime paidFrom,
-            OffsetDateTime paidTo,
+            LocalDate paidDate,
             String search,
             int page,
             int size
     ) {
-        validateDateRange(
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int safePage = Math.max(page, 0);
+
+        Long effectiveBranchId = effectiveBranchFilter(branchId);
+        String normalizedKind = normalizeOptionalDonorKind(donorKind);
+        String normalizedSearch = clean(search);
+
+        OffsetDateTime paidFrom = startOfDay(paidDate);
+        OffsetDateTime paidTo = endOfDay(paidDate);
+
+        List<SponsorDonationRowResponse> items = repo.list(
+                effectiveBranchId,
+                normalizedKind,
                 paidFrom,
-                paidTo
+                paidTo,
+                normalizedSearch,
+                safeSize,
+                safePage * safeSize
         );
 
-        int safeSize =
-                Math.min(
-                        Math.max(size, 1),
-                        100
-                );
-
-        int safePage =
-                Math.max(page, 0);
-
-        Long effectiveBranchId =
-                effectiveBranchFilter(branchId);
-
-        String normalizedKind =
-                normalizeOptionalDonorKind(donorKind);
-
-        String normalizedSearch =
-                clean(search);
-
-        List<SponsorDonationRowResponse> items =
-                repo.list(
-                        effectiveBranchId,
-                        normalizedKind,
-                        paidFrom,
-                        paidTo,
-                        normalizedSearch,
-                        safeSize,
-                        safePage * safeSize
-                );
-
-        long total =
-                repo.count(
-                        effectiveBranchId,
-                        normalizedKind,
-                        paidFrom,
-                        paidTo,
-                        normalizedSearch
-                );
-
-        return new SponsorDonationPageResponse(
-                items,
-                total,
-                safePage,
-                safeSize
+        long total = repo.count(
+                effectiveBranchId,
+                normalizedKind,
+                paidFrom,
+                paidTo,
+                normalizedSearch
         );
+
+        return new SponsorDonationPageResponse(items, total, safePage, safeSize);
     }
 
     @Transactional(readOnly = true)
+    @Override
     public SponsorDonationRowResponse get(
             Long donationId
     ) {
@@ -353,6 +338,7 @@ public class SponsorDonationUiService {
     }
 
     @Transactional
+    @Override
     public void delete(
             Long donationId
     ) {
@@ -362,81 +348,49 @@ public class SponsorDonationUiService {
     }
 
     @Transactional(readOnly = true)
+    @Override
     public SponsorDonationSummaryResponse summary(
             Long branchId,
-            OffsetDateTime paidFrom,
-            OffsetDateTime paidTo
+            LocalDate paidDate
     ) {
-        validateDateRange(
+        Long effectiveBranchId = effectiveBranchFilter(branchId);
+        OffsetDateTime paidFrom = startOfDay(paidDate);
+        OffsetDateTime paidTo = endOfDay(paidDate);
+
+        SponsorDonationSummaryResponse current = repo.summary(
+                effectiveBranchId,
                 paidFrom,
                 paidTo
         );
-
-        Long effectiveBranchId =
-                effectiveBranchFilter(branchId);
-
-        SponsorDonationSummaryResponse current =
-                repo.summary(
-                        effectiveBranchId,
-                        paidFrom,
-                        paidTo
-                );
-
         normalizeSummary(current);
 
-        if (
-                paidFrom == null
-                        || paidTo == null
-        ) {
+        if (paidDate == null) {
             current.setDonationChangePercent(null);
             current.setDonorChangePercent(null);
-
             return current;
         }
 
-        Duration periodLength =
-                Duration.between(
-                        paidFrom,
-                        paidTo
-                );
-
-        OffsetDateTime previousTo =
-                paidFrom.minusNanos(1);
-
-        OffsetDateTime previousFrom =
-                previousTo.minus(periodLength);
-
-        SponsorDonationSummaryResponse previous =
-                repo.summary(
-                        effectiveBranchId,
-                        previousFrom,
-                        previousTo
-                );
-
+        LocalDate previousDate = paidDate.minusDays(1);
+        SponsorDonationSummaryResponse previous = repo.summary(
+                effectiveBranchId,
+                startOfDay(previousDate),
+                endOfDay(previousDate)
+        );
         normalizeSummary(previous);
 
-        current.setDonationChangePercent(
-                percentChange(
-                        current.getOverallTotalUsd(),
-                        previous.getOverallTotalUsd()
-                )
-        );
-
-        current.setDonorChangePercent(
-                percentChange(
-                        BigDecimal.valueOf(
-                                current.getDonorCount()
-                        ),
-                        BigDecimal.valueOf(
-                                previous.getDonorCount()
-                        )
-                )
-        );
-
+        current.setDonationChangePercent(percentChange(
+                current.getOverallTotalUsd(),
+                previous.getOverallTotalUsd()
+        ));
+        current.setDonorChangePercent(percentChange(
+                BigDecimal.valueOf(current.getDonorCount()),
+                BigDecimal.valueOf(previous.getDonorCount())
+        ));
         return current;
     }
 
     @Transactional(readOnly = true)
+    @Override
     public List<SponsorLookupResponse> sponsors(
             String search
     ) {
@@ -446,12 +400,19 @@ public class SponsorDonationUiService {
     }
 
     @Transactional(readOnly = true)
+    @Override
     public List<SponsorLookupResponse> members(
+            Long branchId,
             String search
     ) {
-        return repo.members(
-                clean(search)
-        );
+        if (branchId == null || !repo.branchExists(branchId)) {
+            throw new BusinessException(
+                    "BRANCH_NOT_FOUND",
+                    "The selected branch does not exist"
+            );
+        }
+        Long effectiveBranchId = resolveWritableBranch(branchId);
+        return repo.members(effectiveBranchId, clean(search));
     }
 
     private SponsorDonationRowResponse required(
@@ -537,13 +498,14 @@ public class SponsorDonationUiService {
             }
 
             if (
-                    !repo.activeMemberExists(
-                            request.getMemberId()
+                    !repo.activeMemberExistsInBranch(
+                            request.getMemberId(),
+                            request.getBranchId()
                     )
             ) {
                 throw new BusinessException(
                         "SPONSOR_MEMBER_NOT_FOUND",
-                        "The selected active member was not found"
+                        "The selected active member was not found in the selected branch"
                 );
             }
 
@@ -584,47 +546,18 @@ public class SponsorDonationUiService {
             }
         }
 
-        if (
-                PAYMENT_MATERIAL.equalsIgnoreCase(
-                        paymentMethodCode
-                )
-        ) {
-            if (
-                    clean(request.getMaterialCategory()) == null
-            ) {
-                throw new BusinessException(
-                        "MATERIAL_CATEGORY_REQUIRED",
-                        "materialCategory is required for MATERIAL payment method"
-                );
-            }
+        validateMaterialFields(request);
 
-            if (
-                    request.getMaterialQuantity() == null
-                            || request.getMaterialQuantity() <= 0
-            ) {
-                throw new BusinessException(
-                        "MATERIAL_QUANTITY_REQUIRED",
-                        "materialQuantity must be greater than zero for MATERIAL payment method"
-                );
-            }
-        }
-
-        /*
-         * The current donations table requires at least one monetary
-         * value to be greater than zero.
-         *
-         * For MATERIAL donations, send the estimated KHR or USD value.
-         */
-        if (
-                zero(request.getAmountKhr()).signum() <= 0
-                        && zero(request.getAmountUsd()).signum() <= 0
-        ) {
+        /* Money remains required as before. Material is additional information. */
+        if (zero(request.getAmountKhr()).signum() <= 0
+                && zero(request.getAmountUsd()).signum() <= 0) {
             throw new BusinessException(
                     "DONATION_AMOUNT_REQUIRED",
                     "At least one of amountKhr or amountUsd must be greater than zero"
             );
         }
     }
+
 
     private String paymentCode(
             Short paymentMethodId
@@ -726,12 +659,12 @@ public class SponsorDonationUiService {
         return branchId;
     }
 
-    private SponsorDonationUiRepo.SponsorInsert sponsorRow(
+    private SponsorDonationRepository.SponsorInsert sponsorRow(
             SponsorDonationUpsertRequest request,
             Long actorId
     ) {
-        SponsorDonationUiRepo.SponsorInsert sponsor =
-                new SponsorDonationUiRepo.SponsorInsert();
+        SponsorDonationRepository.SponsorInsert sponsor =
+                new SponsorDonationRepository.SponsorInsert();
 
         String sponsorTypeCode =
                 DONOR_INSTITUTION.equals(
@@ -775,23 +708,61 @@ public class SponsorDonationUiService {
         return sponsor;
     }
 
-    private Integer normalizedMaterialQuantity(
+    private BigDecimal normalizedMaterialQuantity(
             SponsorDonationUpsertRequest request
     ) {
-        String paymentCode =
-                paymentCode(
-                        request.getPaymentMethodId()
-                );
+        return hasAnyMaterialField(request)
+                ? request.getMaterialQuantity()
+                : null;
+    }
 
-        if (
-                PAYMENT_MATERIAL.equalsIgnoreCase(
-                        paymentCode
-                )
-        ) {
-            return request.getMaterialQuantity();
+    private void validateMaterialFields(SponsorDonationUpsertRequest request) {
+        if (!hasAnyMaterialField(request)) {
+            return;
         }
 
-        return null;
+        if (clean(request.getMaterialCategory()) == null) {
+            throw new BusinessException(
+                    "MATERIAL_CATEGORY_REQUIRED",
+                    "materialCategory is required when material is provided"
+            );
+        }
+
+        if (request.getMaterialQuantity() == null
+                || request.getMaterialQuantity().signum() <= 0) {
+            throw new BusinessException(
+                    "MATERIAL_QUANTITY_REQUIRED",
+                    "materialQuantity must be greater than zero when material is provided"
+            );
+        }
+
+        if (clean(request.getMaterialQuantityType()) == null) {
+            throw new BusinessException(
+                    "MATERIAL_QUANTITY_TYPE_REQUIRED",
+                    "materialQuantityType is required when material is provided"
+            );
+        }
+    }
+
+    private boolean hasAnyMaterialField(SponsorDonationUpsertRequest request) {
+        return clean(request.getMaterialCategory()) != null
+                || request.getMaterialQuantity() != null
+                || clean(request.getMaterialQuantityType()) != null;
+    }
+
+    private OffsetDateTime startOfDay(LocalDate date) {
+        return date == null
+                ? null
+                : date.atStartOfDay().atOffset(ZoneOffset.ofHours(7));
+    }
+
+    private OffsetDateTime endOfDay(LocalDate date) {
+        return date == null
+                ? null
+                : date.plusDays(1)
+                .atStartOfDay()
+                .atOffset(ZoneOffset.ofHours(7))
+                .minusNanos(1);
     }
 
     private void normalizeDonorKind(
@@ -833,22 +804,6 @@ public class SponsorDonationUiService {
         }
 
         return normalized;
-    }
-
-    private void validateDateRange(
-            OffsetDateTime paidFrom,
-            OffsetDateTime paidTo
-    ) {
-        if (
-                paidFrom != null
-                        && paidTo != null
-                        && paidFrom.isAfter(paidTo)
-        ) {
-            throw new BusinessException(
-                    "INVALID_DATE_RANGE",
-                    "paidFrom must be before or equal to paidTo"
-            );
-        }
     }
 
     private void normalizeSummary(

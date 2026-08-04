@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.dto;
+package org.example.tnal_youth_backend.donation.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -20,7 +20,7 @@ import java.time.OffsetDateTime;
  * the API and are never taken from this DTO.
  */
 @Data
-public class DonationUpdateDTO {
+public class DonationUpdateRequest {
 
     @NotNull
     private Short donationTypeId;

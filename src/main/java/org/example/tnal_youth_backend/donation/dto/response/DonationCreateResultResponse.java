@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.dto;
+package org.example.tnal_youth_backend.donation.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class DonationCreateResultDTO {
+public class DonationCreateResultResponse {
     private Long id;
     private String donationNo;
     private BigDecimal totalAmountUsd;

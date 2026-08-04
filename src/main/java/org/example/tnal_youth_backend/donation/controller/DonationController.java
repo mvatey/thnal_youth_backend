@@ -3,12 +3,12 @@ package org.example.tnal_youth_backend.donation.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
-import org.example.tnal_youth_backend.donation.dto.DonationCreateDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationCreateResultDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationPageDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationSummaryDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationUpdateDTO;
+import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest;
+import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
+import org.example.tnal_youth_backend.donation.dto.response.DonationResponse;
+import org.example.tnal_youth_backend.donation.dto.response.DonationPageResponse;
+import org.example.tnal_youth_backend.donation.dto.response.DonationSummaryResponse;
+import org.example.tnal_youth_backend.donation.dto.request.DonationUpdateRequest;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,20 +43,20 @@ public class DonationController {
 
     @PostMapping
     @PreAuthorize(STAFF)
-    public ResponseEntity<ApiResponse<DonationCreateResultDTO>> create(
-            @Valid @RequestBody DonationCreateDTO req) {
+    public ResponseEntity<ApiResponse<DonationCreateResultResponse>> create(
+            @Valid @RequestBody DonationCreateRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(service.create(req)));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize(STAFF)
-    public ResponseEntity<ApiResponse<DonationDTO>> get(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<DonationResponse>> get(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @GetMapping
     @PreAuthorize(STAFF)
-    public ResponseEntity<ApiResponse<DonationPageDTO>> list(
+    public ResponseEntity<ApiResponse<DonationPageResponse>> list(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Short typeId,
             @RequestParam(required = false) Short paymentMethodId,
@@ -75,7 +75,7 @@ public class DonationController {
 
     @GetMapping("/summary")
     @PreAuthorize(STAFF)
-    public ResponseEntity<ApiResponse<DonationSummaryDTO>> summary(
+    public ResponseEntity<ApiResponse<DonationSummaryResponse>> summary(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Short typeId,
             @RequestParam(required = false) Short paymentMethodId,
@@ -92,9 +92,9 @@ public class DonationController {
 
     @PutMapping("/{id}")
     @PreAuthorize(STAFF)
-    public ResponseEntity<ApiResponse<DonationDTO>> update(
+    public ResponseEntity<ApiResponse<DonationResponse>> update(
             @PathVariable Long id,
-            @Valid @RequestBody DonationUpdateDTO req) {
+            @Valid @RequestBody DonationUpdateRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(service.update(id, req)));
     }
 

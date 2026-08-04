@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.sponsorflow.repo;
+package org.example.tnal_youth_backend.donation.sponsorflow.repository;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -11,10 +11,11 @@ import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorD
 import org.example.tnal_youth_backend.donation.sponsorflow.dto.response.SponsorLookupResponse;
 
 import java.time.OffsetDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Mapper
-public interface SponsorDonationUiRepo {
+public interface SponsorDonationRepository {
 
     @Select("""
         SELECT id
@@ -77,10 +78,14 @@ public interface SponsorDonationUiRepo {
             JOIN member_statuses ms
               ON ms.id = m.status_id
             WHERE m.id = #{id}
+              AND m.branch_id = #{branchId}
               AND ms.code = 'ACTIVE'
         )
         """)
-    boolean activeMemberExists(@Param("id") Long id);
+    boolean activeMemberExistsInBranch(
+            @Param("id") Long id,
+            @Param("branchId") Long branchId
+    );
 
     @Insert("""
         INSERT INTO sponsors (
@@ -130,6 +135,7 @@ public interface SponsorDonationUiRepo {
             donor_kind,
             material_category,
             material_quantity,
+            material_quantity_type,
             purpose,
             updated_at
         )
@@ -138,6 +144,7 @@ public interface SponsorDonationUiRepo {
             #{donorKind},
             #{materialCategory},
             #{materialQuantity},
+            #{materialQuantityType},
             #{purpose},
             NOW()
         )
@@ -146,6 +153,7 @@ public interface SponsorDonationUiRepo {
             donor_kind = EXCLUDED.donor_kind,
             material_category = EXCLUDED.material_category,
             material_quantity = EXCLUDED.material_quantity,
+            material_quantity_type = EXCLUDED.material_quantity_type,
             purpose = EXCLUDED.purpose,
             updated_at = NOW()
         """)
@@ -153,7 +161,8 @@ public interface SponsorDonationUiRepo {
             @Param("donationId") Long donationId,
             @Param("donorKind") String donorKind,
             @Param("materialCategory") String materialCategory,
-            @Param("materialQuantity") Integer materialQuantity,
+            @Param("materialQuantity") BigDecimal materialQuantity,
+            @Param("materialQuantityType") String materialQuantityType,
             @Param("purpose") String purpose
     );
 
@@ -214,6 +223,7 @@ public interface SponsorDonationUiRepo {
 
             sd.material_category AS materialCategory,
             sd.material_quantity AS materialQuantity,
+            sd.material_quantity_type AS materialQuantityType,
             sd.purpose AS purpose,
 
             d.note AS note,
@@ -308,6 +318,7 @@ public interface SponsorDonationUiRepo {
 
                 sd.material_category AS materialCategory,
                 sd.material_quantity AS materialQuantity,
+                sd.material_quantity_type AS materialQuantityType,
                 sd.purpose AS purpose,
 
                 d.note AS note,
@@ -581,37 +592,35 @@ public interface SponsorDonationUiRepo {
     @Select("""
         SELECT
             m.id,
+            m.member_no AS memberNo,
             m.full_name_km AS name,
+            m.full_name_en AS nameEn,
             m.phone,
             m.email::TEXT AS email,
             m.current_address AS address,
-            'MEMBER' AS donorKind
-
+            'MEMBER' AS donorKind,
+            m.branch_id AS branchId,
+            b.name_km AS branchNameKm,
+            b.name_en AS branchNameEn
         FROM members m
-
+        JOIN branches b
+          ON b.id = m.branch_id
         JOIN member_statuses ms
           ON ms.id = m.status_id
          AND ms.code = 'ACTIVE'
-
-        WHERE (
-            #{search} IS NULL
-            OR m.full_name_km ILIKE ('%' || #{search} || '%')
-            OR COALESCE(
-                m.full_name_en,
-                ''
-            ) ILIKE ('%' || #{search} || '%')
-            OR m.member_no ILIKE ('%' || #{search} || '%')
-            OR COALESCE(
-                m.phone,
-                ''
-            ) ILIKE ('%' || #{search} || '%')
-        )
-
+        WHERE m.branch_id = #{branchId}
+          AND (
+              #{search} IS NULL
+              OR m.full_name_km ILIKE ('%' || #{search} || '%')
+              OR COALESCE(m.full_name_en, '') ILIKE ('%' || #{search} || '%')
+              OR m.member_no ILIKE ('%' || #{search} || '%')
+              OR COALESCE(m.phone, '') ILIKE ('%' || #{search} || '%')
+          )
         ORDER BY m.full_name_km
-
-        LIMIT 30
+        LIMIT 50
         """)
     List<SponsorLookupResponse> members(
+            @Param("branchId") Long branchId,
             @Param("search") String search
     );
 

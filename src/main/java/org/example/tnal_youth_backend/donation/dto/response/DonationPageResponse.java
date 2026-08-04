@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.dto;
+package org.example.tnal_youth_backend.donation.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,8 +10,8 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class DonationPageDTO {
-    private List<DonationDTO> items;
+public class DonationPageResponse {
+    private List<DonationResponse> items;
     private long total;
     private int page;
     private int size;

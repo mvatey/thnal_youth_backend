@@ -1,4 +1,4 @@
-package org.example.tnal_youth_backend.donation.repo;
+package org.example.tnal_youth_backend.donation.repository;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -6,9 +6,9 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
-import org.example.tnal_youth_backend.donation.dto.DonationDTO;
-import org.example.tnal_youth_backend.donation.dto.DonationSummaryDTO;
-import org.example.tnal_youth_backend.donation.model.DonationModel;
+import org.example.tnal_youth_backend.donation.dto.response.DonationResponse;
+import org.example.tnal_youth_backend.donation.dto.response.DonationSummaryResponse;
+import org.example.tnal_youth_backend.donation.entity.Donation;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.List;
  * keeping them identical is deliberate.
  */
 @Mapper
-public interface DonationRepo {
+public interface DonationRepository {
 
     // ===================== lookup validation =====================
 
@@ -148,7 +148,7 @@ public interface DonationRepo {
     @Options(useGeneratedKeys = true,
             keyProperty = "id,createdAt",
             keyColumn = "id,created_at")
-    int insertDonation(DonationModel d);
+    int insertDonation(Donation d);
 
     /**
      * Full-replace update. donation_no / recorded_by / client_request_id are
@@ -185,7 +185,7 @@ public interface DonationRepo {
             "<if test='expectedUpdatedAt != null'> AND updated_at = #{expectedUpdatedAt} </if>",
             "</script>"
     })
-    int updateDonation(DonationModel d);
+    int updateDonation(Donation d);
 
     @org.apache.ibatis.annotations.Delete("""
         DELETE FROM donations
@@ -243,7 +243,7 @@ public interface DonationRepo {
         LEFT JOIN users      ub ON ub.id = n.updated_by
         WHERE n.id = #{id}
         """)
-    DonationDTO findById(@Param("id") Long id);
+    DonationResponse findById(@Param("id") Long id);
 
     @Select({
             "<script>",
@@ -313,7 +313,7 @@ public interface DonationRepo {
             "LIMIT #{limit} OFFSET #{offset}",
             "</script>"
     })
-    List<DonationDTO> list(@Param("branchId") Long branchId,
+    List<DonationResponse> list(@Param("branchId") Long branchId,
                            @Param("donationTypeId") Short donationTypeId,
                            @Param("paymentMethodId") Short paymentMethodId,
                            @Param("memberId") Long memberId,
@@ -389,7 +389,7 @@ public interface DonationRepo {
             "</where>",
             "</script>"
     })
-    DonationSummaryDTO summary(@Param("branchId") Long branchId,
+    DonationSummaryResponse summary(@Param("branchId") Long branchId,
                                @Param("donationTypeId") Short donationTypeId,
                                @Param("paymentMethodId") Short paymentMethodId,
                                @Param("memberId") Long memberId,
