@@ -18,7 +18,10 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+import org.springframework.stereotype.Component;
+
+@Component("authGlobalExceptionHandler")
+@RestControllerAdvice(basePackages = "org.example.tnal_youth_backend.authentication")
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
