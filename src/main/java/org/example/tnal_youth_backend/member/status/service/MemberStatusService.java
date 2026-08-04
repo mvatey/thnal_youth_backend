@@ -1,11 +1,14 @@
 package org.example.tnal_youth_backend.member.status.service;
 
+import org.example.tnal_youth_backend.member.status.dto.MemberStatusOptionResponse;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusRequest;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusResponse;
 
 import java.util.List;
 
 public interface MemberStatusService {
+
+    List<MemberStatusOptionResponse> getMemberStatusOptions();
 
     List<MemberStatusResponse> getAllMemberStatuses(
             Boolean activeOnly

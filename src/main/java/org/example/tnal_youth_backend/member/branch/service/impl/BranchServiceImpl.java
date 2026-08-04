@@ -1,21 +1,31 @@
 package org.example.tnal_youth_backend.member.branch.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.mapper.BranchMapper;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +33,122 @@ public class BranchServiceImpl implements BranchService {
 
     private final BranchRepository branchRepository;
     private final BranchMapper branchMapper;
+
+    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
+    private final BranchStaffRepository branchStaffRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchOptionResponse>
+    getAccessibleBranchOptions() {
+
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (principal == null
+                || principal.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(principal.getId())
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        List<Branch> branches;
+
+        if (role == UserRole.ADMIN) {
+            branches =
+                    branchRepository
+                            .findAllActiveBranches();
+
+        } else if (
+                role == UserRole.SECRETARY
+                        || role == UserRole.BRANCH_LEADER
+        ) {
+            Long memberId =
+                    currentUser.getMemberId();
+
+            if (memberId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account is not linked to a member record"
+                );
+            }
+
+            Set<Long> accessibleBranchIds =
+                    new LinkedHashSet<>(
+                            branchStaffRepository
+                                    .findActiveBranchIdsByMemberId(
+                                            memberId
+                                    )
+                    );
+
+            /*
+             * Fallback when branch_staff has no active assignment.
+             */
+            if (accessibleBranchIds.isEmpty()) {
+                Member member =
+                        memberRepository
+                                .findById(memberId)
+                                .orElseThrow(() ->
+                                        new ResponseStatusException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Linked member record was not found"
+                                        )
+                                );
+
+                if (member.getBranchId() != null) {
+                    accessibleBranchIds.add(
+                            member.getBranchId()
+                    );
+                }
+            }
+
+            branches =
+                    branchRepository
+                            .findActiveByIds(
+                                    accessibleBranchIds
+                            );
+
+        } else {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to access branch options"
+            );
+        }
+
+        return branches
+                .stream()
+                .map(branch ->
+                        new BranchOptionResponse(
+                                branch.getId(),
+                                branch.getBranchCode(),
+                                branch.getNameKm(),
+                                branch.getNameEn()
+                        )
+                )
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)

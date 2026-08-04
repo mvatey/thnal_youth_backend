@@ -42,6 +42,8 @@ public record MemberDetailResponse(
         @JsonProperty("place_of_birth")
         String placeOfBirth,
 
+        String tshirtSize,
+
         String phone,
 
         String email,

@@ -75,6 +75,7 @@ public class MemberMapper {
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
+                member.getTshirtSize(),
                 member.getPhone(),
                 member.getEmail(),
                 member.getCurrentAddress(),

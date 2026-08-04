@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+import java.util.Set;
+
 public interface BranchRepository
         extends JpaRepository<Branch, Long> {
 
@@ -57,4 +60,34 @@ public interface BranchRepository
     );
 
     boolean existsByParentBranchId(Long parentBranchId);
+
+    @Query(
+            value = """
+                SELECT b.*
+                FROM branches b
+                INNER JOIN branch_statuses bs
+                        ON bs.id = b.status_id
+                WHERE UPPER(bs.code) = 'ACTIVE'
+                ORDER BY b.name_km ASC
+                """,
+            nativeQuery = true
+    )
+    List<Branch> findAllActiveBranches();
+
+    @Query(
+            value = """
+                SELECT b.*
+                FROM branches b
+                INNER JOIN branch_statuses bs
+                        ON bs.id = b.status_id
+                WHERE b.id IN (:branchIds)
+                  AND UPPER(bs.code) = 'ACTIVE'
+                ORDER BY b.name_km ASC
+                """,
+            nativeQuery = true
+    )
+    List<Branch> findActiveByIds(
+            @Param("branchIds")
+            Set<Long> branchIds
+    );
 }

@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.status.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.member.status.dto.MemberStatusOptionResponse;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusRequest;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusResponse;
 import org.example.tnal_youth_backend.member.status.service.MemberStatusService;
@@ -21,6 +22,14 @@ import java.util.List;
 public class MemberStatusController {
 
     private final MemberStatusService memberStatusService;
+
+    @GetMapping("/options")
+    public ResponseEntity<List<MemberStatusOptionResponse>>
+    getMemberStatusOptions() {
+        return ResponseEntity.ok(
+                memberStatusService.getMemberStatusOptions()
+        );
+    }
 
     @GetMapping
     public ResponseEntity<List<MemberStatusResponse>>

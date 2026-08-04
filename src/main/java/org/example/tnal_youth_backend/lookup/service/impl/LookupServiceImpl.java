@@ -1,0 +1,230 @@
+package org.example.tnal_youth_backend.lookup.service.impl;
+
+import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.lookup.dto.*;
+import org.example.tnal_youth_backend.lookup.service.LookupService;
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
+import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.level.service.MemberLevelService;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
+import org.example.tnal_youth_backend.member.status.service.MemberStatusService;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static org.example.tnal_youth_backend.authentication.security.SecurityUtil.getCurrentUser;
+
+@Service
+@RequiredArgsConstructor
+public class LookupServiceImpl
+        implements LookupService {
+
+    private final BranchService branchService;
+    private final MemberStatusService memberStatusService;
+    private final MemberLevelService memberLevelService;
+    private final NationalityService nationalityService;
+    private final UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Long>>
+    getBranchOptions() {
+
+        List<BranchOptionResponse> branches =
+                branchService
+                        .getAccessibleBranchOptions();
+
+        return branches.stream()
+                .map(branch ->
+                        new LookupOptionResponse<>(
+                                branch.id(),
+                                branch.branchCode(),
+                                branch.nameKm(),
+                                branch.nameEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getMemberStatusOptions() {
+        return memberStatusService
+                .getMemberStatusOptions()
+                .stream()
+                .map(status ->
+                        new LookupOptionResponse<>(
+                                status.id(),
+                                status.code(),
+                                status.labelKm(),
+                                status.labelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GenderOptionResponse>
+    getGenderOptions() {
+        return Arrays.stream(Gender.values())
+                .map(gender ->
+                        new GenderOptionResponse(
+                                gender.name(),
+                                gender.getLabelKm(),
+                                gender.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberLevelOptionResponse>
+    getMemberLevelOptions() {
+        return memberLevelService
+                .getAllMemberLevels(true)
+                .stream()
+                .map(level ->
+                        new MemberLevelOptionResponse(
+                                level.id(),
+                                level.code(),
+                                level.labelKm(),
+                                level.labelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NationalityOptionResponse>
+    getNationalityOptions() {
+        return nationalityService
+                .getActiveNationalities()
+                .stream()
+                .map(nationality ->
+                        new NationalityOptionResponse(
+                                nationality.id(),
+                                nationality.code(),
+                                nationality.labelKm(),
+                                nationality.labelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoleOptionResponse>
+    getUserRoleOptions() {
+        User currentUser =
+                getCurrentUser();
+
+        return switch (currentUser.getRole()) {
+            case SECRETARY ->
+                    List.of(
+                            toRoleOption(
+                                    UserRole.MEMBER
+                            )
+                    );
+
+            case BRANCH_LEADER ->
+                    List.of(
+                            toRoleOption(
+                                    UserRole.MEMBER
+                            ),
+                            toRoleOption(
+                                    UserRole.SECRETARY
+                            )
+                    );
+
+            case ADMIN ->
+                    List.of(
+                            toRoleOption(
+                                    UserRole.MEMBER
+                            ),
+                            toRoleOption(
+                                    UserRole.SECRETARY
+                            ),
+                            toRoleOption(
+                                    UserRole.BRANCH_LEADER
+                            )
+                    );
+
+            default ->
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "You are not allowed to assign user roles"
+                    );
+        };
+    }
+
+    private RoleOptionResponse toRoleOption(
+            UserRole role
+    ) {
+        return switch (role) {
+            case MEMBER ->
+                    new RoleOptionResponse(
+                            "MEMBER",
+                            "សមាជិក",
+                            "Member"
+                    );
+
+            case SECRETARY ->
+                    new RoleOptionResponse(
+                            "SECRETARY",
+                            "លេខាធិការ",
+                            "Secretary"
+                    );
+
+            case BRANCH_LEADER ->
+                    new RoleOptionResponse(
+                            "BRANCH_LEADER",
+                            "ប្រធានសាខា",
+                            "Branch Leader"
+                    );
+
+            case ADMIN ->
+                    new RoleOptionResponse(
+                            "ADMIN",
+                            "អ្នកគ្រប់គ្រង",
+                            "Administrator"
+                    );
+        };
+    }
+
+    private User getCurrentUser() {
+        User principalUser =
+                SecurityUtil.getCurrentUser();
+
+        if (principalUser == null
+                || principalUser.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return userRepository
+                .findById(
+                        principalUser.getId()
+                )
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Authenticated user was not found"
+                        )
+                );
+    }
+}

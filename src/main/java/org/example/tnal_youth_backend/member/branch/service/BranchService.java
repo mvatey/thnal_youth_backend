@@ -3,10 +3,13 @@ package org.example.tnal_youth_backend.member.branch.service;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
 
 import java.util.List;
 
 public interface BranchService {
+
+    List<BranchOptionResponse> getAccessibleBranchOptions();
 
     List<BranchResponse> getAllBranches();
 

@@ -6,8 +6,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.tnal_youth_backend.member.status.dto.MemberStatusOptionResponse;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "member_statuses")
@@ -87,4 +89,5 @@ public class MemberStatus {
     protected void onUpdate() {
         updatedAt = OffsetDateTime.now();
     }
+
 }

@@ -1,95 +1,42 @@
 package org.example.tnal_youth_backend.member.member.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.time.LocalDate;
-import jakarta.validation.constraints.PastOrPresent;
 
 public record CreateMemberRequest(
-
         @JsonProperty("full_name_km")
-        @NotBlank(message = "Khmer full name is required")
-        @Size(
-                max = 255,
-                message = "Khmer full name must not exceed 255 characters"
-        )
         String fullNameKm,
 
         @JsonProperty("full_name_en")
-        @Size(
-                max = 255,
-                message = "English full name must not exceed 255 characters"
-        )
         String fullNameEn,
 
-        @JsonProperty("branch_id")
-        @NotNull(message = "Branch ID is required")
-        Long branchId,
-
-        @JsonProperty("status_id")
-        @NotNull(message = "Member status ID is required")
-        Short statusId,
-
-        @JsonProperty("level_id")
-        Short levelId,
-
-        @JsonProperty("religion_id")
-        Short religionId,
+        Gender gender,
 
         @JsonProperty("nationality_id")
         Short nationalityId,
 
-        @JsonProperty("ethnicity_id")
-        Short ethnicityId,
-
-        @JsonProperty("gender")
-        @NotNull(message = "Gender is required")
-        Gender gender,
-
         @JsonProperty("date_of_birth")
-        @Past(message = "Date of birth must be in the past")
         LocalDate dateOfBirth,
 
-        @JsonProperty("place_of_birth")
-        String placeOfBirth,
-
-        @JsonProperty("phone")
-        @NotBlank(message = "Phone is required")
-        @Size(
-                max = 30,
-                message = "Phone must not exceed 30 characters"
-        )
         String phone,
-
-        @JsonProperty("email")
-        @Email(message = "Email format is invalid")
         String email,
 
-        @JsonProperty("current_address")
-        String currentAddress,
+        @JsonProperty("branch_id")
+        Long branchId,
 
-        @JsonProperty("permanent_address")
-        String permanentAddress,
+        @JsonProperty("level_id")
+        Short levelId,
 
-        @JsonProperty("profile_photo_id")
-        Long profilePhotoId,
-
-        @JsonProperty("cv_file_id")
-        Long cvFileId,
+        UserRole role,
 
         @JsonProperty("joined_on")
-        @PastOrPresent(
-                message = "Joined date cannot be in the future"
-        )
         LocalDate joinedOn,
 
-        @JsonProperty("bio")
-        String bio
+        @JsonProperty("status_id")
+        Short statusId
 ) {
 }

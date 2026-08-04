@@ -103,6 +103,12 @@ public class Member {
     private String placeOfBirth;
 
     @Column(
+            name = "tshirt_size",
+            length = 10
+    )
+    private String tshirtSize;
+
+    @Column(
             name = "phone",
             length = 30
     )

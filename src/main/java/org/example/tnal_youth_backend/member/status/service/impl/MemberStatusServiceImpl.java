@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.status.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.member.status.dto.MemberStatusOptionResponse;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusRequest;
 import org.example.tnal_youth_backend.member.status.dto.MemberStatusResponse;
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
@@ -230,4 +231,23 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                 ? null
                 : trimmedValue;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberStatusOptionResponse>
+    getMemberStatusOptions() {
+        return memberStatusRepository
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
+                .stream()
+                .map(status ->
+                        new MemberStatusOptionResponse(
+                                status.getId(),
+                                status.getCode(),
+                                status.getLabelKm(),
+                                status.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
 }
