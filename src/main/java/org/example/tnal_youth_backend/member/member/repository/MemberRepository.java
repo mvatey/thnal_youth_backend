@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface MemberRepository
         extends JpaRepository<Member, Long> {
@@ -371,120 +372,140 @@ public interface MemberRepository
 
     @Query(
             value = """
-                SELECT
-                    m.id,
-                    m.full_name_km,
-                    m.full_name_en,
-                    m.gender,
+            SELECT
+                m.id,
+                m.full_name_km,
+                m.full_name_en,
+                m.gender,
 
-                    CASE m.gender
-                        WHEN 'MALE' THEN 'ប្រុស'
-                        WHEN 'FEMALE' THEN 'ស្រី'
-                        WHEN 'MONK' THEN 'ព្រះសង្ឃ'
-                        WHEN 'OTHER' THEN 'ផ្សេងៗ'
-                        ELSE m.gender
-                    END AS gender_label_km,
+                CASE m.gender
+                    WHEN 'MALE' THEN 'ប្រុស'
+                    WHEN 'FEMALE' THEN 'ស្រី'
+                    WHEN 'MONK' THEN 'ព្រះសង្ឃ'
+                    WHEN 'OTHER' THEN 'ផ្សេងៗ'
+                    ELSE m.gender
+                END AS gender_label_km,
 
-                    b.id AS branch_id,
-                    b.name_km AS branch_name_km,
+                b.id AS branch_id,
+                b.name_km AS branch_name_km,
 
-                    ms.id AS status_id,
-                    ms.code AS status_code,
-                    ms.label_km AS status_label_km,
-                    ms.label_en AS status_label_en,
+                ms.id AS status_id,
+                ms.code AS status_code,
+                ms.label_km AS status_label_km,
+                ms.label_en AS status_label_en,
 
-                    ml.id AS level_id,
-                    ml.code AS level_code,
-                    ml.label_km AS level_label_km,
-                    ml.label_en AS level_label_en,
+                ml.id AS level_id,
+                ml.code AS level_code,
+                ml.label_km AS level_label_km,
+                ml.label_en AS level_label_en,
 
-                    f.id AS profile_photo_id,
-                    f.file_path AS profile_photo_url,
+                f.id AS profile_photo_id,
+                f.file_path AS profile_photo_url,
 
-                    m.joined_on
+                m.joined_on
 
-                FROM members m
+            FROM members m
 
-                INNER JOIN branches b
-                        ON b.id = m.branch_id
+            INNER JOIN branches b
+                    ON b.id = m.branch_id
 
-                INNER JOIN member_statuses ms
-                        ON ms.id = m.status_id
+            INNER JOIN member_statuses ms
+                    ON ms.id = m.status_id
 
-                LEFT JOIN member_levels ml
-                       ON ml.id = m.level_id
+            LEFT JOIN member_levels ml
+                   ON ml.id = m.level_id
 
-                LEFT JOIN files f
-                       ON f.id = m.profile_photo_id
+            LEFT JOIN files f
+                   ON f.id = m.profile_photo_id
 
-                WHERE (
-                    :search IS NULL
-                    OR :search = ''
-                    OR LOWER(m.full_name_km)
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.full_name_en, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.member_no, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.phone, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.email, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                )
+            WHERE (
+                :search IS NULL
+                OR :search = ''
+                OR LOWER(m.full_name_km)
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.full_name_en, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.member_no, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.phone, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.email, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+            )
 
-                AND (
-                    :branchId IS NULL
-                    OR m.branch_id = :branchId
-                )
+            /*
+             * Security scope:
+             * Admin bypasses this condition.
+             * Secretary/branch leader only see accessible branches.
+             */
+            AND (
+                :unrestrictedScope = TRUE
+                OR m.branch_id IN (:branchScope)
+            )
 
-                AND (
-                    :statusId IS NULL
-                    OR m.status_id = :statusId
-                )
+            /*
+             * Optional dropdown filter.
+             */
+            AND (
+                :branchId IS NULL
+                OR m.branch_id = :branchId
+            )
 
-                AND (
-                    :gender IS NULL
-                    OR m.gender = :gender
-                )
+            AND (
+                :statusId IS NULL
+                OR m.status_id = :statusId
+            )
 
-                ORDER BY
-                    m.created_at DESC,
-                    m.id DESC
-                """,
+            AND (
+                :gender IS NULL
+                OR m.gender = :gender
+            )
+
+            ORDER BY
+                m.created_at DESC,
+                m.id DESC
+            """,
 
             countQuery = """
-                SELECT COUNT(*)
-                FROM members m
-                WHERE (
-                    :search IS NULL
-                    OR :search = ''
-                    OR LOWER(m.full_name_km)
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.full_name_en, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.member_no, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.phone, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.email, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                )
+            SELECT COUNT(*)
 
-                AND (
-                    :branchId IS NULL
-                    OR m.branch_id = :branchId
-                )
+            FROM members m
 
-                AND (
-                    :statusId IS NULL
-                    OR m.status_id = :statusId
-                )
+            WHERE (
+                :search IS NULL
+                OR :search = ''
+                OR LOWER(m.full_name_km)
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.full_name_en, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.member_no, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.phone, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.email, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+            )
 
-                AND (
-                    :gender IS NULL
-                    OR m.gender = :gender
-                )
-                """,
+            AND (
+                :unrestrictedScope = TRUE
+                OR m.branch_id IN (:branchScope)
+            )
+
+            AND (
+                :branchId IS NULL
+                OR m.branch_id = :branchId
+            )
+
+            AND (
+                :statusId IS NULL
+                OR m.status_id = :statusId
+            )
+
+            AND (
+                :gender IS NULL
+                OR m.gender = :gender
+            )
+            """,
 
             nativeQuery = true
     )
@@ -494,6 +515,12 @@ public interface MemberRepository
 
             @Param("branchId")
             Long branchId,
+
+            @Param("branchScope")
+            Set<Long> branchScope,
+
+            @Param("unrestrictedScope")
+            boolean unrestrictedScope,
 
             @Param("statusId")
             Short statusId,

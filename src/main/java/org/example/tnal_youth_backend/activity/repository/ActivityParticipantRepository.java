@@ -159,9 +159,24 @@ public interface ActivityParticipantRepository
     @Query("""
     SELECT COUNT(DISTINCT participant.activity.id)
     FROM ActivityParticipant participant
+    JOIN participant.attendanceStatus attendanceStatus
     WHERE participant.member.id = :memberId
+      AND UPPER(attendanceStatus.code) = 'PRESENT'
 """)
-    long countJoinedActivitiesByMemberId(
-            @Param("memberId") Long memberId
+    long countParticipatedActivitiesByMemberId(
+            @Param("memberId")
+            Long memberId
+    );
+
+    @Query("""
+    SELECT COUNT(DISTINCT participant.activity.id)
+    FROM ActivityParticipant participant
+    JOIN participant.attendanceStatus attendanceStatus
+    WHERE participant.member.id = :memberId
+      AND UPPER(attendanceStatus.code) = 'ABSENT'
+""")
+    long countAbsentActivitiesByMemberId(
+            @Param("memberId")
+            Long memberId
     );
 }

@@ -187,10 +187,45 @@ public class MemberServiceImpl implements MemberService {
                         size
                 );
 
+        /*
+         * Admin receives an empty set.
+         * Secretary and branch leader receive their allowed branch IDs.
+         */
+        Set<Long> accessibleBranchIds =
+                getAccessibleBranchIds();
+
+        boolean unrestrictedScope =
+                accessibleBranchIds.isEmpty();
+
+        /*
+         * Do not send an empty collection into a native SQL IN clause.
+         * Admin bypasses the scope condition through unrestrictedScope,
+         * so this fallback value does not restrict admin results.
+         */
+        Set<Long> queryBranchScope =
+                unrestrictedScope
+                        ? Set.of(-1L)
+                        : accessibleBranchIds;
+
+        /*
+         * A secretary or branch leader cannot manually request
+         * a branch outside their permitted scope.
+         */
+        if (branchId != null
+                && !unrestrictedScope
+                && !accessibleBranchIds.contains(branchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have permission to access this branch"
+            );
+        }
+
         Page<Object[]> memberPage =
                 memberRepository.findMemberPage(
                         normalizedSearch,
                         branchId,
+                        queryBranchScope,
+                        unrestrictedScope,
                         statusId,
                         gender == null
                                 ? null
@@ -214,8 +249,12 @@ public class MemberServiceImpl implements MemberService {
                 .totalPages(
                         memberPage.getTotalPages()
                 )
-                .first(memberPage.isFirst())
-                .last(memberPage.isLast())
+                .first(
+                        memberPage.isFirst()
+                )
+                .last(
+                        memberPage.isLast()
+                )
                 .build();
     }
 
@@ -695,15 +734,14 @@ public class MemberServiceImpl implements MemberService {
 
         long joinedActivityCount =
                 activityParticipantRepository
-                        .countJoinedActivitiesByMemberId(
+                        .countParticipatedActivitiesByMemberId(
                                 memberId
                         );
 
         long notJoinedActivityCount =
-                activityRepository
-                        .countCompletedRelevantActivitiesNotJoined(
-                                memberId,
-                                OffsetDateTime.now()
+                activityParticipantRepository
+                        .countAbsentActivitiesByMemberId(
+                                memberId
                         );
 
         return new MemberDetailSummaryResponse(
@@ -1534,5 +1572,75 @@ public class MemberServiceImpl implements MemberService {
         }
 
         return HttpStatus.BAD_REQUEST;
+    }
+
+    private Set<Long> getAccessibleBranchIds() {
+        User currentUser = getCurrentUser();
+
+        UserRole role = currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        /*
+         * Admin can access every branch.
+         * An empty set here will mean:
+         * do not apply branch restriction.
+         */
+        if (role == UserRole.ADMIN) {
+            return Set.of();
+        }
+
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view members"
+            );
+        }
+
+        Long currentMemberId = currentUser.getMemberId();
+
+        if (currentMemberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentMemberId
+                                )
+                );
+
+        /*
+         * Fallback to the linked member's own branch.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(currentMemberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        return accessibleBranchIds;
     }
 }
