@@ -11,9 +11,11 @@ import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -177,6 +179,23 @@ public class MemberController {
                 memberService.updateMemberProfilePhoto(
                         id,
                         request
+                )
+        );
+    }
+
+    @PutMapping(
+            value = "/{memberId}/profile-photo",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<MemberDetailResponse>
+    uploadMemberProfilePhoto(
+            @PathVariable Long memberId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                memberService.uploadMemberProfilePhoto(
+                        memberId,
+                        file
                 )
         );
     }

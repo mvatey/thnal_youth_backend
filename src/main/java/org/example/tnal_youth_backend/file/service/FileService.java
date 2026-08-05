@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.file.service;
 import org.example.tnal_youth_backend.file.dto.request.CreateFileRequest;
 import org.example.tnal_youth_backend.file.dto.request.UpdateFileRequest;
 import org.example.tnal_youth_backend.file.dto.response.FileResponse;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +33,10 @@ public interface FileService {
     FileResponse updateFile(
             Long id,
             UpdateFileRequest request
+    );
+
+    FileEntity uploadFileEntity(
+            MultipartFile file
     );
 
     void deleteFile(

@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequ
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface MemberService {
 
@@ -21,6 +22,11 @@ public interface MemberService {
     MemberDetailResponse updateMemberProfilePhoto(
             Long memberId,
             UpdateMemberProfilePhotoRequest request
+    );
+
+    MemberDetailResponse uploadMemberProfilePhoto(
+            Long memberId,
+            MultipartFile file
     );
 
     MemberSummaryResponse getMemberSummary();

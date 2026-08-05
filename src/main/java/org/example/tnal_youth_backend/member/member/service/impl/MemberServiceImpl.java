@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -43,6 +44,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -76,6 +78,7 @@ public class MemberServiceImpl implements MemberService {
     private final PasswordEncoder passwordEncoder;
 
     private final FileRepository fileRepository;
+    private final FileService fileService;
 
     private final MemberStatusRepository memberStatusRepository;
     private final MemberLevelRepository memberLevelRepository;
@@ -874,6 +877,30 @@ public class MemberServiceImpl implements MemberService {
         return memberMapper.toDetailResponse(
                 savedMember
         );
+    }
+
+    @Override
+    @Transactional
+    public MemberDetailResponse uploadMemberProfilePhoto(
+            Long memberId,
+            MultipartFile file
+    ) {
+        Member member =
+                findDetailedMember(memberId);
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        FileEntity uploadedFile =
+                fileService.uploadFileEntity(file);
+
+        member.setProfilePhoto(uploadedFile);
+
+        Member savedMember =
+                memberRepository.saveAndFlush(member);
+
+        return memberMapper.toDetailResponse(savedMember);
     }
 
     /*
