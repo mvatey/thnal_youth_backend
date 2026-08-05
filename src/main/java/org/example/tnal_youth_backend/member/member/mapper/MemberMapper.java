@@ -1,20 +1,22 @@
 package org.example.tnal_youth_backend.member.member.mapper;
 
+import org.example.tnal_youth_backend.file.dto.response.FileResponse;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
 import org.example.tnal_youth_backend.member.member.entity.Member;
-import org.springframework.stereotype.Component;
 import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
-import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
-import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
+import org.springframework.stereotype.Component;
 
 import java.sql.Date;
 import java.time.LocalDate;
 
 @Component
 public class MemberMapper {
+
     public MemberListResponse toListResponse(
             Object[] row
     ) {
@@ -26,31 +28,39 @@ public class MemberMapper {
                 toLong(row[0]),
                 toStringValue(row[1]),
                 toStringValue(row[2]),
+
                 toGenderResponse(
                         row[3],
                         row[4]
                 ),
+
                 toBranchResponse(
                         row[5],
                         row[6]
                 ),
+
                 toListLookup(
                         row[7],
                         row[8],
                         row[9],
                         row[10]
                 ),
+
                 toListLookup(
                         row[11],
                         row[12],
                         row[13],
                         row[14]
                 ),
+
                 toProfilePhotoResponse(
                         row[15],
                         row[16]
                 ),
-                toLocalDate(row[17])
+
+                toLocalDate(
+                        row[17]
+                )
         );
     }
 
@@ -67,11 +77,27 @@ public class MemberMapper {
                 member.getFullNameKm(),
                 member.getFullNameEn(),
                 member.getBranchId(),
-                toDetailLookup(member.getStatus()),
-                toDetailLookup(member.getLevel()),
-                toDetailLookup(member.getReligion()),
-                toNationalityResponse(member.getNationality()),
-                toEthnicityResponse(member.getEthnicity()),
+
+                toDetailLookup(
+                        member.getStatus()
+                ),
+
+                toDetailLookup(
+                        member.getLevel()
+                ),
+
+                toDetailLookup(
+                        member.getReligion()
+                ),
+
+                toNationalityResponse(
+                        member.getNationality()
+                ),
+
+                toEthnicityResponse(
+                        member.getEthnicity()
+                ),
+
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
@@ -80,8 +106,15 @@ public class MemberMapper {
                 member.getEmail(),
                 member.getCurrentAddress(),
                 member.getPermanentAddress(),
-                toDetailFile(member.getProfilePhoto()),
-                toDetailFile(member.getCvFile()),
+
+                toFileResponse(
+                        member.getProfilePhoto()
+                ),
+
+                toFileResponse(
+                        member.getCvFile()
+                ),
+
                 member.getJoinedOn(),
                 member.getBio(),
                 member.getCreatedById(),
@@ -96,7 +129,9 @@ public class MemberMapper {
             Object genderLabelKm
     ) {
         String code =
-                toStringValue(genderCode);
+                toStringValue(
+                        genderCode
+                );
 
         if (code == null) {
             return null;
@@ -104,7 +139,9 @@ public class MemberMapper {
 
         return new MemberListResponse.GenderResponse(
                 code,
-                toStringValue(genderLabelKm)
+                toStringValue(
+                        genderLabelKm
+                )
         );
     }
 
@@ -114,7 +151,9 @@ public class MemberMapper {
             Object branchNameKm
     ) {
         Long id =
-                toLong(branchId);
+                toLong(
+                        branchId
+                );
 
         if (id == null) {
             return null;
@@ -122,7 +161,9 @@ public class MemberMapper {
 
         return new MemberListResponse.BranchResponse(
                 id,
-                toStringValue(branchNameKm)
+                toStringValue(
+                        branchNameKm
+                )
         );
     }
 
@@ -134,7 +175,9 @@ public class MemberMapper {
             Object labelEn
     ) {
         Short lookupId =
-                toShort(id);
+                toShort(
+                        id
+                );
 
         if (lookupId == null) {
             return null;
@@ -151,10 +194,12 @@ public class MemberMapper {
     private MemberListResponse.ProfilePhotoResponse
     toProfilePhotoResponse(
             Object id,
-            Object url
+            Object filePath
     ) {
         Long fileId =
-                toLong(id);
+                toLong(
+                        id
+                );
 
         if (fileId == null) {
             return null;
@@ -162,7 +207,9 @@ public class MemberMapper {
 
         return new MemberListResponse.ProfilePhotoResponse(
                 fileId,
-                toStringValue(url)
+                toStringValue(
+                        filePath
+                )
         );
     }
 
@@ -174,9 +221,10 @@ public class MemberMapper {
             return null;
         }
 
-        if (lookup instanceof
-                org.example.tnal_youth_backend.member.status.entity.MemberStatus value) {
-
+        if (
+                lookup instanceof
+                        org.example.tnal_youth_backend.member.status.entity.MemberStatus value
+        ) {
             return new MemberDetailResponse.LookupResponse(
                     value.getId(),
                     value.getCode(),
@@ -185,9 +233,10 @@ public class MemberMapper {
             );
         }
 
-        if (lookup instanceof
-                org.example.tnal_youth_backend.member.level.entity.MemberLevel value) {
-
+        if (
+                lookup instanceof
+                        org.example.tnal_youth_backend.member.level.entity.MemberLevel value
+        ) {
             return new MemberDetailResponse.LookupResponse(
                     value.getId(),
                     value.getCode(),
@@ -196,9 +245,10 @@ public class MemberMapper {
             );
         }
 
-        if (lookup instanceof
-                org.example.tnal_youth_backend.member.religion.entity.Religion value) {
-
+        if (
+                lookup instanceof
+                        org.example.tnal_youth_backend.member.religion.entity.Religion value
+        ) {
             return new MemberDetailResponse.LookupResponse(
                     value.getId(),
                     value.getCode(),
@@ -210,20 +260,69 @@ public class MemberMapper {
         return null;
     }
 
-    private MemberDetailResponse.FileResponse
-    toDetailFile(
+    private FileResponse toFileResponse(
             FileEntity file
     ) {
         if (file == null) {
             return null;
         }
 
-        return new MemberDetailResponse.FileResponse(
+        Long sizeBytes =
+                file.getSizeBytes();
+
+        Double sizeKb =
+                sizeBytes == null
+                        ? 0.0
+                        : sizeBytes / 1024.0;
+
+        Double sizeMb =
+                sizeBytes == null
+                        ? 0.0
+                        : sizeBytes
+                        / (1024.0 * 1024.0);
+
+        return new FileResponse(
                 file.getId(),
                 file.getFilePath(),
                 file.getOriginalName(),
                 file.getMimeType(),
-                file.getSizeBytes()
+                sizeBytes,
+                sizeKb,
+                sizeMb,
+                file.getUploadedById(),
+                file.getCreatedAt()
+        );
+    }
+
+    private NationalityResponse
+    toNationalityResponse(
+            Nationality nationality
+    ) {
+        if (nationality == null) {
+            return null;
+        }
+
+        return new NationalityResponse(
+                nationality.getId(),
+                nationality.getCode(),
+                nationality.getLabelKm(),
+                nationality.getLabelEn()
+        );
+    }
+
+    private EthnicityResponse
+    toEthnicityResponse(
+            Ethnicity ethnicity
+    ) {
+        if (ethnicity == null) {
+            return null;
+        }
+
+        return new EthnicityResponse(
+                ethnicity.getId(),
+                ethnicity.getCode(),
+                ethnicity.getLabelKm(),
+                ethnicity.getLabelEn()
         );
     }
 
@@ -234,7 +333,8 @@ public class MemberMapper {
             return null;
         }
 
-        return ((Number) value).longValue();
+        return ((Number) value)
+                .longValue();
     }
 
     private Short toShort(
@@ -244,7 +344,8 @@ public class MemberMapper {
             return null;
         }
 
-        return ((Number) value).shortValue();
+        return ((Number) value)
+                .shortValue();
     }
 
     private String toStringValue(
@@ -262,46 +363,25 @@ public class MemberMapper {
             return null;
         }
 
-        if (value instanceof LocalDate localDate) {
+        if (
+                value instanceof
+                        LocalDate localDate
+        ) {
             return localDate;
         }
 
-        if (value instanceof Date date) {
+        if (
+                value instanceof
+                        Date date
+        ) {
             return date.toLocalDate();
         }
 
         throw new IllegalArgumentException(
                 "Unsupported member date value: "
-                        + value.getClass().getName()
-        );
-    }
-
-    private NationalityResponse toNationalityResponse(
-            Nationality nationality
-    ) {
-        if (nationality == null) {
-            return null;
-        }
-
-        return new NationalityResponse(
-                nationality.getId(),
-                nationality.getCode(),
-                nationality.getLabelKm(),
-                nationality.getLabelEn()
-        );
-    }
-    private EthnicityResponse toEthnicityResponse(
-            Ethnicity ethnicity
-    ) {
-        if (ethnicity == null) {
-            return null;
-        }
-
-        return new EthnicityResponse(
-                ethnicity.getId(),
-                ethnicity.getCode(),
-                ethnicity.getLabelKm(),
-                ethnicity.getLabelEn()
+                        + value
+                        .getClass()
+                        .getName()
         );
     }
 }

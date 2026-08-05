@@ -19,16 +19,14 @@ import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepos
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberProfilePhotoRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailSummaryResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
+import org.example.tnal_youth_backend.member.member.repository.MemberDetailSummaryRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
@@ -77,13 +75,13 @@ public class MemberServiceImpl implements MemberService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    private final FileRepository fileRepository;
+
     private final MemberStatusRepository memberStatusRepository;
     private final MemberLevelRepository memberLevelRepository;
     private final ReligionRepository religionRepository;
     private final EthnicityRepository ethnicityRepository;
     private final NationalityService nationalityService;
-
-    private final FileRepository fileRepository;
 
     private final MemberMapper memberMapper;
 
@@ -92,6 +90,8 @@ public class MemberServiceImpl implements MemberService {
 
     private final ActivityParticipantRepository
             activityParticipantRepository;
+    private final MemberDetailSummaryRepository
+            memberDetailSummaryRepository;
 
     private final ActivityRepository activityRepository;
 
@@ -744,11 +744,135 @@ public class MemberServiceImpl implements MemberService {
                                 memberId
                         );
 
+        MemberMonthlyDonationTotalResponse donationTotal =
+                memberDetailSummaryRepository
+                        .summarizeMonthlyDonationByMemberId(
+                                memberId
+                        );
+
+        BigDecimal totalDonationKhr =
+                donationTotal == null
+                        || donationTotal.getTotalKhr() == null
+                        ? BigDecimal.ZERO
+                        : donationTotal.getTotalKhr();
+
+        BigDecimal totalDonationUsd =
+                donationTotal == null
+                        || donationTotal.getTotalUsd() == null
+                        ? BigDecimal.ZERO
+                        : donationTotal.getTotalUsd();
+
         return new MemberDetailSummaryResponse(
                 joinedActivityCount,
                 notJoinedActivityCount,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO
+                totalDonationKhr,
+                totalDonationUsd
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberMonthlyDonationSummaryResponse
+    getMemberMonthlyDonationSummary(
+            Long memberId
+    ) {
+        Member member =
+                findDetailedMember(
+                        memberId
+                );
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        MemberMonthlyDonationSummaryResponse summary =
+                memberDetailSummaryRepository
+                        .summarizeMemberMonthlyDonations(
+                                memberId
+                        );
+
+        if (summary == null) {
+            return MemberMonthlyDonationSummaryResponse
+                    .builder()
+                    .donationCount(0)
+                    .totalDonationKhr(BigDecimal.ZERO)
+                    .totalDonationUsd(BigDecimal.ZERO)
+                    .cashPaymentCount(0)
+                    .bankPaymentCount(0)
+                    .build();
+        }
+
+        if (summary.getTotalDonationKhr() == null) {
+            summary.setTotalDonationKhr(
+                    BigDecimal.ZERO
+            );
+        }
+
+        if (summary.getTotalDonationUsd() == null) {
+            summary.setTotalDonationUsd(
+                    BigDecimal.ZERO
+            );
+        }
+
+        return summary;
+    }
+
+    @Override
+    @Transactional
+    public MemberDetailResponse updateMemberProfilePhoto(
+            Long memberId,
+            UpdateMemberProfilePhotoRequest request
+    ) {
+        Member member =
+                memberRepository
+                        .findDetailedById(memberId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Member not found"
+                                )
+                        );
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        FileEntity profilePhoto =
+                fileRepository
+                        .findById(
+                                request.profilePhotoId()
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Profile photo file not found"
+                                )
+                        );
+
+        String mimeType =
+                profilePhoto.getMimeType();
+
+        if (
+                mimeType == null
+                        || !mimeType
+                        .toLowerCase()
+                        .startsWith("image/")
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Profile photo must be an image file"
+            );
+        }
+
+        member.setProfilePhoto(
+                profilePhoto
+        );
+
+        Member savedMember =
+                memberRepository.save(
+                        member
+                );
+
+        return memberMapper.toDetailResponse(
+                savedMember
         );
     }
 

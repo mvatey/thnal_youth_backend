@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.member.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.example.tnal_youth_backend.file.dto.response.FileResponse;
 import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
@@ -84,23 +85,6 @@ public record MemberDetailResponse(
 
             @JsonProperty("label_en")
             String labelEn
-    ) {
-    }
-
-    public record FileResponse(
-            Long id,
-
-            @JsonProperty("file_path")
-            String filePath,
-
-            @JsonProperty("original_name")
-            String originalName,
-
-            @JsonProperty("mime_type")
-            String mimeType,
-
-            @JsonProperty("size_bytes")
-            Long sizeBytes
     ) {
     }
 }

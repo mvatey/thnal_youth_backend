@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberProfilePhotoRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
 import org.example.tnal_youth_backend.member.member.dto.response.*;
@@ -164,12 +165,42 @@ public class MemberController {
         );
     }
 
-    @GetMapping("/{memberId}/summary")
+    @PatchMapping("/{id}/profile-photo")
+    public ResponseEntity<MemberDetailResponse>
+    updateMemberProfilePhoto(
+            @PathVariable Long id,
+            @Valid
+            @RequestBody
+            UpdateMemberProfilePhotoRequest request
+    ) {
+        return ResponseEntity.ok(
+                memberService.updateMemberProfilePhoto(
+                        id,
+                        request
+                )
+        );
+    }
+
+    @GetMapping("/{memberId}/activities/summary")
     public ResponseEntity<MemberDetailSummaryResponse> getMemberDetailSummary(
             @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
                 memberService.getMemberDetailSummary(memberId)
+        );
+    }
+
+    @GetMapping("/{memberId}/monthly-donations/summary")
+    public ResponseEntity<MemberMonthlyDonationSummaryResponse>
+    getMemberMonthlyDonationSummary(
+            @PathVariable
+            Long memberId
+    ) {
+        return ResponseEntity.ok(
+                memberService
+                        .getMemberMonthlyDonationSummary(
+                                memberId
+                        )
         );
     }
 }

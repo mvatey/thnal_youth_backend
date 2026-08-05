@@ -15,6 +15,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Set;
+import java.util.UUID;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +34,25 @@ public class FileServiceImpl implements FileService {
 
     private final FileRepository fileRepository;
     private final FileMapper fileMapper;
+
+    private static final Path PROFILE_UPLOAD_DIRECTORY =
+            Paths.get(
+                            "uploads",
+                            "member-profiles"
+                    )
+                    .toAbsolutePath()
+                    .normalize();
+
+    private static final long MAX_PROFILE_IMAGE_SIZE =
+            5L * 1024L * 1024L;
+
+    private static final Set<String> ALLOWED_IMAGE_TYPES =
+            Set.of(
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp"
+            );
+
 
     @Override
     @Transactional(readOnly = true)
@@ -42,6 +70,127 @@ public class FileServiceImpl implements FileService {
 
         return fileMapper.toResponse(file);
     }
+
+    @Override
+    @Transactional
+    public FileResponse uploadFile(
+            MultipartFile multipartFile
+    ) {
+        validateUploadedImage(
+                multipartFile
+        );
+
+        String originalName =
+                sanitizeOriginalName(
+                        multipartFile.getOriginalFilename()
+                );
+
+        String mimeType =
+                multipartFile
+                        .getContentType()
+                        .toLowerCase(Locale.ROOT);
+
+        String extension =
+                getSafeExtension(
+                        originalName,
+                        mimeType
+                );
+
+        String storedFileName =
+                UUID.randomUUID()
+                        + extension;
+
+        Path storedFilePath =
+                PROFILE_UPLOAD_DIRECTORY
+                        .resolve(storedFileName)
+                        .normalize();
+
+        /*
+         * Prevent a manipulated filename from escaping
+         * the configured upload directory.
+         */
+        if (
+                !storedFilePath.startsWith(
+                        PROFILE_UPLOAD_DIRECTORY
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid file path"
+            );
+        }
+
+        try {
+            Files.createDirectories(
+                    PROFILE_UPLOAD_DIRECTORY
+            );
+
+            Files.copy(
+                    multipartFile.getInputStream(),
+                    storedFilePath,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            String databaseFilePath =
+                    "uploads/member-profiles/"
+                            + storedFileName;
+
+            FileEntity file =
+                    FileEntity.builder()
+                            .filePath(databaseFilePath)
+                            .originalName(originalName)
+                            .mimeType(mimeType)
+                            .sizeBytes(
+                                    multipartFile.getSize()
+                            )
+
+                            /*
+                             * Keep null for now if the current
+                             * authenticated user ID is not yet
+                             * available in this module.
+                             */
+                            .uploadedById(null)
+                            .build();
+
+            FileEntity savedFile =
+                    fileRepository.saveAndFlush(
+                            file
+                    );
+
+            return fileMapper.toResponse(
+                    savedFile
+            );
+
+        } catch (IOException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Could not store uploaded file",
+                    exception
+            );
+
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            /*
+             * Remove the physical file if saving its
+             * database metadata fails.
+             */
+            try {
+                Files.deleteIfExists(
+                        storedFilePath
+                );
+            } catch (IOException ignored) {
+                // Preserve the original database error.
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Uploaded file metadata could not be saved",
+                    exception
+            );
+        }
+    }
+
 
 //    @Override
 //    @Transactional(readOnly = true)
@@ -254,5 +403,86 @@ public class FileServiceImpl implements FileService {
                 File metadata could not be saved. Make sure \
                 filePath is unique and sizeBytes is greater than zero.
                 """;
+    }
+
+    private void validateUploadedImage(
+            MultipartFile multipartFile
+    ) {
+        if (
+                multipartFile == null
+                        || multipartFile.isEmpty()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Image file is required"
+            );
+        }
+
+        if (
+                multipartFile.getSize()
+                        > MAX_PROFILE_IMAGE_SIZE
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Image size must not exceed 5 MB"
+            );
+        }
+
+        String mimeType =
+                multipartFile.getContentType();
+
+        if (
+                mimeType == null
+                        || !ALLOWED_IMAGE_TYPES.contains(
+                        mimeType.toLowerCase(
+                                Locale.ROOT
+                        )
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only JPG, PNG, and WebP images are allowed"
+            );
+        }
+    }
+
+    private String sanitizeOriginalName(
+            String originalName
+    ) {
+        if (
+                originalName == null
+                        || originalName.isBlank()
+        ) {
+            return "profile-image";
+        }
+
+        String normalized =
+                Paths.get(originalName)
+                        .getFileName()
+                        .toString()
+                        .trim();
+
+        if (normalized.isBlank()) {
+            return "profile-image";
+        }
+
+        return normalized;
+    }
+
+    private String getSafeExtension(
+            String originalName,
+            String mimeType
+    ) {
+        return switch (mimeType) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+
+            default ->
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Unsupported image type"
+                    );
+        };
     }
 }
