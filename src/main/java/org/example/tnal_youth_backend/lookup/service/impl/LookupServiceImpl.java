@@ -1,6 +1,8 @@
 package org.example.tnal_youth_backend.lookup.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
+import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -33,6 +35,11 @@ public class LookupServiceImpl
     private final MemberLevelService memberLevelService;
     private final NationalityService nationalityService;
     private final UserRepository userRepository;
+    private final ActivityTypeRepository
+            activityTypeRepository;
+
+    private final AttendanceStatusRepository
+            attendanceStatusRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -119,6 +126,44 @@ public class LookupServiceImpl
                                 nationality.code(),
                                 nationality.labelKm(),
                                 nationality.labelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getActivityTypeOptions() {
+
+        return activityTypeRepository
+                .findAll()
+                .stream()
+                .map(type ->
+                        new LookupOptionResponse<>(
+                                type.getId(),
+                                type.getCode(),
+                                type.getLabelKm(),
+                                type.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getAttendanceStatusOptions() {
+
+        return attendanceStatusRepository
+                .findAll()
+                .stream()
+                .map(status ->
+                        new LookupOptionResponse<>(
+                                status.getId(),
+                                status.getCode(),
+                                status.getLabelKm(),
+                                status.getLabelEn()
                         )
                 )
                 .toList();

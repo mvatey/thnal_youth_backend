@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonat
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationRowResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSummaryResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MemberMonthlyDonationResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -334,5 +335,126 @@ public interface MonthlyDonationRepository {
         """)
     int deleteMonthlyDonation(
             @Param("donationId") Long donationId
+    );
+
+    @Select({
+            "<script>",
+            "SELECT",
+            "  d.id AS id,",
+            "  d.member_id AS memberId,",
+            "  d.donation_period AS donationPeriod,",
+            "  d.amount_khr AS amountKhr,",
+            "  d.amount_usd AS amountUsd,",
+            "  d.paid_at AS paidAt,",
+
+            "  NULL AS recordedById,",
+            "  NULL AS recordedByName,",
+
+            "  pm.id AS paymentMethodId,",
+            "  pm.code AS paymentMethodCode,",
+            "  pm.label_km AS paymentMethodLabelKm,",
+            "  pm.label_en AS paymentMethodLabelEn,",
+
+            "  d.receipt_file_id AS receiptFileId,",
+            "  d.note AS note",
+
+            "FROM donations d",
+
+            "JOIN donation_types dt",
+            "  ON dt.id = d.donation_type_id",
+
+            "LEFT JOIN payment_methods pm",
+            "  ON pm.id = d.payment_method_id",
+
+            "WHERE UPPER(dt.code) = 'MONTHLY_DONATION'",
+            "  AND d.member_id = #{memberId}",
+
+            "  <if test='paymentMethodId != null'>",
+            "    AND d.payment_method_id = #{paymentMethodId}",
+            "  </if>",
+
+            "  <if test='search != null and search != \"\"'>",
+            "    AND (",
+            "      TO_CHAR(d.donation_period, 'YYYY-MM')",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.code",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.label_km",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.label_en",
+            "          ILIKE ('%' || #{search} || '%')",
+            "    )",
+            "  </if>",
+
+            "ORDER BY",
+            "  d.donation_period DESC,",
+            "  d.paid_at DESC,",
+            "  d.id DESC",
+
+            "LIMIT #{limit}",
+            "OFFSET #{offset}",
+            "</script>"
+    })
+    List<MemberMonthlyDonationResponse>
+    findMemberMonthlyDonations(
+            @Param("memberId")
+            Long memberId,
+
+            @Param("search")
+            String search,
+
+            @Param("paymentMethodId")
+            Short paymentMethodId,
+
+            @Param("limit")
+            int limit,
+
+            @Param("offset")
+            int offset
+    );
+
+    @Select({
+            "<script>",
+            "SELECT COUNT(*)",
+
+            "FROM donations d",
+
+            "JOIN donation_types dt",
+            "  ON dt.id = d.donation_type_id",
+
+            "LEFT JOIN payment_methods pm",
+            "  ON pm.id = d.payment_method_id",
+
+            "WHERE UPPER(dt.code) = 'MONTHLY_DONATION'",
+            "  AND d.member_id = #{memberId}",
+
+            "  <if test='paymentMethodId != null'>",
+            "    AND d.payment_method_id = #{paymentMethodId}",
+            "  </if>",
+
+            "  <if test='search != null and search != \"\"'>",
+            "    AND (",
+            "      TO_CHAR(d.donation_period, 'YYYY-MM')",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.code",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.label_km",
+            "          ILIKE ('%' || #{search} || '%')",
+            "      OR pm.label_en",
+            "          ILIKE ('%' || #{search} || '%')",
+            "    )",
+            "  </if>",
+
+            "</script>"
+    })
+    long countMemberMonthlyDonations(
+            @Param("memberId")
+            Long memberId,
+
+            @Param("search")
+            String search,
+
+            @Param("paymentMethodId")
+            Short paymentMethodId
     );
 }

@@ -69,4 +69,24 @@ public class LookupController {
                 lookupService.getUserRoleOptions()
         );
     }
+
+    @GetMapping("/activity-types")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getActivityTypeOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getActivityTypeOptions()
+        );
+    }
+
+    @GetMapping("/attendance-statuses")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getAttendanceStatusOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getAttendanceStatusOptions()
+        );
+    }
 }

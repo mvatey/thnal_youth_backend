@@ -58,7 +58,10 @@ public class MemberParticipationController {
             String search,
 
             @RequestParam(required = false)
-            Short typeId
+            Short typeId,
+
+            @RequestParam(required = false)
+                    Short attendanceStatusId
     ) {
         return ResponseEntity.ok(
                 memberParticipationService
@@ -67,7 +70,8 @@ public class MemberParticipationController {
                                 page,
                                 size,
                                 search,
-                                typeId
+                                typeId,
+                                attendanceStatusId
                         )
         );
     }

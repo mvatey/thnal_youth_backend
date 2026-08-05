@@ -371,8 +371,50 @@ public class MemberPasswordServiceImpl
             Long memberId,
             MemberPasswordResetRequest request
     ) {
-        if (!request.getNewPassword().equals(
-                request.getConfirmPassword()
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password reset request is required"
+            );
+        }
+
+        String newPassword =
+                request.getNewPassword();
+
+        String confirmPassword =
+                request.getConfirmPassword();
+
+        if (
+                newPassword == null
+                        || newPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+
+        if (
+                confirmPassword == null
+                        || confirmPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation is required"
+            );
+        }
+
+        if (!newPassword.equals(
+                confirmPassword
         )) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -380,32 +422,47 @@ public class MemberPasswordServiceImpl
             );
         }
 
-        User user = userRepository
-                .findByMemberId(memberId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "This member does not have a user account"
-                        )
+        User user =
+                requireUserAccount(
+                        memberId
                 );
+
+        /*
+         * Do not bypass the first-time OTP activation process.
+         */
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This account is pending activation. The member must complete OTP activation first."
+            );
+        }
 
         user.setPasswordHash(
                 passwordEncoder.encode(
-                        request.getNewPassword()
+                        newPassword
                 )
         );
 
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 
-        userRepository.save(user);
+        User savedUser =
+                userRepository.saveAndFlush(
+                        user
+                );
 
         /*
-         * Revoke old sessions so the previous password/session
-         * cannot continue being used.
+         * Log out all existing sessions after changing the password.
          */
-        refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.deleteByUser(
+                savedUser
+        );
 
-        return getPasswordStatus(memberId);
+        return toResponse(
+                savedUser
+        );
     }
 }

@@ -6,14 +6,7 @@ import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest
 import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationItemRequest;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBranchResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationPageResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationRowResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSavedItemResponse;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSummaryResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.*;
 import org.example.tnal_youth_backend.donation.monthly.repository.MonthlyDonationRepository;
 import org.example.tnal_youth_backend.donation.monthly.service.MonthlyDonationService;
 import org.example.tnal_youth_backend.donation.service.DonationService;
@@ -543,5 +536,81 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
         return value == null || value.isBlank()
                 ? null
                 : value.strip();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberMonthlyDonationPageResponse
+    listMemberMonthlyDonations(
+            Long memberId,
+            String search,
+            Short paymentMethodId,
+            int page,
+            int size
+    ) {
+        validatePage(
+                page,
+                size
+        );
+
+        if (memberId == null || memberId <= 0) {
+            throw new BusinessException(
+                    "INVALID_MEMBER_ID",
+                    "memberId must be a positive number"
+            );
+        }
+
+        if (
+                paymentMethodId != null
+                        && paymentMethodId <= 0
+        ) {
+            throw new BusinessException(
+                    "INVALID_PAYMENT_METHOD_ID",
+                    "paymentMethodId must be greater than zero"
+            );
+        }
+
+        String normalizedSearch =
+                normalizeToNull(search);
+
+        int offset =
+                page * size;
+
+        List<MemberMonthlyDonationResponse> content =
+                monthlyDonationRepository
+                        .findMemberMonthlyDonations(
+                                memberId,
+                                normalizedSearch,
+                                paymentMethodId,
+                                size,
+                                offset
+                        );
+
+        long totalElements =
+                monthlyDonationRepository
+                        .countMemberMonthlyDonations(
+                                memberId,
+                                normalizedSearch,
+                                paymentMethodId
+                        );
+
+        int totalPages =
+                totalElements == 0
+                        ? 0
+                        : (int) Math.ceil(
+                        (double) totalElements
+                                / size
+                );
+
+        return new MemberMonthlyDonationPageResponse(
+                content,
+                page,
+                size,
+                totalElements,
+                totalPages,
+                page == 0,
+                totalPages == 0
+                        || page >= totalPages - 1
+        );
     }
 }

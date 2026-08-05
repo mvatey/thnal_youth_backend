@@ -6,13 +6,13 @@ import org.example.tnal_youth_backend.member.participation.dto.response.MemberPa
 
 public interface MemberParticipationService {
 
-    MemberParticipationPageResponse
-    getParticipationsByMemberId(
+    MemberParticipationPageResponse getParticipationsByMemberId(
             Long memberId,
             int page,
             int size,
             String search,
-            Short typeId
+            Short typeId,
+            Short attendanceStatusId
     );
 
     MemberParticipationResponse create(

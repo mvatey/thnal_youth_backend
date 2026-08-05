@@ -23,4 +23,10 @@ public interface LookupService {
 
     List<RoleOptionResponse>
     getUserRoleOptions();
+
+    List<LookupOptionResponse<Short>>
+    getActivityTypeOptions();
+
+    List<LookupOptionResponse<Short>>
+    getAttendanceStatusOptions();
 }
