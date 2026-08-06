@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.education.service;
 
 import org.example.tnal_youth_backend.member.education.dto.request.MemberEducationRequest;
 import org.example.tnal_youth_backend.member.education.dto.response.MemberEducationResponse;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,5 +26,11 @@ public interface MemberEducationService {
     void delete(
             Long memberId,
             Long educationId
+    );
+
+    MemberEducationResponse uploadCertificate(
+            Long memberId,
+            Long educationId,
+            MultipartFile file
     );
 }

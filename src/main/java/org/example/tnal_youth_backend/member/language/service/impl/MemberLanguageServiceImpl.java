@@ -1,6 +1,8 @@
 package org.example.tnal_youth_backend.member.language.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.language.dto.request.MemberLanguageRequest;
 import org.example.tnal_youth_backend.member.language.dto.response.MemberLanguageResponse;
 import org.example.tnal_youth_backend.member.language.entity.MemberLanguage;
@@ -9,10 +11,12 @@ import org.example.tnal_youth_backend.member.language.repository.MemberLanguageR
 import org.example.tnal_youth_backend.member.language.service.MemberLanguageService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -22,19 +26,31 @@ import java.util.List;
 public class MemberLanguageServiceImpl
         implements MemberLanguageService {
 
-    private final MemberLanguageRepository languageRepository;
-    private final MemberRepository memberRepository;
-    private final MemberLanguageMapper languageMapper;
+    private final MemberLanguageRepository
+            languageRepository;
+
+    private final MemberRepository
+            memberRepository;
+
+    private final MemberLanguageMapper
+            languageMapper;
+
+    private final MemberAccessValidator
+            memberAccessValidator;
+
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
     public List<MemberLanguageResponse> getByMemberId(
             Long memberId
     ) {
-        verifyMemberExists(memberId);
+        validateMemberAccess(memberId);
 
         return languageRepository
-                .findAllByMemberIdOrderByIdAsc(memberId)
+                .findAllByMember_IdOrderByIdAsc(
+                        memberId
+                )
                 .stream()
                 .map(languageMapper::toResponse)
                 .toList();
@@ -46,14 +62,23 @@ public class MemberLanguageServiceImpl
             Long memberId,
             MemberLanguageRequest request
     ) {
-        Member member = findMember(memberId);
+        validateMemberAccess(memberId);
+
+        Member member =
+                findMember(memberId);
 
         String languageName =
-                normalizeRequired(request.languageName());
+                normalizeRequired(
+                        request.languageName()
+                );
+
+        validateAtLeastOneLevel(
+                request
+        );
 
         boolean duplicate =
                 languageRepository
-                        .existsByMemberIdAndLanguageNameIgnoreCase(
+                        .existsByMember_IdAndLanguageNameIgnoreCase(
                                 memberId,
                                 languageName
                         );
@@ -86,11 +111,18 @@ public class MemberLanguageServiceImpl
 
         try {
             MemberLanguage saved =
-                    languageRepository.saveAndFlush(language);
+                    languageRepository
+                            .saveAndFlush(
+                                    language
+                            );
 
-            return languageMapper.toResponse(saved);
+            return languageMapper.toResponse(
+                    saved
+            );
 
-        } catch (DataIntegrityViolationException exception) {
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
             throw proficiencyConstraintException();
         }
     }
@@ -102,15 +134,26 @@ public class MemberLanguageServiceImpl
             Long languageId,
             MemberLanguageRequest request
     ) {
+        validateMemberAccess(memberId);
+
         MemberLanguage language =
-                findLanguage(memberId, languageId);
+                findLanguage(
+                        memberId,
+                        languageId
+                );
 
         String languageName =
-                normalizeRequired(request.languageName());
+                normalizeRequired(
+                        request.languageName()
+                );
+
+        validateAtLeastOneLevel(
+                request
+        );
 
         boolean duplicate =
                 languageRepository
-                        .existsByMemberIdAndLanguageNameIgnoreCaseAndIdNot(
+                        .existsByMember_IdAndLanguageNameIgnoreCaseAndIdNot(
                                 memberId,
                                 languageName,
                                 languageId
@@ -124,27 +167,40 @@ public class MemberLanguageServiceImpl
             );
         }
 
-        language.setLanguageName(languageName);
+        language.setLanguageName(
+                languageName
+        );
+
         language.setListeningLevelId(
                 request.listeningLevelId()
         );
+
         language.setSpeakingLevelId(
                 request.speakingLevelId()
         );
+
         language.setReadingLevelId(
                 request.readingLevelId()
         );
+
         language.setWritingLevelId(
                 request.writingLevelId()
         );
 
         try {
             MemberLanguage updated =
-                    languageRepository.saveAndFlush(language);
+                    languageRepository
+                            .saveAndFlush(
+                                    language
+                            );
 
-            return languageMapper.toResponse(updated);
+            return languageMapper.toResponse(
+                    updated
+            );
 
-        } catch (DataIntegrityViolationException exception) {
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
             throw proficiencyConstraintException();
         }
     }
@@ -155,13 +211,22 @@ public class MemberLanguageServiceImpl
             Long memberId,
             Long languageId
     ) {
-        MemberLanguage language =
-                findLanguage(memberId, languageId);
+        validateMemberAccess(memberId);
 
-        languageRepository.delete(language);
+        MemberLanguage language =
+                findLanguage(
+                        memberId,
+                        languageId
+                );
+
+        languageRepository.delete(
+                language
+        );
     }
 
-    private Member findMember(Long memberId) {
+    private void validateMemberAccess(
+            Long memberId
+    ) {
         if (memberId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -169,7 +234,17 @@ public class MemberLanguageServiceImpl
             );
         }
 
-        return memberRepository.findById(memberId)
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+    }
+
+    private Member findMember(
+            Long memberId
+    ) {
+        return memberRepository
+                .findById(memberId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -177,10 +252,6 @@ public class MemberLanguageServiceImpl
                                         + memberId
                         )
                 );
-    }
-
-    private void verifyMemberExists(Long memberId) {
-        findMember(memberId);
     }
 
     private MemberLanguage findLanguage(
@@ -195,7 +266,7 @@ public class MemberLanguageServiceImpl
         }
 
         return languageRepository
-                .findByIdAndMemberId(
+                .findByIdAndMember_Id(
                         languageId,
                         memberId
                 )
@@ -210,8 +281,30 @@ public class MemberLanguageServiceImpl
                 );
     }
 
-    private String normalizeRequired(String value) {
-        if (value == null || value.isBlank()) {
+    private void validateAtLeastOneLevel(
+            MemberLanguageRequest request
+    ) {
+        boolean noLevelProvided =
+                request.listeningLevelId() == null
+                        && request.speakingLevelId() == null
+                        && request.readingLevelId() == null
+                        && request.writingLevelId() == null;
+
+        if (noLevelProvided) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "At least one language proficiency level is required"
+            );
+        }
+    }
+
+    private String normalizeRequired(
+            String value
+    ) {
+        if (
+                value == null
+                        || value.isBlank()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Language name is required"
@@ -231,5 +324,93 @@ public class MemberLanguageServiceImpl
                 existing proficiency level records.
                 """
         );
+    }
+
+    @Override
+    @Transactional
+    public MemberLanguageResponse uploadCertificate(
+            Long memberId,
+            Long languageId,
+            MultipartFile file
+    ) {
+        validateMemberAccess(memberId);
+
+        MemberLanguage language =
+                findLanguage(
+                        memberId,
+                        languageId
+                );
+
+        validateCertificateFile(file);
+
+        FileEntity oldFile =
+                language.getCertificateFile();
+
+        FileEntity uploadedFile =
+                fileService.uploadFileEntity(file);
+
+        language.setCertificateFile(uploadedFile);
+
+        MemberLanguage saved =
+                languageRepository.saveAndFlush(language);
+
+        if (oldFile != null) {
+            fileService.deleteFile(
+                    oldFile.getId()
+            );
+        }
+
+        return languageMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public MemberLanguageResponse removeCertificate(
+            Long memberId,
+            Long languageId
+    ) {
+        validateMemberAccess(memberId);
+
+        MemberLanguage language =
+                findLanguage(
+                        memberId,
+                        languageId
+                );
+
+        FileEntity certificateFile =
+                language.getCertificateFile();
+
+        if (certificateFile == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "This language record has no certificate"
+            );
+        }
+
+        Long fileId =
+                certificateFile.getId();
+
+        language.setCertificateFile(null);
+
+        MemberLanguage saved =
+                languageRepository.saveAndFlush(language);
+
+        fileService.deleteFile(fileId);
+
+        return languageMapper.toResponse(saved);
+    }
+
+    private void validateCertificateFile(
+            MultipartFile file
+    ) {
+        if (
+                file == null
+                        || file.isEmpty()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Certificate file is required"
+            );
+        }
     }
 }

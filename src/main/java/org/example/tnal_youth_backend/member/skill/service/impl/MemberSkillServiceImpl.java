@@ -1,8 +1,11 @@
 package org.example.tnal_youth_backend.member.skill.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillRequest;
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.skill.entity.MemberSkill;
@@ -13,6 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -22,19 +26,31 @@ import java.util.List;
 public class MemberSkillServiceImpl
         implements MemberSkillService {
 
-    private final MemberSkillRepository skillRepository;
-    private final MemberRepository memberRepository;
-    private final MemberSkillMapper skillMapper;
+    private final MemberSkillRepository
+            skillRepository;
+
+    private final MemberRepository
+            memberRepository;
+
+    private final MemberSkillMapper
+            skillMapper;
+
+    private final MemberAccessValidator
+            memberAccessValidator;
+
+    private final FileService fileService;
 
     @Override
     @Transactional(readOnly = true)
     public List<MemberSkillResponse> getByMemberId(
             Long memberId
     ) {
-        verifyMemberExists(memberId);
+        validateMemberAccess(memberId);
 
         return skillRepository
-                .findAllByMemberIdOrderByIdAsc(memberId)
+                .findAllByMember_IdOrderByIdAsc(
+                        memberId
+                )
                 .stream()
                 .map(skillMapper::toResponse)
                 .toList();
@@ -46,17 +62,24 @@ public class MemberSkillServiceImpl
             Long memberId,
             MemberSkillRequest request
     ) {
-        Member member = findMember(memberId);
+        validateMemberAccess(memberId);
+
+        Member member =
+                findMember(memberId);
 
         String skillName =
-                normalizeRequired(request.skillName());
+                normalizeRequired(
+                        request.skillName()
+                );
 
-        if (skillRepository
-                .existsByMemberIdAndSkillNameIgnoreCase(
-                        memberId,
-                        skillName
-                )) {
+        boolean duplicate =
+                skillRepository
+                        .existsByMember_IdAndSkillNameIgnoreCase(
+                                memberId,
+                                skillName
+                        );
 
+        if (duplicate) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This member already has the skill: "
@@ -64,28 +87,30 @@ public class MemberSkillServiceImpl
             );
         }
 
-        MemberSkill skill = MemberSkill.builder()
-                .member(member)
-                .skillName(skillName)
-                .proficiencyLevelId(
-                        request.proficiencyLevelId()
-                )
-                .build();
+        MemberSkill skill =
+                MemberSkill.builder()
+                        .member(member)
+                        .skillName(skillName)
+                        .proficiencyLevelId(
+                                request.proficiencyLevelId()
+                        )
+                        .build();
 
         try {
             MemberSkill saved =
-                    skillRepository.saveAndFlush(skill);
+                    skillRepository
+                            .saveAndFlush(
+                                    skill
+                            );
 
-            return skillMapper.toResponse(saved);
-
-        } catch (DataIntegrityViolationException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    """
-                    Skill could not be saved. Check that \
-                    proficiency_level_id references an existing record.
-                    """
+            return skillMapper.toResponse(
+                    saved
             );
+
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw proficiencyConstraintException();
         }
     }
 
@@ -96,15 +121,22 @@ public class MemberSkillServiceImpl
             Long skillId,
             MemberSkillRequest request
     ) {
+        validateMemberAccess(memberId);
+
         MemberSkill skill =
-                findSkill(memberId, skillId);
+                findSkill(
+                        memberId,
+                        skillId
+                );
 
         String skillName =
-                normalizeRequired(request.skillName());
+                normalizeRequired(
+                        request.skillName()
+                );
 
         boolean duplicate =
                 skillRepository
-                        .existsByMemberIdAndSkillNameIgnoreCaseAndIdNot(
+                        .existsByMember_IdAndSkillNameIgnoreCaseAndIdNot(
                                 memberId,
                                 skillName,
                                 skillId
@@ -118,25 +150,29 @@ public class MemberSkillServiceImpl
             );
         }
 
-        skill.setSkillName(skillName);
+        skill.setSkillName(
+                skillName
+        );
+
         skill.setProficiencyLevelId(
                 request.proficiencyLevelId()
         );
 
         try {
             MemberSkill updated =
-                    skillRepository.saveAndFlush(skill);
+                    skillRepository
+                            .saveAndFlush(
+                                    skill
+                            );
 
-            return skillMapper.toResponse(updated);
-
-        } catch (DataIntegrityViolationException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    """
-                    Skill could not be updated. Check that \
-                    proficiency_level_id references an existing record.
-                    """
+            return skillMapper.toResponse(
+                    updated
             );
+
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw proficiencyConstraintException();
         }
     }
 
@@ -146,13 +182,22 @@ public class MemberSkillServiceImpl
             Long memberId,
             Long skillId
     ) {
-        MemberSkill skill =
-                findSkill(memberId, skillId);
+        validateMemberAccess(memberId);
 
-        skillRepository.delete(skill);
+        MemberSkill skill =
+                findSkill(
+                        memberId,
+                        skillId
+                );
+
+        skillRepository.delete(
+                skill
+        );
     }
 
-    private Member findMember(Long memberId) {
+    private void validateMemberAccess(
+            Long memberId
+    ) {
         if (memberId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -160,7 +205,17 @@ public class MemberSkillServiceImpl
             );
         }
 
-        return memberRepository.findById(memberId)
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+    }
+
+    private Member findMember(
+            Long memberId
+    ) {
+        return memberRepository
+                .findById(memberId)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -168,10 +223,6 @@ public class MemberSkillServiceImpl
                                         + memberId
                         )
                 );
-    }
-
-    private void verifyMemberExists(Long memberId) {
-        findMember(memberId);
     }
 
     private MemberSkill findSkill(
@@ -186,7 +237,7 @@ public class MemberSkillServiceImpl
         }
 
         return skillRepository
-                .findByIdAndMemberId(
+                .findByIdAndMember_Id(
                         skillId,
                         memberId
                 )
@@ -201,8 +252,13 @@ public class MemberSkillServiceImpl
                 );
     }
 
-    private String normalizeRequired(String value) {
-        if (value == null || value.isBlank()) {
+    private String normalizeRequired(
+            String value
+    ) {
+        if (
+                value == null
+                        || value.isBlank()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Skill name is required"
@@ -211,4 +267,105 @@ public class MemberSkillServiceImpl
 
         return value.trim();
     }
+
+    private ResponseStatusException
+    proficiencyConstraintException() {
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                """
+                Skill could not be saved. Check that \
+                proficiency_level_id references an existing \
+                proficiency level record.
+                """
+        );
+    }
+
+    @Override
+    @Transactional
+    public MemberSkillResponse uploadCertificate(
+            Long memberId,
+            Long skillId,
+            MultipartFile file
+    ) {
+        validateMemberAccess(memberId);
+
+        MemberSkill skill =
+                findSkill(
+                        memberId,
+                        skillId
+                );
+
+        validateCertificateFile(file);
+
+        FileEntity oldFile =
+                skill.getCertificateFile();
+
+        FileEntity uploadedFile =
+                fileService.uploadFileEntity(file);
+
+        skill.setCertificateFile(uploadedFile);
+
+        MemberSkill saved =
+                skillRepository.saveAndFlush(skill);
+
+        if (oldFile != null) {
+            fileService.deleteFile(
+                    oldFile.getId()
+            );
+        }
+
+        return skillMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public MemberSkillResponse removeCertificate(
+            Long memberId,
+            Long skillId
+    ) {
+        validateMemberAccess(memberId);
+
+        MemberSkill skill =
+                findSkill(
+                        memberId,
+                        skillId
+                );
+
+        FileEntity certificateFile =
+                skill.getCertificateFile();
+
+        if (certificateFile == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "This skill record has no certificate"
+            );
+        }
+
+        Long fileId =
+                certificateFile.getId();
+
+        skill.setCertificateFile(null);
+
+        MemberSkill saved =
+                skillRepository.saveAndFlush(skill);
+
+        fileService.deleteFile(fileId);
+
+        return skillMapper.toResponse(saved);
+    }
+
+    private void validateCertificateFile(
+            MultipartFile file
+    ) {
+        if (
+                file == null
+                        || file.isEmpty()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Certificate file is required"
+            );
+        }
+    }
+
 }

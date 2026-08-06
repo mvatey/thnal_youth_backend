@@ -121,4 +121,16 @@ public class LookupController {
                         .getTshirtSizeOptions()
         );
     }
+
+    @GetMapping("/education-levels")
+    public ResponseEntity<
+            List<LookupOptionResponse<Short>>
+            >
+    getEducationLevelOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getEducationLevelOptions()
+        );
+    }
 }

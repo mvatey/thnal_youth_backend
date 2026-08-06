@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 //@Tag(name = "Ed Member Page")
@@ -19,7 +22,7 @@ import java.util.List;
 )
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Educate",
+        name = "3.0.4 Member Page - Education",
         description = "Manage educate for a selected member"
 )
 public class MemberEducationController {
@@ -87,5 +90,34 @@ public class MemberEducationController {
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+    @PutMapping(
+            value = "/{educationId}/certificate",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("""
+        hasAnyRole(
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberEducationResponse>
+    uploadCertificate(
+            @PathVariable Long memberId,
+
+            @PathVariable Long educationId,
+
+            @RequestPart("file")
+            MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                educationService
+                        .uploadCertificate(
+                                memberId,
+                                educationId,
+                                file
+                        )
+        );
     }
 }

@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.lookup.dto.*;
 import org.example.tnal_youth_backend.lookup.service.LookupService;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.education.repository.EducationLevelRepository;
 import org.example.tnal_youth_backend.member.level.service.MemberLevelService;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
@@ -49,6 +50,9 @@ public class LookupServiceImpl
 
     private final ReligionRepository
             religionRepository;
+
+    private final EducationLevelRepository
+            educationLevelRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -333,6 +337,25 @@ public class LookupServiceImpl
                                 size.name(),
                                 size.getValue(),
                                 size.getValue()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getEducationLevelOptions() {
+
+        return educationLevelRepository
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
+                .stream()
+                .map(level ->
+                        new LookupOptionResponse<>(
+                                level.getId(),
+                                level.getCode(),
+                                level.getLabelKm(),
+                                level.getLabelEn()
                         )
                 )
                 .toList();

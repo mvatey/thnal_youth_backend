@@ -38,4 +38,7 @@ public interface LookupService {
 
     List<LookupOptionResponse<String>>
     getTshirtSizeOptions();
+
+    List<LookupOptionResponse<Short>>
+    getEducationLevelOptions();
 }

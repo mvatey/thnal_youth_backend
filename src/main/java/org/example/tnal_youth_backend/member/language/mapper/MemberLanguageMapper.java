@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.language.mapper;
 
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.language.dto.response.MemberLanguageResponse;
 import org.example.tnal_youth_backend.member.language.entity.MemberLanguage;
 import org.springframework.stereotype.Component;
@@ -22,8 +23,28 @@ public class MemberLanguageMapper {
                 language.getSpeakingLevelId(),
                 language.getReadingLevelId(),
                 language.getWritingLevelId(),
+                toFileResponse(
+                        language.getCertificateFile()
+                ),
                 language.getCreatedAt(),
                 language.getUpdatedAt()
+        );
+    }
+
+    private MemberLanguageResponse.FileResponse
+    toFileResponse(
+            FileEntity file
+    ) {
+        if (file == null) {
+            return null;
+        }
+
+        return new MemberLanguageResponse.FileResponse(
+                file.getId(),
+                file.getFilePath(),
+                file.getOriginalName(),
+                file.getMimeType(),
+                file.getSizeBytes()
         );
     }
 }

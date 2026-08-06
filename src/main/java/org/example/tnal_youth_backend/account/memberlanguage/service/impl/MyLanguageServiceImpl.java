@@ -166,7 +166,7 @@ public class MyLanguageServiceImpl
         }
 
         return memberLanguageRepository
-                .findByIdAndMemberId(
+                .findByIdAndMember_Id(
                         languageId,
                         memberId
                 )

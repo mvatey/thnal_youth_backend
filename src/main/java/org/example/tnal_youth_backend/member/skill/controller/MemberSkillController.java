@@ -7,36 +7,59 @@ import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillReques
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.skill.service.MemberSkillService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @RestController
-//@Tag(name = "Member Page")
 @RequestMapping("/api/members/{memberId}/skills")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - skills"
+        name = "B. Member Page - Skills",
+        description = "Manage skills for a selected member"
 )
 public class MemberSkillController {
 
     private final MemberSkillService skillService;
 
     @GetMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER',
+                'MEMBER'
+            )
+            """)
     public ResponseEntity<List<MemberSkillResponse>>
     getByMemberId(
             @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
-                skillService.getByMemberId(memberId)
+                skillService.getByMemberId(
+                        memberId
+                )
         );
     }
 
     @PostMapping
-    public ResponseEntity<MemberSkillResponse> create(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberSkillResponse>
+    create(
             @PathVariable Long memberId,
-            @Valid @RequestBody MemberSkillRequest request
+
+            @Valid
+            @RequestBody
+            MemberSkillRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -49,10 +72,20 @@ public class MemberSkillController {
     }
 
     @PutMapping("/{skillId}")
-    public ResponseEntity<MemberSkillResponse> update(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberSkillResponse>
+    update(
             @PathVariable Long memberId,
             @PathVariable Long skillId,
-            @Valid @RequestBody MemberSkillRequest request
+
+            @Valid
+            @RequestBody
+            MemberSkillRequest request
     ) {
         return ResponseEntity.ok(
                 skillService.update(
@@ -64,7 +97,14 @@ public class MemberSkillController {
     }
 
     @DeleteMapping("/{skillId}")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<Void>
+    delete(
             @PathVariable Long memberId,
             @PathVariable Long skillId
     ) {
@@ -73,6 +113,55 @@ public class MemberSkillController {
                 skillId
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    @PutMapping(
+            value = "/{skillId}/certificate",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("""
+        hasAnyRole(
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberSkillResponse>
+    uploadCertificate(
+            @PathVariable Long memberId,
+            @PathVariable Long skillId,
+
+            @RequestPart("file")
+            MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                skillService.uploadCertificate(
+                        memberId,
+                        skillId,
+                        file
+                )
+        );
+    }
+
+    @DeleteMapping("/{skillId}/certificate")
+    @PreAuthorize("""
+        hasAnyRole(
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberSkillResponse>
+    removeCertificate(
+            @PathVariable Long memberId,
+            @PathVariable Long skillId
+    ) {
+        return ResponseEntity.ok(
+                skillService.removeCertificate(
+                        memberId,
+                        skillId
+                )
+        );
     }
 }

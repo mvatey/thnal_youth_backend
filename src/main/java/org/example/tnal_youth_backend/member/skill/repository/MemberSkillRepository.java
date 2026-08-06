@@ -9,23 +9,27 @@ import java.util.Optional;
 public interface MemberSkillRepository
         extends JpaRepository<MemberSkill, Long> {
 
-    List<MemberSkill> findAllByMemberIdOrderByIdAsc(
+    List<MemberSkill>
+    findAllByMember_IdOrderByIdAsc(
             Long memberId
     );
 
-    Optional<MemberSkill> findByIdAndMemberId(
-            Long id,
+    Optional<MemberSkill>
+    findByIdAndMember_Id(
+            Long skillId,
             Long memberId
     );
 
-    boolean existsByMemberIdAndSkillNameIgnoreCase(
+    boolean
+    existsByMember_IdAndSkillNameIgnoreCase(
             Long memberId,
             String skillName
     );
 
-    boolean existsByMemberIdAndSkillNameIgnoreCaseAndIdNot(
+    boolean
+    existsByMember_IdAndSkillNameIgnoreCaseAndIdNot(
             Long memberId,
             String skillName,
-            Long id
+            Long skillId
     );
 }

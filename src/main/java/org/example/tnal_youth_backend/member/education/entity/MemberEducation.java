@@ -72,12 +72,6 @@ public class MemberEducation {
     private String fieldOfStudy;
 
     @Column(
-            name = "country_code",
-            length = 2
-    )
-    private String countryCode;
-
-    @Column(
             name = "country_name",
             length = 100
     )
@@ -87,9 +81,6 @@ public class MemberEducation {
      * Temporary ID mapping:
      * member_education.province_id → provinces.id
      */
-    @Column(name = "province_id")
-    private Short provinceId;
-
     @Column(
             name = "province_name",
             length = 100

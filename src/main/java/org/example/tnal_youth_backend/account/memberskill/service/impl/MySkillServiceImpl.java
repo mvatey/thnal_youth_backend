@@ -179,7 +179,7 @@ public class MySkillServiceImpl
         }
 
         return memberSkillRepository
-                .findByIdAndMemberId(
+                .findByIdAndMember_Id(
                         skillId,
                         memberId
                 )
