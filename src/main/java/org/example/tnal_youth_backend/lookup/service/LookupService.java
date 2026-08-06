@@ -29,4 +29,13 @@ public interface LookupService {
 
     List<LookupOptionResponse<Short>>
     getAttendanceStatusOptions();
+
+    List<LookupOptionResponse<Short>>
+    getEthnicityOptions();
+
+    List<LookupOptionResponse<Short>>
+    getReligionOptions();
+
+    List<LookupOptionResponse<String>>
+    getTshirtSizeOptions();
 }

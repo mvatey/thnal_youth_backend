@@ -18,10 +18,6 @@ import java.time.OffsetDateTime;
                 @Index(
                         name = "idx_member_work_history_member_id",
                         columnList = "member_id"
-                ),
-                @Index(
-                        name = "idx_member_work_history_sector_id",
-                        columnList = "employment_sector_id"
                 )
         }
 )
@@ -61,20 +57,16 @@ public class MemberWorkHistory {
     private String positionTitle;
 
     @Column(
+            name = "role_title",
+            length = 255
+    )
+    private String roleTitle;
+
+    @Column(
             name = "address",
             length = 255
     )
     private String address;
-
-    /*
-     * Database foreign key:
-     * employment_sector_id → employment_sectors.id
-     *
-     * Kept as an ID because the employment-sector module
-     * has not been built yet.
-     */
-    @Column(name = "employment_sector_id")
-    private Short employmentSectorId;
 
     @Column(name = "start_date")
     private LocalDate startDate;
@@ -97,7 +89,8 @@ public class MemberWorkHistory {
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -110,6 +103,7 @@ public class MemberWorkHistory {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt =
+                OffsetDateTime.now();
     }
 }

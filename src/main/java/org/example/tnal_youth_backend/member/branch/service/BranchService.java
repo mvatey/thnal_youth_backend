@@ -4,6 +4,7 @@ import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequ
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
 
 import java.util.List;
 
@@ -25,4 +26,8 @@ public interface BranchService {
     );
 
     void deleteBranch(Long id);
+
+    Branch getAccessibleBranchById(
+            Long branchId
+    );
 }

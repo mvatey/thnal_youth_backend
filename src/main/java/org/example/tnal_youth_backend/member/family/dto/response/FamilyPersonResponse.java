@@ -7,12 +7,9 @@ import org.example.tnal_youth_backend.member.family.entity.FamilyRelationship;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-public record MemberFamilyResponse(
+public record FamilyPersonResponse(
 
         Long id,
-
-        @JsonProperty("member_id")
-        Long memberId,
 
         FamilyRelationship relationship,
 

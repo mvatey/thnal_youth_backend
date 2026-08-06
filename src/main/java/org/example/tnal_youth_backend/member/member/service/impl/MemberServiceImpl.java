@@ -26,6 +26,7 @@ import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStat
 import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
 import org.example.tnal_youth_backend.member.member.repository.MemberDetailSummaryRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
@@ -543,7 +544,7 @@ public class MemberServiceImpl implements MemberService {
         );
 
         member.setTshirtSize(
-                normalizeTshirtSize(
+                TshirtSize.fromValue(
                         request.tshirtSize()
                 )
         );

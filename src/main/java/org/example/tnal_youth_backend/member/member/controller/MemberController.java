@@ -23,7 +23,7 @@ import java.util.List;
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Member",
+        name = "3. Member Page - Member",
         description = "Manage member information"
 )
 public class MemberController {

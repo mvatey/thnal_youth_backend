@@ -101,7 +101,9 @@ public class MemberMapper {
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
-                member.getTshirtSize(),
+                member.getTshirtSize() != null
+                        ? member.getTshirtSize().getValue()
+                        : null,
                 member.getPhone(),
                 member.getEmail(),
                 member.getCurrentAddress(),

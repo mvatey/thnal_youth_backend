@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(
+        name = "0.1 Authentication - Account Status"
+)
 public class AccountStatusController {
 
     private final AccountStatusService

@@ -477,4 +477,119 @@ public class BranchServiceImpl implements BranchService {
 
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Branch getAccessibleBranchById(
+            Long branchId
+    ) {
+        if (branchId == null || branchId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID must be greater than zero"
+            );
+        }
+
+        Branch branch =
+                branchRepository
+                        .findById(branchId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Branch not found with ID: "
+                                                + branchId
+                                )
+                        );
+
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(principal.getId())
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        /*
+         * Admin can select any valid branch.
+         */
+        if (role == UserRole.ADMIN) {
+            return branch;
+        }
+
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to select a branch"
+            );
+        }
+
+        Long currentMemberId =
+                currentUser.getMemberId();
+
+        if (currentMemberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentMemberId
+                                )
+                );
+
+        /*
+         * Fallback to the staff member's current branch when
+         * branch_staff does not contain an active assignment.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(currentMemberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        if (!accessibleBranchIds.contains(branchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "The selected branch is outside your accessible scope"
+            );
+        }
+
+        return branch;
+    }
 }

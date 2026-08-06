@@ -1,23 +1,15 @@
 package org.example.tnal_youth_backend.member.family.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.family.entity.FamilyLifeStatus;
-import org.example.tnal_youth_backend.member.family.entity.FamilyRelationship;
 
 import java.time.LocalDate;
 
-public record MemberFamilyRequest(
-
-        @JsonProperty("relationship")
-        @NotNull(message = "Family relationship is required")
-        FamilyRelationship relationship,
+public record FamilyPersonRequest(
 
         @JsonProperty("full_name_km")
-        @NotBlank(message = "Khmer full name is required")
         @Size(
                 max = 255,
                 message = "Khmer full name must not exceed 255 characters"
@@ -37,7 +29,6 @@ public record MemberFamilyRequest(
         )
         LocalDate dateOfBirth,
 
-        @JsonProperty("occupation")
         @Size(
                 max = 255,
                 message = "Occupation must not exceed 255 characters"
@@ -47,7 +38,6 @@ public record MemberFamilyRequest(
         @JsonProperty("life_status")
         FamilyLifeStatus lifeStatus,
 
-        @JsonProperty("address")
         @Size(
                 max = 255,
                 message = "Address must not exceed 255 characters"

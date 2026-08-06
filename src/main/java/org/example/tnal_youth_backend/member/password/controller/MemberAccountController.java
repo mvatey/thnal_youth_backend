@@ -23,37 +23,19 @@ import org.springframework.web.bind.annotation.*;
         )
         """)
 @Tag(
-        name = "B. Member Page - Account",
-        description = "View and manage the selected member's web account"
+        name = "3.5 Member Page - Password",
+        description = "Manage the selected member's password and activation"
 )
 public class MemberAccountController {
 
     private final MemberPasswordService
             memberPasswordService;
 
-    /*
-     * GET /api/members/{memberId}/account/status
-     */
-    @GetMapping("/status")
-    public ResponseEntity<MemberPasswordStatusResponse>
-    getAccountStatus(
-            @PathVariable Long memberId
-    ) {
-        return ResponseEntity.ok(
-                memberPasswordService
-                        .getPasswordStatus(
-                                memberId
-                        )
-        );
-    }
-
-    /*
-     * POST /api/members/{memberId}/account/resend-activation
-     */
     @PostMapping("/resend-activation")
     public ResponseEntity<MemberPasswordStatusResponse>
     resendActivationOtp(
-            @PathVariable Long memberId
+            @PathVariable
+            Long memberId
     ) {
         return ResponseEntity.ok(
                 memberPasswordService
@@ -63,17 +45,14 @@ public class MemberAccountController {
         );
     }
 
-    /*
-     * PATCH /api/members/{memberId}/account/password
-     *
-     * Replaces the selected member's password without requiring
-     * the previous password.
-     */
     @PatchMapping("/password")
     public ResponseEntity<MemberPasswordStatusResponse>
     resetPassword(
-            @PathVariable Long memberId,
-            @Valid @RequestBody
+            @PathVariable
+            Long memberId,
+
+            @Valid
+            @RequestBody
             MemberPasswordResetRequest request
     ) {
         return ResponseEntity.ok(
@@ -81,38 +60,6 @@ public class MemberAccountController {
                         .resetPassword(
                                 memberId,
                                 request
-                        )
-        );
-    }
-
-    /*
-     * PATCH /api/members/{memberId}/account/disable
-     */
-    @PatchMapping("/disable")
-    public ResponseEntity<MemberPasswordStatusResponse>
-    disableAccount(
-            @PathVariable Long memberId
-    ) {
-        return ResponseEntity.ok(
-                memberPasswordService
-                        .disableAccount(
-                                memberId
-                        )
-        );
-    }
-
-    /*
-     * PATCH /api/members/{memberId}/account/enable
-     */
-    @PatchMapping("/enable")
-    public ResponseEntity<MemberPasswordStatusResponse>
-    enableAccount(
-            @PathVariable Long memberId
-    ) {
-        return ResponseEntity.ok(
-                memberPasswordService
-                        .enableAccount(
-                                memberId
                         )
         );
     }

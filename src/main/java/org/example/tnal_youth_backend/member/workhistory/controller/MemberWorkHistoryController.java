@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWork
 import org.example.tnal_youth_backend.member.workhistory.service.MemberWorkHistoryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,24 +19,48 @@ import java.util.List;
 )
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - work history",
-        description = "Manage work history for a selected member"
+        name = "3.0.3 Member Page - Work History",
+        description = "View and manage work history for a selected member"
 )
 public class MemberWorkHistoryController {
 
-    private final MemberWorkHistoryService workHistoryService;
+    private final MemberWorkHistoryService
+            workHistoryService;
 
+    /*
+     * GET /api/members/{memberId}/work-history
+     */
     @GetMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER',
+                'MEMBER'
+            )
+            """)
     public ResponseEntity<List<MemberWorkHistoryResponse>>
     getByMemberId(
             @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
-                workHistoryService.getByMemberId(memberId)
+                workHistoryService
+                        .getByMemberId(
+                                memberId
+                        )
         );
     }
 
+    /*
+     * POST /api/members/{memberId}/work-history
+     */
     @PostMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
     public ResponseEntity<MemberWorkHistoryResponse>
     create(
             @PathVariable Long memberId,
@@ -45,19 +70,32 @@ public class MemberWorkHistoryController {
             MemberWorkHistoryRequest request
     ) {
         return ResponseEntity
-                .status(HttpStatus.CREATED)
+                .status(
+                        HttpStatus.CREATED
+                )
                 .body(
-                        workHistoryService.create(
-                                memberId,
-                                request
-                        )
+                        workHistoryService
+                                .create(
+                                        memberId,
+                                        request
+                                )
                 );
     }
 
+    /*
+     * PUT /api/members/{memberId}/work-history/{workId}
+     */
     @PutMapping("/{workId}")
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
     public ResponseEntity<MemberWorkHistoryResponse>
     update(
             @PathVariable Long memberId,
+
             @PathVariable Long workId,
 
             @Valid
@@ -65,23 +103,36 @@ public class MemberWorkHistoryController {
             MemberWorkHistoryRequest request
     ) {
         return ResponseEntity.ok(
-                workHistoryService.update(
-                        memberId,
-                        workId,
-                        request
-                )
+                workHistoryService
+                        .update(
+                                memberId,
+                                workId,
+                                request
+                        )
         );
     }
 
+    /*
+     * DELETE /api/members/{memberId}/work-history/{workId}
+     */
     @DeleteMapping("/{workId}")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<Void>
+    delete(
             @PathVariable Long memberId,
+
             @PathVariable Long workId
     ) {
-        workHistoryService.delete(
-                memberId,
-                workId
-        );
+        workHistoryService
+                .delete(
+                        memberId,
+                        workId
+                );
 
         return ResponseEntity
                 .noContent()

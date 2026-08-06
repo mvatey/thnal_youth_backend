@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
         )
         """)
 @Tag(
-        name = "B. Member Page - Participation",
+        name = "3.2 Member Page - Participation",
         description = "Manage participation for a selected member"
 )
 public class MemberParticipationController {

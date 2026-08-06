@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.authentication.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.request.ForgotPasswordRequest;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(
+        name = "0 Authentication"
+)
 public class AuthController {
 
     private final AuthService authService;

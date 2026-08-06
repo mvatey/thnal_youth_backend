@@ -13,12 +13,15 @@ import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionRes
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.level.service.MemberLevelService;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
 import org.example.tnal_youth_backend.member.status.service.MemberStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
+import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,6 +43,12 @@ public class LookupServiceImpl
 
     private final AttendanceStatusRepository
             attendanceStatusRepository;
+
+    private final EthnicityRepository
+            ethnicityRepository;
+
+    private final ReligionRepository
+            religionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -271,5 +280,61 @@ public class LookupServiceImpl
                                 "Authenticated user was not found"
                         )
                 );
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getEthnicityOptions() {
+
+        return ethnicityRepository
+                .findAllByIsActiveTrueOrderByLabelKmAsc()
+                .stream()
+                .map(ethnicity ->
+                        new LookupOptionResponse<>(
+                                ethnicity.getId(),
+                                ethnicity.getCode(),
+                                ethnicity.getLabelKm(),
+                                ethnicity.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>>
+    getReligionOptions() {
+
+        return religionRepository
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
+                .stream()
+                .map(religion ->
+                        new LookupOptionResponse<>(
+                                religion.getId(),
+                                religion.getCode(),
+                                religion.getLabelKm(),
+                                religion.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<String>>
+    getTshirtSizeOptions() {
+
+        return Arrays.stream(
+                        TshirtSize.values()
+                )
+                .map(size ->
+                        new LookupOptionResponse<>(
+                                size.getValue(),
+                                size.name(),
+                                size.getValue(),
+                                size.getValue()
+                        )
+                )
+                .toList();
     }
 }

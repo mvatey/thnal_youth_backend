@@ -12,8 +12,10 @@ import org.example.tnal_youth_backend.member.family.entity.MemberFamily;
 import org.example.tnal_youth_backend.member.family.repository.MemberFamilyRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -23,31 +25,53 @@ import java.util.List;
 public class MyFamilyServiceImpl
         implements MyFamilyService {
 
-    private final MemberFamilyRepository memberFamilyRepository;
-    private final MemberRepository memberRepository;
-    private final UserRepository userRepository;
-    private final MyFamilyMapper myFamilyMapper;
+    private final MemberFamilyRepository
+            memberFamilyRepository;
+
+    private final MemberRepository
+            memberRepository;
+
+    private final UserRepository
+            userRepository;
+
+    private final MyFamilyMapper
+            myFamilyMapper;
+
+    /*
+     * ==========================================================
+     * GET ALL FAMILY RECORDS FOR CURRENT MEMBER
+     * ==========================================================
+     */
 
     @Override
     public List<MyFamilyResponse> getMyFamily() {
 
-        Member currentMember = getCurrentMember();
+        Member currentMember =
+                getCurrentMember();
 
         return memberFamilyRepository
-                .findAllByMemberIdOrderByIdAsc(
+                .findAllByMember_IdOrderByIdAsc(
                         currentMember.getId()
                 )
                 .stream()
-                .map(myFamilyMapper::toResponse)
+                .map(
+                        myFamilyMapper::toResponse
+                )
                 .toList();
     }
 
+    /*
+     * ==========================================================
+     * GET ONE FAMILY RECORD
+     * ==========================================================
+     */
 
     @Override
     public MyFamilyResponse getMyFamilyMember(
             Long familyId
     ) {
-        Member currentMember = getCurrentMember();
+        Member currentMember =
+                getCurrentMember();
 
         MemberFamily family =
                 getOwnedFamilyRecord(
@@ -55,19 +79,43 @@ public class MyFamilyServiceImpl
                         currentMember.getId()
                 );
 
-        return myFamilyMapper.toResponse(family);
+        return myFamilyMapper.toResponse(
+                family
+        );
     }
+
+    /*
+     * ==========================================================
+     * CREATE FAMILY RECORD
+     * ==========================================================
+     */
 
     @Override
     @Transactional
     public MyFamilyResponse createMyFamilyMember(
             MyFamilyRequest request
     ) {
-        Member currentMember = getCurrentMember();
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Family request is required"
+            );
+        }
 
-        MemberFamily family = new MemberFamily();
+        Member currentMember =
+                getCurrentMember();
 
-        family.setMember(currentMember);
+        validateRelationshipIsNotDuplicate(
+                currentMember.getId(),
+                request
+        );
+
+        MemberFamily family =
+                new MemberFamily();
+
+        family.setMember(
+                currentMember
+        );
 
         myFamilyMapper.updateEntity(
                 family,
@@ -75,12 +123,21 @@ public class MyFamilyServiceImpl
         );
 
         MemberFamily savedFamily =
-                memberFamilyRepository.save(family);
+                memberFamilyRepository
+                        .saveAndFlush(
+                                family
+                        );
 
         return myFamilyMapper.toResponse(
                 savedFamily
         );
     }
+
+    /*
+     * ==========================================================
+     * UPDATE FAMILY RECORD
+     * ==========================================================
+     */
 
     @Override
     @Transactional
@@ -88,13 +145,27 @@ public class MyFamilyServiceImpl
             Long familyId,
             MyFamilyRequest request
     ) {
-        Member currentMember = getCurrentMember();
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Family request is required"
+            );
+        }
+
+        Member currentMember =
+                getCurrentMember();
 
         MemberFamily family =
                 getOwnedFamilyRecord(
                         familyId,
                         currentMember.getId()
                 );
+
+        validateRelationshipIsNotUsedByAnotherRecord(
+                currentMember.getId(),
+                familyId,
+                request
+        );
 
         myFamilyMapper.updateEntity(
                 family,
@@ -102,19 +173,29 @@ public class MyFamilyServiceImpl
         );
 
         MemberFamily savedFamily =
-                memberFamilyRepository.save(family);
+                memberFamilyRepository
+                        .saveAndFlush(
+                                family
+                        );
 
         return myFamilyMapper.toResponse(
                 savedFamily
         );
     }
 
+    /*
+     * ==========================================================
+     * DELETE FAMILY RECORD
+     * ==========================================================
+     */
+
     @Override
     @Transactional
     public void deleteMyFamilyMember(
             Long familyId
     ) {
-        Member currentMember = getCurrentMember();
+        Member currentMember =
+                getCurrentMember();
 
         MemberFamily family =
                 getOwnedFamilyRecord(
@@ -122,18 +203,31 @@ public class MyFamilyServiceImpl
                         currentMember.getId()
                 );
 
-        memberFamilyRepository.delete(family);
+        memberFamilyRepository.delete(
+                family
+        );
+
+        memberFamilyRepository.flush();
     }
+
+    /*
+     * ==========================================================
+     * CURRENT MEMBER
+     * ==========================================================
+     */
 
     private Member getCurrentMember() {
 
         User authenticatedUser =
                 SecurityUtil.getCurrentUser();
 
-        if (authenticatedUser == null
-                || authenticatedUser.getId() == null) {
-            throw new IllegalStateException(
-                    "Authenticated user was not found"
+        if (
+                authenticatedUser == null
+                        || authenticatedUser.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
             );
         }
 
@@ -143,13 +237,15 @@ public class MyFamilyServiceImpl
                                 authenticatedUser.getId()
                         )
                         .orElseThrow(() ->
-                                new IllegalStateException(
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
                                         "Authenticated user was not found"
                                 )
                         );
 
         if (currentUser.getMemberId() == null) {
-            throw new IllegalStateException(
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
                     "This account is not linked to a member profile"
             );
         }
@@ -159,31 +255,105 @@ public class MyFamilyServiceImpl
                         currentUser.getMemberId()
                 )
                 .orElseThrow(() ->
-                        new IllegalStateException(
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
                                 "Linked member profile was not found"
                         )
                 );
     }
 
+    /*
+     * ==========================================================
+     * OWNED FAMILY RECORD
+     * ==========================================================
+     */
+
     private MemberFamily getOwnedFamilyRecord(
             Long familyId,
             Long memberId
     ) {
-        if (familyId == null) {
-            throw new IllegalArgumentException(
-                    "Family ID is required"
+        if (
+                familyId == null
+                        || familyId <= 0
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Family ID must be greater than zero"
             );
         }
 
         return memberFamilyRepository
-                .findByIdAndMemberId(
+                .findByIdAndMember_Id(
                         familyId,
                         memberId
                 )
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
                                 "Family record was not found"
                         )
                 );
+    }
+
+    /*
+     * ==========================================================
+     * DUPLICATE RELATIONSHIP VALIDATION
+     * ==========================================================
+     */
+
+    private void validateRelationshipIsNotDuplicate(
+            Long memberId,
+            MyFamilyRequest request
+    ) {
+        if (request.relationship() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Family relationship is required"
+            );
+        }
+
+        boolean relationshipExists =
+                memberFamilyRepository
+                        .existsByMember_IdAndRelationship(
+                                memberId,
+                                request.relationship()
+                        );
+
+        if (relationshipExists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A family record already exists for relationship: "
+                            + request.relationship()
+            );
+        }
+    }
+
+    private void validateRelationshipIsNotUsedByAnotherRecord(
+            Long memberId,
+            Long currentFamilyId,
+            MyFamilyRequest request
+    ) {
+        if (request.relationship() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Family relationship is required"
+            );
+        }
+
+        boolean relationshipExists =
+                memberFamilyRepository
+                        .existsByMember_IdAndRelationshipAndIdNot(
+                                memberId,
+                                request.relationship(),
+                                currentFamilyId
+                        );
+
+        if (relationshipExists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Another family record already uses relationship: "
+                            + request.relationship()
+            );
+        }
     }
 }

@@ -89,4 +89,36 @@ public class LookupController {
                         .getAttendanceStatusOptions()
         );
     }
+
+    @GetMapping("/ethnicities")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getEthnicityOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getEthnicityOptions()
+        );
+    }
+
+    @GetMapping("/religions")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getReligionOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getReligionOptions()
+        );
+    }
+
+    @GetMapping("/tshirt-sizes")
+    public ResponseEntity<
+            List<LookupOptionResponse<String>>
+            >
+    getTshirtSizeOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getTshirtSizeOptions()
+        );
+    }
 }

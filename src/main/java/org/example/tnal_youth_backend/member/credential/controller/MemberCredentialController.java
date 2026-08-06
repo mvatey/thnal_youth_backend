@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 )
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Credentials",
+        name = "3.1 Member Page - Credentials",
         description = "Manage credentials for a selected member"
 )
 public class MemberCredentialController {

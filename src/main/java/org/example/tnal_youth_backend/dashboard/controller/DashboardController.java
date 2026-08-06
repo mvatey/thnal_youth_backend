@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.dashboard.dto.*;
 import org.example.tnal_youth_backend.dashboard.service.DashboardService;
@@ -11,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
+@Tag(
+        name = "1. Dashboard"
+)
 public class DashboardController {
 
     private final DashboardService dashboardService;

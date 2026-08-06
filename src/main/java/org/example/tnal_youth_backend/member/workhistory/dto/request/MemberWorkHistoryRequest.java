@@ -10,7 +10,9 @@ import java.time.LocalDate;
 public record MemberWorkHistoryRequest(
 
         @JsonProperty("organization_name")
-        @NotBlank(message = "Organization name is required")
+        @NotBlank(
+                message = "Organization name is required"
+        )
         @Size(
                 max = 255,
                 message = "Organization name must not exceed 255 characters"
@@ -18,22 +20,27 @@ public record MemberWorkHistoryRequest(
         String organizationName,
 
         @JsonProperty("position_title")
-        @NotBlank(message = "Position title is required")
+        @NotBlank(
+                message = "Position title is required"
+        )
         @Size(
                 max = 255,
                 message = "Position title must not exceed 255 characters"
         )
         String positionTitle,
 
-        @JsonProperty("address")
+        @JsonProperty("role_title")
+        @Size(
+                max = 255,
+                message = "Role title must not exceed 255 characters"
+        )
+        String roleTitle,
+
         @Size(
                 max = 255,
                 message = "Address must not exceed 255 characters"
         )
         String address,
-
-        @JsonProperty("employment_sector_id")
-        Short employmentSectorId,
 
         @JsonProperty("start_date")
         LocalDate startDate,
@@ -48,6 +55,8 @@ public record MemberWorkHistoryRequest(
     public boolean isDateRangeValid() {
         return endDate == null
                 || startDate == null
-                || !endDate.isBefore(startDate);
+                || !endDate.isBefore(
+                startDate
+        );
     }
 }

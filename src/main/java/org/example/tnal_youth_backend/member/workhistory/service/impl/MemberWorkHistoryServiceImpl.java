@@ -65,11 +65,13 @@ public class MemberWorkHistoryServiceImpl
                                         "Position title"
                                 )
                         )
+                        .roleTitle(
+                                trimToNull(
+                                        request.roleTitle()
+                                )
+                        )
                         .address(
                                 trimToNull(request.address())
-                        )
-                        .employmentSectorId(
-                                request.employmentSectorId()
                         )
                         .startDate(request.startDate())
                         .endDate(request.endDate())
@@ -85,11 +87,7 @@ public class MemberWorkHistoryServiceImpl
         } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    """
-                    Work history could not be saved. Check that \
-                    employment_sector_id exists and the date range \
-                    is valid.
-                    """
+                    "Work history could not be saved. Check that the date range is valid."
             );
         }
     }
@@ -118,12 +116,14 @@ public class MemberWorkHistoryServiceImpl
                 )
         );
 
-        workHistory.setAddress(
-                trimToNull(request.address())
+        workHistory.setRoleTitle(
+                trimToNull(
+                        request.roleTitle()
+                )
         );
 
-        workHistory.setEmploymentSectorId(
-                request.employmentSectorId()
+        workHistory.setAddress(
+                trimToNull(request.address())
         );
 
         workHistory.setStartDate(
@@ -144,11 +144,7 @@ public class MemberWorkHistoryServiceImpl
         } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    """
-                    Work history could not be updated. Check that \
-                    employment_sector_id exists and the date range \
-                    is valid.
-                    """
+                    "Work history could not be updated. Check that the date range is valid."
             );
         }
     }
