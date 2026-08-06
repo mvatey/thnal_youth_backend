@@ -19,7 +19,7 @@ import java.util.List;
 @RequestMapping("/api/members/{memberId}/skills")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Skills",
+        name = "3.0.5.1 Member Page - Skills",
         description = "Manage skills for a selected member"
 )
 public class MemberSkillController {

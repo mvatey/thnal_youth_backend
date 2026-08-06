@@ -30,6 +30,7 @@ import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
 import org.example.tnal_youth_backend.member.member.repository.MemberDetailSummaryRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
@@ -99,6 +100,8 @@ public class MemberServiceImpl implements MemberService {
 
     private final ActivityRepository activityRepository;
 
+    private final MemberAccessValidator
+            memberAccessValidator;
     /*
      * ==========================================================
      * GET MEMBER SUMMARY
@@ -273,12 +276,11 @@ public class MemberServiceImpl implements MemberService {
     public MemberDetailResponse getMemberById(
             Long id
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(id);
+
         Member member =
                 findDetailedMember(id);
-
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
 
         return memberMapper.toDetailResponse(
                 member
@@ -886,22 +888,34 @@ public class MemberServiceImpl implements MemberService {
             Long memberId,
             MultipartFile file
     ) {
-        Member member =
-                findDetailedMember(memberId);
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
 
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
+        Member member =
+                findDetailedMember(
+                        memberId
+                );
 
         FileEntity uploadedFile =
-                fileService.uploadFileEntity(file);
+                fileService.uploadFileEntity(
+                        file
+                );
 
-        member.setProfilePhoto(uploadedFile);
+        member.setProfilePhoto(
+                uploadedFile
+        );
 
         Member savedMember =
-                memberRepository.saveAndFlush(member);
+                memberRepository
+                        .saveAndFlush(
+                                member
+                        );
 
-        return memberMapper.toDetailResponse(savedMember);
+        return memberMapper.toDetailResponse(
+                savedMember
+        );
     }
 
     /*

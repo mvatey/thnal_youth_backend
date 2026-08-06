@@ -1,5 +1,8 @@
 package org.example.tnal_youth_backend.member.member.repository;
 
+import org.example.tnal_youth_backend.authentication.model.entity.Role;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.data.domain.Page;
@@ -9,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -530,4 +534,142 @@ public interface MemberRepository
 
             Pageable pageable
     );
+
+    long countByBranchIdIn(
+            Iterable<Long> branchIds
+    );
+
+    long countByBranchId(
+            Long branchId
+    );
+
+
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role IN :roles
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchManagementMembers(
+            Long branchId,
+            Collection<UserRole> roles
+    );
+
+    @Query("""
+    SELECT CASE
+        WHEN COUNT(m) > 0
+            THEN true
+        ELSE false
+    END
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role = :role
+""")
+    boolean existsBranchMemberWithRole(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("role")
+            UserRole role
+    );
+
+    @Query("""
+    SELECT m
+    FROM Member m
+    LEFT JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND (
+          u.id IS NULL
+          OR u.role <> :excludedRole
+      )
+      AND (
+          :search = ''
+          OR LOWER(m.fullNameKm)
+                LIKE CONCAT('%', LOWER(:search), '%')
+          OR LOWER(COALESCE(m.fullNameEn, ''))
+                LIKE CONCAT('%', LOWER(:search), '%')
+          OR COALESCE(m.phone, '')
+                LIKE CONCAT('%', :search, '%')
+      )
+      AND (
+          :gender IS NULL
+          OR m.gender = :gender
+      )
+      AND (
+          :statusId IS NULL
+          OR m.status.id = :statusId
+      )
+    ORDER BY m.createdAt DESC
+""")
+    Page<Member> findBranchMembersExcludingRole(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("excludedRole")
+            UserRole excludedRole,
+
+            @Param("search")
+            String search,
+
+            @Param("gender")
+            Gender gender,
+
+            @Param("statusId")
+            Short statusId,
+
+            Pageable pageable
+    );
+
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE u.role = :role
+      AND (
+          :currentLeaderMemberId IS NULL
+          OR m.id <> :currentLeaderMemberId
+      )
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchLeaderCandidates(
+            @Param("role")
+            UserRole role,
+
+            @Param("currentLeaderMemberId")
+            Long currentLeaderMemberId
+    );
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role IN :eligibleRoles
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchLeaderCandidates(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("eligibleRoles")
+            Collection<UserRole> eligibleRoles
+    );
+
+
 }

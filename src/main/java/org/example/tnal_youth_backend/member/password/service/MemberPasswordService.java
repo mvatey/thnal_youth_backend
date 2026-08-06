@@ -31,4 +31,11 @@ public interface MemberPasswordService {
             Long memberId,
             UpdateMemberRoleRequest request
     );
+
+    MemberPasswordStatusResponse changeOwnPassword(
+            Long memberId,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    );
 }

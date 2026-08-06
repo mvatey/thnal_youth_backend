@@ -41,4 +41,35 @@ public interface LookupService {
 
     List<LookupOptionResponse<Short>>
     getEducationLevelOptions();
+
+    List<LookupOptionResponse<Short>>
+    getLanguageOptions();
+
+    List<LookupOptionResponse<Short>>
+    getSkillOptions();
+
+    List<LookupOptionResponse<Short>>
+    getProficiencyLevelOptions();
+
+    List<LookupOptionResponse<Short>>
+    getPoliticalPartyOptions();
+
+    List<ProvinceOptionResponse>
+    getProvinceOptions();
+
+    List<LocationOptionResponse>
+    getProvinces();
+
+    List<LocationOptionResponse>
+    getDistricts(
+            Short provinceId
+    );
+
+    List<LocationOptionResponse>
+    getCommunes(
+            Integer districtId
+    );
+
+    List<BranchStatusOptionResponse>
+    getBranchStatuses();
 }

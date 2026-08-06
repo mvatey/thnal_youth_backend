@@ -1,7 +1,10 @@
 package org.example.tnal_youth_backend.member.branch.mapper;
 
-import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
+import org.example.tnal_youth_backend.authentication.model.entity.Role;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.member.branch.dto.response.*;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,6 +33,105 @@ public class BranchMapper {
                 branch.getCreatedById(),
                 branch.getCreatedAt(),
                 branch.getUpdatedAt()
+        );
+    }
+
+    public BranchDetailResponse toDetailResponse(
+            Branch branch
+    ) {
+        if (branch == null) {
+            return null;
+        }
+
+        return new BranchDetailResponse(
+                branch.getId(),
+                branch.getBranchCode(),
+                branch.getNameKm(),
+                branch.getNameEn(),
+                branch.getBranchLevelId(),
+                branch.getParentBranchId(),
+                branch.getProvinceId(),
+                branch.getDistrictId(),
+                branch.getCommuneId(),
+                branch.getStatusId(),
+                branch.getAddress(),
+                branch.getGoogleMapUrl(),
+                branch.getPhone(),
+                branch.getEmail(),
+                branch.getCreatedAt(),
+                branch.getUpdatedAt()
+        );
+    }
+
+    public BranchLeaderResponse toBranchLeaderResponse(
+            Member member,
+            UserRole role
+    ) {
+        return new BranchLeaderResponse(
+                member.getId(),
+                member.getFullNameKm(),
+                member.getFullNameEn(),
+                member.getPhone(),
+                member.getEmail(),
+                member.getDateOfBirth(),
+                member.getJoinedOn(),
+                member.getGender(),
+                role
+        );
+    }
+
+    public BranchMemberTableItemResponse
+    toBranchMemberTableItemResponse(
+            Member member
+    ) {
+        if (member == null) {
+            return null;
+        }
+
+        return new BranchMemberTableItemResponse(
+                member.getId(),
+                member.getFullNameKm(),
+                member.getFullNameEn(),
+                member.getPhone(),
+                member.getEmail(),
+                member.getGender(),
+
+                member.getStatus() != null
+                        ? member.getStatus().getId()
+                        : null,
+
+                member.getLevel() != null
+                        ? member.getLevel().getId()
+                        : null,
+
+                member.getJoinedOn(),
+
+                member.getProfilePhoto() != null
+                        ? member.getProfilePhoto().getId()
+                        : null
+        );
+    }
+
+    public BranchLeaderCandidateResponse
+    toBranchLeaderCandidateResponse(
+            Member member,
+            UserRole role
+    ) {
+        if (member == null) {
+            return null;
+        }
+
+        return new BranchLeaderCandidateResponse(
+                member.getId(),
+                member.getFullNameKm(),
+                member.getFullNameEn(),
+                member.getPhone(),
+                member.getEmail(),
+                member.getGender(),
+                role,
+                member.getProfilePhoto() != null
+                        ? member.getProfilePhoto().getId()
+                        : null
         );
     }
 }

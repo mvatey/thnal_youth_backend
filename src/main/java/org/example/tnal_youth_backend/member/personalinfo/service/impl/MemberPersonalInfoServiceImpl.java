@@ -8,6 +8,8 @@ import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
@@ -19,10 +21,12 @@ import org.example.tnal_youth_backend.member.member.security.MemberAccessValidat
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
 import org.example.tnal_youth_backend.member.personalinfo.dto.request.UpdateMemberPersonalInfoRequest;
+import org.example.tnal_youth_backend.member.personalinfo.dto.response.MemberAssignedBranchResponse;
 import org.example.tnal_youth_backend.member.personalinfo.dto.response.MemberPersonalInfoResponse;
 import org.example.tnal_youth_backend.member.personalinfo.service.MemberPersonalInfoService;
 import org.example.tnal_youth_backend.member.religion.entity.Religion;
 import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
+import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +65,10 @@ public class MemberPersonalInfoServiceImpl
     private final BranchService branchService;
 
     private final FileService fileService;
+
+    private final BranchRepository branchRepository;
+
+    private final BranchStaffRepository branchStaffRepository;
 
     /*
      * ==========================================================
@@ -139,10 +149,24 @@ public class MemberPersonalInfoServiceImpl
                 request.memberLevelId()
         );
 
-        updateBranch(
-                member,
-                request.branchId()
-        );
+        boolean branchChanged =
+                member.getBranchId() == null
+                        || !member.getBranchId()
+                        .equals(
+                                request.branchId()
+                        );
+
+        if (branchChanged) {
+            memberAccessValidator
+                    .validateCanManageSensitiveFields(
+                            memberId
+                    );
+
+            updateBranch(
+                    member,
+                    request.branchId()
+            );
+        }
 
         Member savedMember =
                 memberRepository
@@ -546,6 +570,21 @@ public class MemberPersonalInfoServiceImpl
                         )
                         .orElse(null);
 
+        Branch primaryBranch =
+                member.getBranchId() == null
+                        ? null
+                        : branchRepository
+                        .findById(
+                                member.getBranchId()
+                        )
+                        .orElse(null);
+
+        List<MemberAssignedBranchResponse>
+                assignedBranches =
+                getAssignedBranches(
+                        member.getId()
+                );
+
         return new MemberPersonalInfoResponse(
                 member.getId(),
 
@@ -579,7 +618,11 @@ public class MemberPersonalInfoServiceImpl
 
                 member.getBranchId(),
 
-                null, // branchNameKm
+                primaryBranch != null
+                        ? primaryBranch.getNameKm()
+                        : null,
+
+                assignedBranches,
 
                 member.getTshirtSize(),
 
@@ -866,5 +909,177 @@ public class MemberPersonalInfoServiceImpl
                 .toLowerCase(
                         Locale.ROOT
                 );
+    }
+
+    @Override
+    @Transactional
+    public MemberPersonalInfoResponse updateMyPersonalInfo(
+            Long memberId,
+            UpdateMyPersonalInfoRequest request
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Personal information request is required"
+            );
+        }
+
+        Member member =
+                findMember(
+                        memberId
+                );
+
+        member.setFullNameKm(
+                normalizeRequiredText(
+                        request.fullNameKm(),
+                        "Khmer full name"
+                )
+        );
+
+        member.setFullNameEn(
+                normalizeText(
+                        request.fullNameEn()
+                )
+        );
+
+        member.setGender(
+                request.gender()
+        );
+
+        member.setDateOfBirth(
+                request.dateOfBirth()
+        );
+
+        member.setEmail(
+                normalizeEmail(
+                        request.email()
+                )
+        );
+
+        member.setPhone(
+                normalizeText(
+                        request.phone()
+                )
+        );
+
+        member.setCurrentAddress(
+                normalizeText(
+                        request.currentAddress()
+                )
+        );
+
+        member.setPermanentAddress(
+                normalizeText(
+                        request.permanentAddress()
+                )
+        );
+
+        member.setTshirtSize(
+                request.tshirtSize()
+        );
+
+        updateReligion(
+                member,
+                request.religionId()
+        );
+
+        updateEthnicity(
+                member,
+                request.ethnicityId()
+        );
+
+        updateNationality(
+                member,
+                request.nationalityId()
+        );
+
+        updateMemberLevel(
+                member,
+                request.memberLevelId()
+        );
+
+        Member savedMember =
+                memberRepository
+                        .saveAndFlush(
+                                member
+                        );
+
+        synchronizeLinkedAccount(
+                savedMember
+        );
+
+        return toResponse(
+                savedMember
+        );
+    }
+
+    private void synchronizeLinkedAccount(
+            Member member
+    ) {
+        userRepository
+                .findByMemberId(
+                        member.getId()
+                )
+                .ifPresent(user -> {
+                    user.setFullNameKm(
+                            member.getFullNameKm()
+                    );
+
+                    user.setFullNameEn(
+                            member.getFullNameEn()
+                    );
+
+                    user.setPhone(
+                            member.getPhone()
+                    );
+
+                    user.setEmail(
+                            member.getEmail()
+                    );
+
+                    /*
+                     * Keep these unchanged:
+                     *
+                     * user.role
+                     * user.status
+                     * user.memberId
+                     */
+                    userRepository.saveAndFlush(
+                            user
+                    );
+                });
+    }
+
+    private List<MemberAssignedBranchResponse>
+    getAssignedBranches(
+            Long memberId
+    ) {
+        Set<Long> branchIds =
+                branchStaffRepository
+                        .findActiveBranchIdsByMemberId(
+                                memberId
+                        );
+
+        if (branchIds == null
+                || branchIds.isEmpty()) {
+            return List.of();
+        }
+
+        return branchRepository
+                .findAllById(branchIds)
+                .stream()
+                .map(branch ->
+                        new MemberAssignedBranchResponse(
+                                branch.getId(),
+                                branch.getNameKm(),
+                                branch.getNameEn()
+                        )
+                )
+                .toList();
     }
 }

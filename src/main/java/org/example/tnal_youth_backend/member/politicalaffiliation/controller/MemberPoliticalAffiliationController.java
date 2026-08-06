@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.member.politicalaffiliation.dto.response.M
 import org.example.tnal_youth_backend.member.politicalaffiliation.service.MemberPoliticalAffiliationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,7 +19,9 @@ import java.util.List;
 )
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Political-affiliations"
+        name = "3.0.6 Member Page - Political Affiliations",
+        description =
+                "Manage political affiliations for a selected member"
 )
 public class MemberPoliticalAffiliationController {
 
@@ -26,9 +29,18 @@ public class MemberPoliticalAffiliationController {
             affiliationService;
 
     @GetMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER',
+                'MEMBER'
+            )
+            """)
     public ResponseEntity<
             List<MemberPoliticalAffiliationResponse>
-            > getByMemberId(
+            >
+    getByMemberId(
             @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
@@ -39,9 +51,18 @@ public class MemberPoliticalAffiliationController {
     }
 
     @GetMapping("/{affiliationId}")
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER',
+                'MEMBER'
+            )
+            """)
     public ResponseEntity<
             MemberPoliticalAffiliationResponse
-            > getById(
+            >
+    getById(
             @PathVariable Long memberId,
             @PathVariable Long affiliationId
     ) {
@@ -54,9 +75,16 @@ public class MemberPoliticalAffiliationController {
     }
 
     @PostMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
     public ResponseEntity<
             MemberPoliticalAffiliationResponse
-            > create(
+            >
+    create(
             @PathVariable Long memberId,
 
             @Valid
@@ -74,9 +102,16 @@ public class MemberPoliticalAffiliationController {
     }
 
     @PutMapping("/{affiliationId}")
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
     public ResponseEntity<
             MemberPoliticalAffiliationResponse
-            > update(
+            >
+    update(
             @PathVariable Long memberId,
             @PathVariable Long affiliationId,
 
@@ -94,7 +129,14 @@ public class MemberPoliticalAffiliationController {
     }
 
     @DeleteMapping("/{affiliationId}")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<Void>
+    delete(
             @PathVariable Long memberId,
             @PathVariable Long affiliationId
     ) {
@@ -103,6 +145,8 @@ public class MemberPoliticalAffiliationController {
                 affiliationId
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }

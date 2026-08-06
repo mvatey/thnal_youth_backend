@@ -19,7 +19,7 @@ import java.util.List;
 @RequestMapping("/api/members/{memberId}/languages")
 @RequiredArgsConstructor
 @Tag(
-        name = "3.0.5 Member Page - Languages",
+        name = "3.0.5.1 Member Page - Languages",
         description = "Manage languages for a selected member"
 )
 public class MemberLanguageController {

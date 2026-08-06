@@ -67,9 +67,6 @@ public record CreateBranchRequest(
 
         @JsonProperty("email")
         @Email(message = "Email format is invalid")
-        String email,
-
-        @JsonProperty("created_by")
-        Long createdById
+        String email
 ) {
 }

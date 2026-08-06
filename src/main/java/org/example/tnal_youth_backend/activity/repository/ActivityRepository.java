@@ -16,6 +16,6 @@ public interface ActivityRepository
             OffsetDateTime currentTime
     );
 
-
+    long countByBranchId(Long branchId);
 
 }

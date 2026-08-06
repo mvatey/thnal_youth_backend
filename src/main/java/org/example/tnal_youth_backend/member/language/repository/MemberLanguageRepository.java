@@ -34,4 +34,5 @@ public interface MemberLanguageRepository
             String languageName,
             Long languageId
     );
+
 }

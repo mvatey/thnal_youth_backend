@@ -11,6 +11,10 @@ public class MemberPoliticalAffiliationMapper {
     public MemberPoliticalAffiliationResponse toResponse(
             MemberPoliticalAffiliation affiliation
     ) {
+        if (affiliation == null) {
+            return null;
+        }
+
         return new MemberPoliticalAffiliationResponse(
                 affiliation.getId(),
 
@@ -18,11 +22,15 @@ public class MemberPoliticalAffiliationMapper {
                         ? null
                         : affiliation.getMember().getId(),
 
-                affiliation.getAffiliationName(),
-                affiliation.getPositionTitle(),
+                affiliation.getPartyId(),
+                affiliation.getCountry(),
                 affiliation.getLocation(),
+                affiliation.getPositionTitle(),
+                affiliation.getCardNo(),
                 affiliation.getStartDate(),
                 affiliation.getEndDate(),
+                affiliation.getIsCurrent(),
+                affiliation.getNote(),
                 affiliation.getCreatedAt(),
                 affiliation.getUpdatedAt()
         );
@@ -32,16 +40,32 @@ public class MemberPoliticalAffiliationMapper {
             MemberPoliticalAffiliation affiliation,
             MemberPoliticalAffiliationRequest request
     ) {
-        affiliation.setAffiliationName(
-                normalizeRequired(request.affiliationName())
+        affiliation.setPartyId(
+                request.partyId()
         );
 
-        affiliation.setPositionTitle(
-                normalizeOptional(request.positionTitle())
+        affiliation.setCountry(
+                trimToNull(
+                        request.country()
+                )
         );
 
         affiliation.setLocation(
-                normalizeOptional(request.location())
+                trimToNull(
+                        request.location()
+                )
+        );
+
+        affiliation.setPositionTitle(
+                trimToNull(
+                        request.positionTitle()
+                )
+        );
+
+        affiliation.setCardNo(
+                trimToNull(
+                        request.cardNo()
+                )
         );
 
         affiliation.setStartDate(
@@ -50,6 +74,18 @@ public class MemberPoliticalAffiliationMapper {
 
         affiliation.setEndDate(
                 request.endDate()
+        );
+
+        affiliation.setIsCurrent(
+                Boolean.TRUE.equals(
+                        request.isCurrent()
+                )
+        );
+
+        affiliation.setNote(
+                trimToNull(
+                        request.note()
+                )
         );
     }
 
@@ -63,15 +99,19 @@ public class MemberPoliticalAffiliationMapper {
         return value.trim();
     }
 
-    private String normalizeOptional(String value) {
+
+    private String trimToNull(
+            String value
+    ) {
         if (value == null) {
             return null;
         }
 
-        String normalized = value.trim();
+        String trimmed =
+                value.trim();
 
-        return normalized.isEmpty()
+        return trimmed.isEmpty()
                 ? null
-                : normalized;
+                : trimmed;
     }
 }

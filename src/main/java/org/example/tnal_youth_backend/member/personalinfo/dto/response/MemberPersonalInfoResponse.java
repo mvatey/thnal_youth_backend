@@ -7,6 +7,7 @@ import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public record MemberPersonalInfoResponse(
 
@@ -44,6 +45,9 @@ public record MemberPersonalInfoResponse(
 
         @JsonProperty("branch_name_km")
         String branchNameKm,
+
+        @JsonProperty("assigned_branches")
+        List<MemberAssignedBranchResponse> assignedBranches,
 
         @JsonProperty("tshirt_size")
         TshirtSize tshirtSize,

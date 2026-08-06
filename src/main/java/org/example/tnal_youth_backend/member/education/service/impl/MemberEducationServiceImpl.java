@@ -57,7 +57,10 @@ public class MemberEducationServiceImpl
     public List<MemberEducationResponse> getByMemberId(
             Long memberId
     ) {
-        verifyMemberExists(memberId);
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
 
         return educationRepository
                 .findAllByMemberIdOrderByStartDateDescIdDesc(
@@ -74,7 +77,20 @@ public class MemberEducationServiceImpl
             Long memberId,
             MemberEducationRequest request
     ) {
-        Member member = findMember(memberId);
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Education request is required"
+            );
+        }
+
+        Member member =
+                findMember(memberId);
 
         MemberEducation education =
                 MemberEducation.builder()
@@ -89,7 +105,9 @@ public class MemberEducationServiceImpl
                                 request.educationLevelId()
                         )
                         .fieldOfStudy(
-                                trimToNull(request.fieldOfStudy())
+                                trimToNull(
+                                        request.fieldOfStudy()
+                                )
                         )
                         .countryName(
                                 normalizeRequired(
@@ -107,19 +125,30 @@ public class MemberEducationServiceImpl
                                         request.certificateFileId()
                                 )
                         )
-                        .startDate(request.startDate())
-                        .endDate(request.endDate())
+                        .startDate(
+                                request.startDate()
+                        )
+                        .endDate(
+                                request.endDate()
+                        )
                         .build();
 
         try {
             MemberEducation saved =
                     educationRepository
-                            .saveAndFlush(education);
+                            .saveAndFlush(
+                                    education
+                            );
 
-            return educationMapper.toResponse(saved);
+            return educationMapper.toResponse(
+                    saved
+            );
 
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException();
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw databaseConstraintException(exception
+            );
         }
     }
 
@@ -130,8 +159,23 @@ public class MemberEducationServiceImpl
             Long educationId,
             MemberEducationRequest request
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Education request is required"
+            );
+        }
+
         MemberEducation education =
-                findEducation(memberId, educationId);
+                findEducation(
+                        memberId,
+                        educationId
+                );
 
         education.setSchoolName(
                 normalizeRequired(
@@ -145,7 +189,9 @@ public class MemberEducationServiceImpl
         );
 
         education.setFieldOfStudy(
-                trimToNull(request.fieldOfStudy())
+                trimToNull(
+                        request.fieldOfStudy()
+                )
         );
 
         education.setCountryName(
@@ -162,7 +208,9 @@ public class MemberEducationServiceImpl
         );
 
         education.setCertificateFile(
-                findFile(request.certificateFileId())
+                findFile(
+                        request.certificateFileId()
+                )
         );
 
         education.setStartDate(
@@ -176,12 +224,19 @@ public class MemberEducationServiceImpl
         try {
             MemberEducation updated =
                     educationRepository
-                            .saveAndFlush(education);
+                            .saveAndFlush(
+                                    education
+                            );
 
-            return educationMapper.toResponse(updated);
+            return educationMapper.toResponse(
+                    updated
+            );
 
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException();
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw databaseConstraintException(exception
+            );
         }
     }
 
@@ -191,10 +246,20 @@ public class MemberEducationServiceImpl
             Long memberId,
             Long educationId
     ) {
-        MemberEducation education =
-                findEducation(memberId, educationId);
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
 
-        educationRepository.delete(education);
+        MemberEducation education =
+                findEducation(
+                        memberId,
+                        educationId
+                );
+
+        educationRepository.delete(
+                education
+        );
     }
 
     private Member findMember(Long memberId) {
@@ -213,10 +278,6 @@ public class MemberEducationServiceImpl
                                         + memberId
                         )
                 );
-    }
-
-    private void verifyMemberExists(Long memberId) {
-        findMember(memberId);
     }
 
     private MemberEducation findEducation(
@@ -261,16 +322,6 @@ public class MemberEducationServiceImpl
                 );
     }
 
-    private String normalizeCountryCode(
-            String countryCode
-    ) {
-        String value = trimToNull(countryCode);
-
-        return value == null
-                ? null
-                : value.toUpperCase(Locale.ROOT);
-    }
-
     private String normalizeRequired(
             String value,
             String fieldName
@@ -298,14 +349,17 @@ public class MemberEducationServiceImpl
     }
 
     private ResponseStatusException
-    databaseConstraintException() {
+    databaseConstraintException(
+            DataIntegrityViolationException cause
+    ) {
         return new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
                 """
                 Education record could not be saved. Check that \
-                education_level_id, province_id, and \
-                certificate_file_id reference existing records.
-                """
+                education_level_id and certificate_file_id reference \
+                existing records and that the date range is valid.
+                """,
+                cause
         );
     }
 
@@ -422,5 +476,6 @@ public class MemberEducationServiceImpl
                         Locale.ROOT
                 );
     }
+
 
 }

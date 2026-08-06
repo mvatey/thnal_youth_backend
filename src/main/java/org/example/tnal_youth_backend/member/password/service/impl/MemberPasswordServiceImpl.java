@@ -270,6 +270,11 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
         requireMember(
                 memberId
         );
@@ -348,6 +353,11 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
         requireMember(
                 memberId
         );
@@ -416,6 +426,11 @@ public class MemberPasswordServiceImpl
     ) {
         memberAccessValidator
                 .validateAccessibleMember(
+                        memberId
+                );
+
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
                         memberId
                 );
 
@@ -931,5 +946,152 @@ public class MemberPasswordServiceImpl
                 .toLowerCase(
                         Locale.ROOT
                 );
+    }
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse changeOwnPassword(
+            Long memberId,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    ) {
+        /*
+         * This confirms that MEMBER may only access
+         * their own linked member record.
+         */
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        User user =
+                requireUserAccount(
+                        memberId
+                );
+
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The account must complete activation before changing its password"
+            );
+        }
+
+        if (
+                user.getStatus()
+                        != UserStatus.ACTIVE
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only an active account can change its password"
+            );
+        }
+
+        if (
+                oldPassword == null
+                        || oldPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is required"
+            );
+        }
+
+        if (
+                !passwordEncoder.matches(
+                        oldPassword,
+                        user.getPasswordHash()
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is incorrect"
+            );
+        }
+
+        if (
+                newPassword == null
+                        || newPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+
+        if (newPassword.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must contain at least 6 characters"
+            );
+        }
+
+        if (
+                confirmPassword == null
+                        || confirmPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation is required"
+            );
+        }
+
+        if (
+                !newPassword.equals(
+                        confirmPassword
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation does not match"
+            );
+        }
+
+        /*
+         * Prevent reusing the current password.
+         */
+        if (
+                passwordEncoder.matches(
+                        newPassword,
+                        user.getPasswordHash()
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must be different from the old password"
+            );
+        }
+
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        newPassword
+                )
+        );
+
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        User savedUser =
+                userRepository.saveAndFlush(
+                        user
+                );
+
+        /*
+         * Log out existing sessions after password change.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
+        );
     }
 }
