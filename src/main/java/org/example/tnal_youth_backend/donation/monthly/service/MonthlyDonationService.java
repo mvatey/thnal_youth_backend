@@ -1,7 +1,10 @@
 package org.example.tnal_youth_backend.donation.monthly.service;
 
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
-import org.example.tnal_youth_backend.donation.monthly.dto.response.*;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationPageResponse;
 
 import java.time.LocalDate;
 
@@ -35,13 +38,4 @@ public interface MonthlyDonationService {
     );
 
     void deleteMonthlyDonation(Long donationId);
-
-    MemberMonthlyDonationPageResponse
-    listMemberMonthlyDonations(
-            Long memberId,
-            String search,
-            Short paymentMethodId,
-            int page,
-            int size
-    );
 }

@@ -7,6 +7,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.response.*;
@@ -1332,17 +1333,33 @@ public class BranchServiceImpl implements BranchService {
                                 )
                         );
 
-        Member member =
+        Member selectedMember =
                 memberRepository
                         .findById(memberId)
                         .orElseThrow(() ->
                                 new ResponseStatusException(
                                         HttpStatus.NOT_FOUND,
-                                        "Member not found"
+                                        "Selected member was not found"
                                 )
                         );
 
-        User user =
+        /*
+         * The selected candidate must belong
+         * to the branch being edited.
+         */
+        if (
+                selectedMember.getBranchId() == null
+                        || !selectedMember
+                        .getBranchId()
+                        .equals(branch.getId())
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Selected member does not belong to this branch"
+            );
+        }
+
+        User selectedUser =
                 userRepository
                         .findByMemberId(memberId)
                         .orElseThrow(() ->
@@ -1352,33 +1369,94 @@ public class BranchServiceImpl implements BranchService {
                                 )
                         );
 
-        if (user.getRole() != UserRole.BRANCH_LEADER) {
+        UserRole selectedCurrentRole =
+                selectedUser.getRole();
+
+        /*
+         * A member or secretary can be promoted.
+         * Selecting the current leader can be treated
+         * as a no-op.
+         */
+        if (
+                selectedCurrentRole != UserRole.MEMBER
+                        && selectedCurrentRole != UserRole.SECRETARY
+                        && selectedCurrentRole != UserRole.BRANCH_LEADER
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Selected account is not a branch leader"
+                    "Only a member or secretary can become branch leader"
             );
         }
 
-        boolean branchAlreadyHasLeader =
+        List<BranchManagementProjection> managementMembers =
                 memberRepository
-                        .existsBranchMemberWithRole(
+                        .findBranchManagementMembers(
                                 branchId,
-                                UserRole.BRANCH_LEADER
+                                List.of(
+                                        UserRole.BRANCH_LEADER
+                                )
                         );
 
-        if (branchAlreadyHasLeader) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This branch already has a branch leader"
+        User currentLeaderUser = null;
+
+        for (
+                BranchManagementProjection projection
+                : managementMembers
+        ) {
+            Member currentLeaderMember =
+                    projection.getMember();
+
+            /*
+             * The selected member is already the leader.
+             */
+            if (
+                    currentLeaderMember
+                            .getId()
+                            .equals(memberId)
+            ) {
+                return;
+            }
+
+            currentLeaderUser =
+                    userRepository
+                            .findByMemberId(
+                                    currentLeaderMember.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.CONFLICT,
+                                            "Current branch leader does not have a user account"
+                                    )
+                            );
+
+            break;
+        }
+
+        /*
+         * Demote the existing branch leader.
+         */
+        if (currentLeaderUser != null) {
+            currentLeaderUser.setRole(
+                    UserRole.MEMBER
+            );
+
+            userRepository.save(
+                    currentLeaderUser
             );
         }
 
-        member.setBranchId(
-                branch.getId()
+        /*
+         * Promote the selected candidate.
+         */
+        selectedUser.setRole(
+                UserRole.BRANCH_LEADER
         );
 
-        memberRepository.save(member);
+        userRepository.save(
+                selectedUser
+        );
     }
+
     @Override
     @Transactional(readOnly = true)
     public List<BranchLeaderCandidateResponse>
