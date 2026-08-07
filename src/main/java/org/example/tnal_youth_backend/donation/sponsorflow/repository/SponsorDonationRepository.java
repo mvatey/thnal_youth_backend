@@ -573,7 +573,7 @@ public interface SponsorDonationRepository {
 
         WHERE s.is_active = TRUE
           AND (
-              #{search} IS NULL
+              CAST(#{search} AS TEXT) IS NULL
               OR s.name ILIKE ('%' || #{search} || '%')
               OR COALESCE(
                   s.phone,
@@ -610,7 +610,7 @@ public interface SponsorDonationRepository {
          AND ms.code = 'ACTIVE'
         WHERE m.branch_id = #{branchId}
           AND (
-              #{search} IS NULL
+              CAST(#{search} AS TEXT) IS NULL
               OR m.full_name_km ILIKE ('%' || #{search} || '%')
               OR COALESCE(m.full_name_en, '') ILIKE ('%' || #{search} || '%')
               OR m.member_no ILIKE ('%' || #{search} || '%')
