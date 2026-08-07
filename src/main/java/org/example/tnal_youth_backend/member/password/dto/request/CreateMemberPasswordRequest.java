@@ -2,16 +2,15 @@ package org.example.tnal_youth_backend.member.password.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 public record CreateMemberPasswordRequest(
 
         @JsonProperty("new_password")
         @NotBlank(message = "New password is required")
-        @Size(
-                min = 8,
-                max = 100,
-                message = "Password must be between 8 and 100 characters"
+        @Pattern(
+                regexp = "\\d{6}",
+                message = "Password must contain exactly 6 digits"
         )
         String newPassword,
 

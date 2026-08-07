@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.account.user.dto.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
@@ -23,10 +24,9 @@ public record CreateUserRequest(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(
-                min = 8,
-                max = 100,
-                message = "Password must contain between 8 and 100 characters"
+        @Pattern(
+                regexp = "\\d{6}",
+                message = "Password must contain exactly 6 digits"
         )
         String password,
 

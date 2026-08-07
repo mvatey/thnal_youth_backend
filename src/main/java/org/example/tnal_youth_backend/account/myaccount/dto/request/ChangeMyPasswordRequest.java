@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.account.myaccount.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 public record ChangeMyPasswordRequest(
 
@@ -9,11 +9,9 @@ public record ChangeMyPasswordRequest(
         String currentPassword,
 
         @NotBlank(message = "New password is required")
-        @Size(
-                min = 8,
-                max = 100,
-                message =
-                        "New password must contain between 8 and 100 characters"
+        @Pattern(
+                regexp = "\\d{6}",
+                message = "New password must contain exactly 6 digits"
         )
         String newPassword,
 
