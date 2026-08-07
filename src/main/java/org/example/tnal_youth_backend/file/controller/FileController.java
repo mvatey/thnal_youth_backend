@@ -49,6 +49,17 @@ public class FileController {
                 .body(fileService.getFileById(saved.getId()));
     }
 
+    @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
+    public ResponseEntity<FileResponse> uploadAttachment(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        FileEntity saved = fileService.uploadAttachment(file, currentUserId(authentication));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(fileService.getFileById(saved.getId()));
+    }
+
     @GetMapping
     public ResponseEntity<List<FileResponse>> getAllFiles() {
 
