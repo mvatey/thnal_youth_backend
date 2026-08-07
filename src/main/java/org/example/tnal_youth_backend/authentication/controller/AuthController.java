@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.authentication.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.request.ForgotPasswordRequest;
 import org.example.tnal_youth_backend.authentication.model.request.LoginRequest;
@@ -57,7 +58,7 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(
-            @RequestBody ResetPasswordRequest request
+            @Valid @RequestBody ResetPasswordRequest request
     ){
 
         return ResponseEntity.ok(

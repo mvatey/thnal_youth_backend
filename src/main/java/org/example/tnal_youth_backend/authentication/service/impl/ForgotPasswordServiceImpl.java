@@ -290,6 +290,13 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
                     "New password is required"
             );
         }
+
+        if (!request.getNewPassword().matches("\\d{6}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must contain exactly 6 digits"
+            );
+        }
     }
 
     // =========================================================
