@@ -548,12 +548,23 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
 
         validateMaterialFields(request);
 
-        /* Money remains required as before. Material is additional information. */
-        if (zero(request.getAmountKhr()).signum() <= 0
+        boolean materialPayment = "MATERIAL".equals(
+                paymentCode(request.getPaymentMethodId())
+        );
+
+        if (materialPayment && !hasAnyMaterialField(request)) {
+            throw new BusinessException(
+                    "MATERIAL_DETAILS_REQUIRED",
+                    "Material category, quantity, and unit are required for material donations"
+            );
+        }
+
+        if (!materialPayment
+                && zero(request.getAmountKhr()).signum() <= 0
                 && zero(request.getAmountUsd()).signum() <= 0) {
             throw new BusinessException(
                     "DONATION_AMOUNT_REQUIRED",
-                    "At least one of amountKhr or amountUsd must be greater than zero"
+                    "Money donations require amountKhr or amountUsd greater than zero"
             );
         }
     }

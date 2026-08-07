@@ -124,30 +124,13 @@ public class MemberPersonalInfoServiceImpl
                         memberId
                 );
 
-        updateBasicInformation(
-                member,
-                request
-        );
-
-        updateReligion(
-                member,
-                request.religionId()
-        );
-
-        updateEthnicity(
-                member,
-                request.ethnicityId()
-        );
-
-        updateNationality(
-                member,
-                request.nationalityId()
-        );
-
-        updateMemberLevel(
-                member,
-                request.memberLevelId()
-        );
+        if (!memberAccessValidator.isCurrentUserAdmin()) {
+            updateBasicInformation(member, request);
+            updateReligion(member, request.religionId());
+            updateEthnicity(member, request.ethnicityId());
+            updateNationality(member, request.nationalityId());
+            updateMemberLevel(member, request.memberLevelId());
+        }
 
         boolean branchChanged =
                 member.getBranchId() == null

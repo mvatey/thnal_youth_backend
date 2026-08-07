@@ -341,4 +341,8 @@ public class MemberAccessValidator {
                 "You are not allowed to change this member's branch, role, or account status"
         );
     }
+
+    public boolean isCurrentUserAdmin() {
+        return getCurrentUser().getRole() == UserRole.ADMIN;
+    }
 }
