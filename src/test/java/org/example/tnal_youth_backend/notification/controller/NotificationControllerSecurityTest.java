@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Authorization-contract test for the notification endpoints.
- *
+ *proficiency_levels
  * <p>Whereas {@link NotificationControllerTest} uses a permit-all chain (so it can
  * focus on JSON/validation), this test mounts a chain that mirrors the RELEVANT
  * production rule from {@code SecurityConfig}: everything under {@code /api/**}

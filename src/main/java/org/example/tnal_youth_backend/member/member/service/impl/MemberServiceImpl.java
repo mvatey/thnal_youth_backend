@@ -353,6 +353,12 @@ public class MemberServiceImpl implements MemberService {
                         .joinedOn(
                                 request.joinedOn()
                         )
+                        .profilePhoto(
+                                findFile(
+                                        request.profilePhotoId(),
+                                        "Profile photo"
+                                )
+                        )
                         .createdById(
                                 currentUser.getId()
                         )

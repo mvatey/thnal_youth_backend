@@ -37,6 +37,9 @@ public record CreateMemberRequest(
         LocalDate joinedOn,
 
         @JsonProperty("status_id")
-        Short statusId
+        Short statusId,
+
+        @JsonProperty("profile_photo_id")
+        Long profilePhotoId
 ) {
 }

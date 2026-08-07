@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.multipart.MultipartFile;
+import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
+import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 
 import java.util.List;
@@ -32,6 +37,17 @@ import java.util.List;
 public class FileController {
 
     private final FileService fileService;
+
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
+    public ResponseEntity<FileResponse> uploadImage(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        FileEntity saved = fileService.uploadImage(file, currentUserId(authentication));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(fileService.getFileById(saved.getId()));
+    }
 
     @GetMapping
     public ResponseEntity<List<FileResponse>> getAllFiles() {
@@ -142,5 +158,14 @@ public class FileController {
                         disposition.toString()
                 )
                 .body(resource);
+    }
+
+    private Long currentUserId(Authentication authentication) {
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CustomUserDetails details) {
+            return details.getUserId();
+        }
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
     }
 }

@@ -31,6 +31,7 @@ modules under `org.example.tnal_youth_backend`:
 |---|---|
 | notification | **Done** — reference implementation. Copy its patterns. |
 | donation | **Done, shippable** (2026-07-27). Service implemented; controller/DTOs/repo/migrations pre-existed. Full suite green under Docker Postgres — 98/98 incl. contextLoads (Flyway V1..V23 applied cleanly). |
+| authentication | Production hardening added in V309: the designated admin must reactivate by email OTP, all accounts using the compromised demo password are disabled, and their refresh tokens are revoked. |
 | others | Pre-existing, out of current scope. |
 
 The donation `DonationService` was previously an **empty stub** while the

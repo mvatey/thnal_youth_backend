@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequ
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchLeaderResponse;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.mapper.BranchMapper;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
@@ -214,7 +215,7 @@ public class BranchServiceImpl implements BranchService {
                 .googleMapUrl(trimToNull(request.googleMapUrl()))
                 .phone(trimToNull(request.phone()))
                 .email(normalizeEmail(request.email()))
-                .createdById(request.createdById())
+                .createdById(requireCurrentUserId())
                 .build();
 
         try {
@@ -475,6 +476,47 @@ public class BranchServiceImpl implements BranchService {
                 """
         );
 
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BranchLeaderResponse getLeader(Long branchId) {
+        findBranchById(branchId);
+        return branchStaffRepository.findActiveLeader(branchId).orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public BranchLeaderResponse assignLeader(Long branchId, Long memberId) {
+        findBranchById(branchId);
+        if (!branchStaffRepository.isActiveMemberOfBranch(branchId, memberId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The branch leader must be an active member of this branch");
+        }
+        branchStaffRepository.assignLeader(branchId, memberId, requireCurrentUserId());
+        return branchStaffRepository.findActiveLeader(branchId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Branch leader assignment could not be loaded"));
+    }
+
+    @Override
+    @Transactional
+    public void removeLeader(Long branchId) {
+        findBranchById(branchId);
+        branchStaffRepository.removeLeader(branchId);
+    }
+
+    private Long requireCurrentUserId() {
+        User currentUser = SecurityUtil.getCurrentUser();
+
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return currentUser.getId();
     }
 
 }

@@ -23,4 +23,28 @@ public interface LookupService {
 
     List<RoleOptionResponse>
     getUserRoleOptions();
+
+    List<LookupOptionResponse<Short>> getBranchLevelOptions();
+
+    List<LookupOptionResponse<Short>> getBranchStatusOptions();
+
+    List<LookupOptionResponse<Short>> getProvinceOptions();
+
+    List<LookupOptionResponse<Integer>> getDistrictOptions(Short provinceId);
+
+    List<LookupOptionResponse<Integer>> getCommuneOptions(Integer districtId);
+
+    List<LookupOptionResponse<Short>> getEducationLevelOptions();
+
+    List<LookupOptionResponse<Short>> getEmploymentSectorOptions();
+
+    List<LookupOptionResponse<Short>> getProficiencyLevelOptions();
+
+    List<LookupOptionResponse<String>> getCountryOptions();
+
+    List<LookupOptionResponse<Short>> getActivityTypeOptions();
+
+    List<LookupOptionResponse<Short>> getActivitySectorOptions();
+
+    List<LookupOptionResponse<Short>> getActivityStatusOptions();
 }

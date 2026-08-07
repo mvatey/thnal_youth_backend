@@ -8,12 +8,108 @@ import org.springframework.stereotype.Repository;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDate;
+import java.util.Optional;
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchLeaderResponse;
 
 @Repository
 @RequiredArgsConstructor
 public class BranchStaffRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+
+    public Optional<BranchLeaderResponse> findActiveLeader(Long branchId) {
+        String sql = """
+                SELECT m.id, m.full_name_km, m.full_name_en, m.gender,
+                       ms.code AS status, m.phone, m.email, m.date_of_birth,
+                       m.joined_on, f.id AS profile_photo_id, f.file_path AS profile_image
+                FROM branch_staff bs
+                JOIN positions p ON p.id = bs.position_id AND p.code = 'BRANCH_LEADER'
+                JOIN members m ON m.id = bs.member_id
+                JOIN member_statuses ms ON ms.id = m.status_id
+                LEFT JOIN files f ON f.id = m.profile_photo_id
+                WHERE bs.branch_id = :branchId
+                  AND bs.ended_on IS NULL
+                  AND bs.is_primary = TRUE
+                ORDER BY bs.started_on DESC, bs.id DESC
+                LIMIT 1
+                """;
+        List<BranchLeaderResponse> rows = jdbcTemplate.query(
+                sql,
+                new MapSqlParameterSource("branchId", branchId),
+                (rs, rowNum) -> new BranchLeaderResponse(
+                        rs.getLong("id"), rs.getString("full_name_km"),
+                        rs.getString("full_name_en"), rs.getString("gender"),
+                        rs.getString("status"), rs.getString("phone"),
+                        rs.getString("email"), rs.getObject("date_of_birth", LocalDate.class),
+                        rs.getObject("joined_on", LocalDate.class),
+                        rs.getObject("profile_photo_id", Long.class), rs.getString("profile_image"),
+                        "ប្រធានសាខា"
+                )
+        );
+        return rows.stream().findFirst();
+    }
+
+    public boolean isActiveMemberOfBranch(Long branchId, Long memberId) {
+        String sql = """
+                SELECT EXISTS (
+                    SELECT 1 FROM members m
+                    JOIN member_statuses ms ON ms.id = m.status_id
+                    WHERE m.id = :memberId AND m.branch_id = :branchId AND ms.code = 'ACTIVE'
+                )
+                """;
+        Boolean result = jdbcTemplate.queryForObject(sql,
+                new MapSqlParameterSource().addValue("branchId", branchId).addValue("memberId", memberId),
+                Boolean.class);
+        return Boolean.TRUE.equals(result);
+    }
+
+    public void assignLeader(Long branchId, Long memberId, Long appointedBy) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("branchId", branchId).addValue("memberId", memberId)
+                .addValue("appointedBy", appointedBy);
+        jdbcTemplate.update("""
+                UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
+                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
+                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                  AND member_id <> :memberId
+                """, params);
+        int updated = jdbcTemplate.update("""
+                UPDATE branch_staff SET is_primary = TRUE, appointed_by = :appointedBy, updated_at = NOW()
+                WHERE branch_id = :branchId AND member_id = :memberId AND ended_on IS NULL
+                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                """, params);
+        if (updated == 0) {
+            jdbcTemplate.update("""
+                    INSERT INTO branch_staff(branch_id, member_id, position_id, started_on, is_primary, appointed_by)
+                    VALUES (:branchId, :memberId,
+                            (SELECT id FROM positions WHERE code = 'BRANCH_LEADER'),
+                            CURRENT_DATE, TRUE, :appointedBy)
+                    """, params);
+        }
+        jdbcTemplate.update("""
+                UPDATE users SET role = 'BRANCH_LEADER', updated_at = NOW()
+                WHERE member_id = :memberId AND role <> 'ADMIN'
+                """, params);
+    }
+
+    public void removeLeader(Long branchId) {
+        MapSqlParameterSource params = new MapSqlParameterSource("branchId", branchId);
+        jdbcTemplate.update("""
+                UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
+                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
+                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                """, params);
+        jdbcTemplate.update("""
+                UPDATE users u SET role = 'MEMBER', updated_at = NOW()
+                WHERE u.role = 'BRANCH_LEADER'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM branch_staff bs JOIN positions p ON p.id = bs.position_id
+                    WHERE bs.member_id = u.member_id AND p.code = 'BRANCH_LEADER'
+                      AND bs.ended_on IS NULL AND bs.is_primary = TRUE
+                  )
+                """, params);
+    }
 
     /**
      * Returns all active branch assignments for one member.
