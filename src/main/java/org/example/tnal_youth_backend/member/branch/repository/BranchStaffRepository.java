@@ -44,7 +44,7 @@ public class BranchStaffRepository {
                         rs.getString("email"), rs.getObject("date_of_birth", LocalDate.class),
                         rs.getObject("joined_on", LocalDate.class),
                         rs.getObject("profile_photo_id", Long.class), rs.getString("profile_image"),
-                        "ប្រធានសាខា"
+                        "BRANCH_LEADER"
                 )
         );
         return rows.stream().findFirst();
