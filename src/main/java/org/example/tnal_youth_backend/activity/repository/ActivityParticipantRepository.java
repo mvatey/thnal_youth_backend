@@ -36,8 +36,12 @@ public interface ActivityParticipantRepository
     );
 
     /*
-     * Member participation table with pagination,
-     * search, and activity-type filtering.
+     * Member participation table with:
+     *
+     * - pagination
+     * - search
+     * - activity type filter
+     * - attendance status filter
      */
     @EntityGraph(
             attributePaths = {
@@ -60,33 +64,53 @@ public interface ActivityParticipantRepository
               AND (
                     :search IS NULL
                     OR :search = ''
-                    OR LOWER(activity.titleKm)
-                        LIKE LOWER(
-                            CONCAT('%', :search, '%')
-                        )
+                    OR LOWER(
+                            activity.titleKm
+                       )
+                       LIKE LOWER(
+                            CONCAT(
+                                '%',
+                                :search,
+                                '%'
+                            )
+                       )
                     OR LOWER(
                             COALESCE(
                                 activity.titleEn,
                                 ''
                             )
-                        )
-                        LIKE LOWER(
-                            CONCAT('%', :search, '%')
-                        )
+                       )
+                       LIKE LOWER(
+                            CONCAT(
+                                '%',
+                                :search,
+                                '%'
+                            )
+                       )
                     OR LOWER(
                             COALESCE(
                                 activity.locationName,
                                 ''
                             )
-                        )
-                        LIKE LOWER(
-                            CONCAT('%', :search, '%')
-                        )
+                       )
+                       LIKE LOWER(
+                            CONCAT(
+                                '%',
+                                :search,
+                                '%'
+                            )
+                       )
               )
 
               AND (
                     :typeId IS NULL
                     OR activity.type.id = :typeId
+              )
+
+              AND (
+                    :attendanceStatusId IS NULL
+                    OR participant.attendanceStatus.id
+                        = :attendanceStatusId
               )
 
             ORDER BY
@@ -103,6 +127,9 @@ public interface ActivityParticipantRepository
 
             @Param("typeId")
             Short typeId,
+
+            @Param("attendanceStatusId")
+            Short attendanceStatusId,
 
             Pageable pageable
     );
@@ -157,11 +184,60 @@ public interface ActivityParticipantRepository
     );
 
     @Query("""
-    SELECT COUNT(DISTINCT participant.activity.id)
-    FROM ActivityParticipant participant
-    WHERE participant.member.id = :memberId
-""")
-    long countJoinedActivitiesByMemberId(
-            @Param("memberId") Long memberId
+            SELECT COUNT(
+                DISTINCT participant.activity.id
+            )
+            FROM ActivityParticipant participant
+            JOIN participant.attendanceStatus attendanceStatus
+
+            WHERE participant.member.id = :memberId
+              AND UPPER(
+                    attendanceStatus.code
+                  ) = 'PRESENT'
+            """)
+    long countParticipatedActivitiesByMemberId(
+            @Param("memberId")
+            Long memberId
+    );
+
+    @Query("""
+            SELECT COUNT(
+                DISTINCT participant.activity.id
+            )
+            FROM ActivityParticipant participant
+            JOIN participant.attendanceStatus attendanceStatus
+
+            WHERE participant.member.id = :memberId
+              AND UPPER(
+                    attendanceStatus.code
+                  ) = 'ABSENT'
+            """)
+    long countAbsentActivitiesByMemberId(
+            @Param("memberId")
+            Long memberId
+    );
+
+    @Query(
+            value = """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM activity_participants ap
+                        JOIN attendance_statuses ats
+                          ON ats.id = ap.attendance_status_id
+                        WHERE ap.member_id = :memberId
+                          AND ap.activity_id = :activityId
+                          AND UPPER(
+                                ats.code
+                              ) = 'PRESENT'
+                    )
+                    """,
+            nativeQuery = true
+    )
+    boolean existsPresentParticipation(
+            @Param("memberId")
+            Long memberId,
+
+            @Param("activityId")
+            Long activityId
     );
 }

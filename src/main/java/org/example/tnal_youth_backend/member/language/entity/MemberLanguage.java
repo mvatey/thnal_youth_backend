@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 
 import java.time.OffsetDateTime;
@@ -13,15 +14,6 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(
         name = "member_languages",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uq_member_language_name",
-                        columnNames = {
-                                "member_id",
-                                "language_name"
-                        }
-                )
-        },
         indexes = {
                 @Index(
                         name = "idx_member_languages_member_id",
@@ -37,7 +29,9 @@ import java.time.OffsetDateTime;
 public class MemberLanguage {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(
@@ -57,15 +51,6 @@ public class MemberLanguage {
     )
     private String languageName;
 
-    /*
-     * Foreign keys:
-     *
-     * listening_level_id → proficiency_levels.id
-     * speaking_level_id  → proficiency_levels.id
-     * reading_level_id   → proficiency_levels.id
-     * writing_level_id   → proficiency_levels.id
-     */
-
     @Column(name = "listening_level_id")
     private Short listeningLevelId;
 
@@ -77,6 +62,10 @@ public class MemberLanguage {
 
     @Column(name = "writing_level_id")
     private Short writingLevelId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_file_id")
+    private FileEntity certificateFile;
 
     @Column(
             name = "created_at",
@@ -93,7 +82,8 @@ public class MemberLanguage {
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -106,6 +96,7 @@ public class MemberLanguage {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt =
+                OffsetDateTime.now();
     }
 }

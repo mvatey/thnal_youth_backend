@@ -21,14 +21,8 @@ public record MemberEducationResponse(
         @JsonProperty("field_of_study")
         String fieldOfStudy,
 
-        @JsonProperty("country_code")
-        String countryCode,
-
         @JsonProperty("country_name")
         String countryName,
-
-        @JsonProperty("province_id")
-        Short provinceId,
 
         @JsonProperty("province_name")
         String provinceName,
@@ -49,20 +43,21 @@ public record MemberEducationResponse(
         OffsetDateTime updatedAt
 ) {
 
-    public record FileResponse(
-            Long id,
+        public record FileResponse(
 
-            @JsonProperty("file_path")
-            String filePath,
+                Long id,
 
-            @JsonProperty("original_name")
-            String originalName,
+                @JsonProperty("file_path")
+                String filePath,
 
-            @JsonProperty("mime_type")
-            String mimeType,
+                @JsonProperty("original_name")
+                String originalName,
 
-            @JsonProperty("size_bytes")
-            Long sizeBytes
-    ) {
-    }
+                @JsonProperty("mime_type")
+                String mimeType,
+
+                @JsonProperty("size_bytes")
+                Long sizeBytes
+        ) {
+        }
 }

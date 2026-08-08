@@ -26,10 +26,31 @@ public record MemberLanguageResponse(
         @JsonProperty("writing_level_id")
         Short writingLevelId,
 
+        @JsonProperty("certificate_file")
+        FileResponse certificateFile,
+
         @JsonProperty("created_at")
         OffsetDateTime createdAt,
 
         @JsonProperty("updated_at")
         OffsetDateTime updatedAt
 ) {
+
+        public record FileResponse(
+
+                Long id,
+
+                @JsonProperty("file_path")
+                String filePath,
+
+                @JsonProperty("original_name")
+                String originalName,
+
+                @JsonProperty("mime_type")
+                String mimeType,
+
+                @JsonProperty("size_bytes")
+                Long sizeBytes
+        ) {
+        }
 }

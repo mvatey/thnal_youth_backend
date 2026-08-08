@@ -18,10 +18,10 @@ public record MemberWorkHistoryResponse(
         @JsonProperty("position_title")
         String positionTitle,
 
-        String address,
+        @JsonProperty("role_title")
+        String roleTitle,
 
-        @JsonProperty("employment_sector_id")
-        Short employmentSectorId,
+        String address,
 
         @JsonProperty("start_date")
         LocalDate startDate,

@@ -29,7 +29,8 @@ public record MemberLanguageRequest(
 ) {
 
         @AssertTrue(
-                message = "At least one language proficiency level is required"
+                message =
+                        "At least one language proficiency level is required"
         )
         public boolean isAtLeastOneLevelProvided() {
                 return listeningLevelId != null

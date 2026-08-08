@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.credential.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
@@ -46,6 +47,9 @@ public class MemberCredentialServiceImpl
 
     private final ActivityRepository
             activityRepository;
+
+    private final ActivityParticipantRepository
+            activityParticipantRepository;
 
     private final FileRepository
             fileRepository;
@@ -112,7 +116,18 @@ public class MemberCredentialServiceImpl
                 credentialKind
         );
 
+        validateCredentialPermission(
+                credentialKind
+        );
+
         validateCredentialActivity(
+                memberId,
+                credentialKind,
+                request.getActivityId()
+        );
+
+        validateDuplicateActivityCertificateOnCreate(
+                memberId,
                 credentialKind,
                 request.getActivityId()
         );
@@ -186,7 +201,12 @@ public class MemberCredentialServiceImpl
                 credentialKind
         );
 
+        validateCredentialPermission(
+                credentialKind
+        );
+
         validateCredentialActivity(
+                memberId,
                 credentialKind,
                 request.getActivityId()
         );
@@ -251,6 +271,10 @@ public class MemberCredentialServiceImpl
                         memberId,
                         credentialId
                 );
+
+        validateCredentialPermissionForDelete(
+                credential.getCredentialKind()
+        );
 
         /*
          * Membership cards are created automatically and should
@@ -418,23 +442,17 @@ public class MemberCredentialServiceImpl
     }
 
     private void validateCredentialActivity(
+            Long memberId,
             String credentialKind,
             Long activityId
     ) {
         if (ACTIVITY_CERTIFICATE_KIND.equals(
                 credentialKind
         )) {
-            if (activityId == null) {
+            if (activityId == null || activityId <= 0) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Activity ID is required for an activity certificate"
-                );
-            }
-
-            if (activityId <= 0) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Activity ID must be greater than zero"
+                        "A valid activity ID is required for an activity certificate"
                 );
             }
 
@@ -445,6 +463,20 @@ public class MemberCredentialServiceImpl
                         HttpStatus.NOT_FOUND,
                         "Activity not found with ID: "
                                 + activityId
+                );
+            }
+
+            boolean attended =
+                    activityParticipantRepository
+                            .existsPresentParticipation(
+                                    memberId,
+                                    activityId
+                            );
+
+            if (!attended) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Certificate can only be issued to a member who attended the activity"
                 );
             }
 
@@ -693,6 +725,141 @@ public class MemberCredentialServiceImpl
                 membershipCard,
                 certificates,
                 appointmentLetters
+        );
+    }
+
+    private void validateDuplicateActivityCertificateOnCreate(
+            Long memberId,
+            String credentialKind,
+            Long activityId
+    ) {
+        if (!ACTIVITY_CERTIFICATE_KIND.equals(
+                credentialKind
+        )) {
+            return;
+        }
+
+        boolean alreadyExists =
+                memberCredentialRepository
+                        .existsByMemberIdAndActivityIdAndCredentialKindIgnoreCase(
+                                memberId,
+                                activityId,
+                                ACTIVITY_CERTIFICATE_KIND
+                        );
+
+        if (alreadyExists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This member already has a certificate for this activity"
+            );
+        }
+    }
+
+    private void validateCredentialPermission(
+            String credentialKind
+    ) {
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (
+                authentication == null
+                        || !authentication.isAuthenticated()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not authenticated"
+            );
+        }
+
+        boolean isAdmin =
+                hasAuthority(
+                        authentication,
+                        "ROLE_ADMIN"
+                );
+
+        boolean isSecretary =
+                hasAuthority(
+                        authentication,
+                        "ROLE_SECRETARY"
+                );
+
+        boolean isBranchLeader =
+                hasAuthority(
+                        authentication,
+                        "ROLE_BRANCH_LEADER"
+                );
+
+        switch (credentialKind) {
+            case MEMBERSHIP_CARD_KIND ->
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Membership cards are created automatically"
+                    );
+
+            case ACTIVITY_CERTIFICATE_KIND -> {
+                if (!isSecretary) {
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "Only a secretary can issue an activity certificate"
+                    );
+                }
+            }
+
+            case APPOINTMENT_LETTER_KIND -> {
+                if (
+                        !isAdmin
+                                && !isSecretary
+                                && !isBranchLeader
+                ) {
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "You do not have permission to manage appointment letters"
+                    );
+                }
+            }
+
+            default ->
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Unsupported credential kind: "
+                                    + credentialKind
+                    );
+        }
+    }
+
+    private boolean hasAuthority(
+            Authentication authentication,
+            String authority
+    ) {
+        return authentication
+                .getAuthorities()
+                .stream()
+                .anyMatch(grantedAuthority ->
+                        authority.equals(
+                                grantedAuthority
+                                        .getAuthority()
+                        )
+                );
+    }
+
+    private void validateCredentialPermissionForDelete(
+            String credentialKind
+    ) {
+        if (MEMBERSHIP_CARD_KIND.equalsIgnoreCase(
+                credentialKind
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Membership cards cannot be deleted"
+            );
+        }
+
+        validateCredentialPermission(
+                credentialKind.toUpperCase(
+                        Locale.ROOT
+                )
         );
     }
 }

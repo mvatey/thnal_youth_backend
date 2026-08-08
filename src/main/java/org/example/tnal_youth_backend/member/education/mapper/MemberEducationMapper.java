@@ -17,26 +17,37 @@ public class MemberEducationMapper {
 
         return new MemberEducationResponse(
                 education.getId(),
+
                 education.getMember().getId(),
+
                 education.getSchoolName(),
+
                 education.getEducationLevelId(),
+
                 education.getFieldOfStudy(),
-                education.getCountryCode(),
+
                 education.getCountryName(),
-                education.getProvinceId(),
+
                 education.getProvinceName(),
+
                 toFileResponse(
                         education.getCertificateFile()
                 ),
+
                 education.getStartDate(),
+
                 education.getEndDate(),
+
                 education.getCreatedAt(),
+
                 education.getUpdatedAt()
         );
     }
 
     private MemberEducationResponse.FileResponse
-    toFileResponse(FileEntity file) {
+    toFileResponse(
+            FileEntity file
+    ) {
         if (file == null) {
             return null;
         }

@@ -59,7 +59,8 @@ public class MemberParticipationServiceImpl
             int page,
             int size,
             String search,
-            Short typeId
+            Short typeId,
+            Short attendanceStatusId
     ) {
         memberAccessValidator
                 .validateAccessibleMember(
@@ -87,6 +88,16 @@ public class MemberParticipationServiceImpl
             );
         }
 
+        if (
+                attendanceStatusId != null
+                        && attendanceStatusId <= 0
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Attendance status ID must be greater than zero"
+            );
+        }
+
         String normalizedSearch =
                 trimToNull(search);
 
@@ -103,6 +114,7 @@ public class MemberParticipationServiceImpl
                                 memberId,
                                 normalizedSearch,
                                 typeId,
+                                attendanceStatusId,
                                 pageable
                         );
 

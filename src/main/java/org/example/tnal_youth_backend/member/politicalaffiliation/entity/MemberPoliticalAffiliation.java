@@ -1,7 +1,11 @@
 package org.example.tnal_youth_backend.member.politicalaffiliation.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 
 import java.time.LocalDate;
@@ -14,6 +18,10 @@ import java.time.OffsetDateTime;
                 @Index(
                         name = "idx_member_political_affiliation_member_id",
                         columnList = "member_id"
+                ),
+                @Index(
+                        name = "idx_member_political_affiliation_party_id",
+                        columnList = "party_id"
                 )
         }
 )
@@ -25,7 +33,9 @@ import java.time.OffsetDateTime;
 public class MemberPoliticalAffiliation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(
@@ -39,11 +49,22 @@ public class MemberPoliticalAffiliation {
     private Member member;
 
     @Column(
-            name = "affiliation_name",
-            nullable = false,
+            name = "party_id",
+            nullable = false
+    )
+    private Short partyId;
+
+    @Column(
+            name = "country",
+            length = 100
+    )
+    private String country;
+
+    @Column(
+            name = "location",
             length = 255
     )
-    private String affiliationName;
+    private String location;
 
     @Column(
             name = "position_title",
@@ -52,16 +73,28 @@ public class MemberPoliticalAffiliation {
     private String positionTitle;
 
     @Column(
-            name = "location",
-            length = 255
+            name = "card_no",
+            length = 100
     )
-    private String location;
+    private String cardNo;
 
     @Column(name = "start_date")
     private LocalDate startDate;
 
     @Column(name = "end_date")
     private LocalDate endDate;
+
+    @Column(
+            name = "is_current",
+            nullable = false
+    )
+    private Boolean isCurrent;
+
+    @Column(
+            name = "note",
+            columnDefinition = "text"
+    )
+    private String note;
 
     @Column(
             name = "created_at",
@@ -78,7 +111,12 @@ public class MemberPoliticalAffiliation {
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
+
+        if (isCurrent == null) {
+            isCurrent = false;
+        }
 
         if (createdAt == null) {
             createdAt = now;
@@ -91,6 +129,7 @@ public class MemberPoliticalAffiliation {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt =
+                OffsetDateTime.now();
     }
 }

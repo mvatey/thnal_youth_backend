@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -19,17 +20,17 @@ import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepos
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
+import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberProfilePhotoRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailSummaryResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberListResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberPageResponse;
-import org.example.tnal_youth_backend.member.member.dto.response.MemberSummaryResponse;
+import org.example.tnal_youth_backend.member.member.dto.response.*;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
+import org.example.tnal_youth_backend.member.member.repository.MemberDetailSummaryRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
@@ -45,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -77,13 +79,14 @@ public class MemberServiceImpl implements MemberService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    private final FileRepository fileRepository;
+    private final FileService fileService;
+
     private final MemberStatusRepository memberStatusRepository;
     private final MemberLevelRepository memberLevelRepository;
     private final ReligionRepository religionRepository;
     private final EthnicityRepository ethnicityRepository;
     private final NationalityService nationalityService;
-
-    private final FileRepository fileRepository;
 
     private final MemberMapper memberMapper;
 
@@ -92,9 +95,13 @@ public class MemberServiceImpl implements MemberService {
 
     private final ActivityParticipantRepository
             activityParticipantRepository;
+    private final MemberDetailSummaryRepository
+            memberDetailSummaryRepository;
 
     private final ActivityRepository activityRepository;
 
+    private final MemberAccessValidator
+            memberAccessValidator;
     /*
      * ==========================================================
      * GET MEMBER SUMMARY
@@ -187,10 +194,45 @@ public class MemberServiceImpl implements MemberService {
                         size
                 );
 
+        /*
+         * Admin receives an empty set.
+         * Secretary and branch leader receive their allowed branch IDs.
+         */
+        Set<Long> accessibleBranchIds =
+                getAccessibleBranchIds();
+
+        boolean unrestrictedScope =
+                accessibleBranchIds.isEmpty();
+
+        /*
+         * Do not send an empty collection into a native SQL IN clause.
+         * Admin bypasses the scope condition through unrestrictedScope,
+         * so this fallback value does not restrict admin results.
+         */
+        Set<Long> queryBranchScope =
+                unrestrictedScope
+                        ? Set.of(-1L)
+                        : accessibleBranchIds;
+
+        /*
+         * A secretary or branch leader cannot manually request
+         * a branch outside their permitted scope.
+         */
+        if (branchId != null
+                && !unrestrictedScope
+                && !accessibleBranchIds.contains(branchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have permission to access this branch"
+            );
+        }
+
         Page<Object[]> memberPage =
                 memberRepository.findMemberPage(
                         normalizedSearch,
                         branchId,
+                        queryBranchScope,
+                        unrestrictedScope,
                         statusId,
                         gender == null
                                 ? null
@@ -214,8 +256,12 @@ public class MemberServiceImpl implements MemberService {
                 .totalPages(
                         memberPage.getTotalPages()
                 )
-                .first(memberPage.isFirst())
-                .last(memberPage.isLast())
+                .first(
+                        memberPage.isFirst()
+                )
+                .last(
+                        memberPage.isLast()
+                )
                 .build();
     }
 
@@ -230,12 +276,11 @@ public class MemberServiceImpl implements MemberService {
     public MemberDetailResponse getMemberById(
             Long id
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(id);
+
         Member member =
                 findDetailedMember(id);
-
-        validateMemberBranchAccess(
-                member.getBranchId()
-        );
 
         return memberMapper.toDetailResponse(
                 member
@@ -507,7 +552,7 @@ public class MemberServiceImpl implements MemberService {
         );
 
         member.setTshirtSize(
-                normalizeTshirtSize(
+                TshirtSize.fromValue(
                         request.tshirtSize()
                 )
         );
@@ -701,22 +746,181 @@ public class MemberServiceImpl implements MemberService {
 
         long joinedActivityCount =
                 activityParticipantRepository
-                        .countJoinedActivitiesByMemberId(
+                        .countParticipatedActivitiesByMemberId(
                                 memberId
                         );
 
         long notJoinedActivityCount =
-                activityRepository
-                        .countCompletedRelevantActivitiesNotJoined(
-                                memberId,
-                                OffsetDateTime.now()
+                activityParticipantRepository
+                        .countAbsentActivitiesByMemberId(
+                                memberId
                         );
+
+        MemberMonthlyDonationTotalResponse donationTotal =
+                memberDetailSummaryRepository
+                        .summarizeMonthlyDonationByMemberId(
+                                memberId
+                        );
+
+        BigDecimal totalDonationKhr =
+                donationTotal == null
+                        || donationTotal.getTotalKhr() == null
+                        ? BigDecimal.ZERO
+                        : donationTotal.getTotalKhr();
+
+        BigDecimal totalDonationUsd =
+                donationTotal == null
+                        || donationTotal.getTotalUsd() == null
+                        ? BigDecimal.ZERO
+                        : donationTotal.getTotalUsd();
 
         return new MemberDetailSummaryResponse(
                 joinedActivityCount,
                 notJoinedActivityCount,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO
+                totalDonationKhr,
+                totalDonationUsd
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberMonthlyDonationSummaryResponse
+    getMemberMonthlyDonationSummary(
+            Long memberId
+    ) {
+        Member member =
+                findDetailedMember(
+                        memberId
+                );
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        MemberMonthlyDonationSummaryResponse summary =
+                memberDetailSummaryRepository
+                        .summarizeMemberMonthlyDonations(
+                                memberId
+                        );
+
+        if (summary == null) {
+            return MemberMonthlyDonationSummaryResponse
+                    .builder()
+                    .donationCount(0)
+                    .totalDonationKhr(BigDecimal.ZERO)
+                    .totalDonationUsd(BigDecimal.ZERO)
+                    .cashPaymentCount(0)
+                    .bankPaymentCount(0)
+                    .build();
+        }
+
+        if (summary.getTotalDonationKhr() == null) {
+            summary.setTotalDonationKhr(
+                    BigDecimal.ZERO
+            );
+        }
+
+        if (summary.getTotalDonationUsd() == null) {
+            summary.setTotalDonationUsd(
+                    BigDecimal.ZERO
+            );
+        }
+
+        return summary;
+    }
+
+    @Override
+    @Transactional
+    public MemberDetailResponse updateMemberProfilePhoto(
+            Long memberId,
+            UpdateMemberProfilePhotoRequest request
+    ) {
+        Member member =
+                memberRepository
+                        .findDetailedById(memberId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Member not found"
+                                )
+                        );
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        FileEntity profilePhoto =
+                fileRepository
+                        .findById(
+                                request.profilePhotoId()
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Profile photo file not found"
+                                )
+                        );
+
+        String mimeType =
+                profilePhoto.getMimeType();
+
+        if (
+                mimeType == null
+                        || !mimeType
+                        .toLowerCase()
+                        .startsWith("image/")
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Profile photo must be an image file"
+            );
+        }
+
+        member.setProfilePhoto(
+                profilePhoto
+        );
+
+        Member savedMember =
+                memberRepository.save(
+                        member
+                );
+
+        return memberMapper.toDetailResponse(
+                savedMember
+        );
+    }
+
+    @Override
+    @Transactional
+    public MemberDetailResponse uploadMemberProfilePhoto(
+            Long memberId,
+            MultipartFile file
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        Member member =
+                findDetailedMember(
+                        memberId
+                );
+
+        FileEntity uploadedFile =
+                fileService.uploadFileEntity(
+                        file
+                );
+
+        member.setProfilePhoto(
+                uploadedFile
+        );
+
+        Member savedMember =
+                memberRepository
+                        .saveAndFlush(
+                                member
+                        );
+
+        return memberMapper.toDetailResponse(
+                savedMember
         );
     }
 
@@ -1540,5 +1744,74 @@ public class MemberServiceImpl implements MemberService {
         }
 
         return HttpStatus.BAD_REQUEST;
+    }
+    private Set<Long> getAccessibleBranchIds() {
+        User currentUser = getCurrentUser();
+
+        UserRole role = currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        /*
+         * Admin can access every branch.
+         * An empty set here will mean:
+         * do not apply branch restriction.
+         */
+        if (role == UserRole.ADMIN) {
+            return Set.of();
+        }
+
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view members"
+            );
+        }
+
+        Long currentMemberId = currentUser.getMemberId();
+
+        if (currentMemberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentMemberId
+                                )
+                );
+
+        /*
+         * Fallback to the linked member's own branch.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(currentMemberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        return accessibleBranchIds;
     }
 }

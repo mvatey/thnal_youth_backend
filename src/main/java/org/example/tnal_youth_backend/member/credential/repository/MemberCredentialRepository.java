@@ -52,4 +52,18 @@ public interface MemberCredentialRepository
             String credentialKind,
             Long id
     );
+
+
+    boolean existsByMemberIdAndActivityIdAndCredentialKindIgnoreCase(
+            Long memberId,
+            Long activityId,
+            String credentialKind
+    );
+
+    boolean existsByMemberIdAndActivityIdAndCredentialKindIgnoreCaseAndIdNot(
+            Long memberId,
+            Long activityId,
+            String credentialKind,
+            Long id
+    );
 }

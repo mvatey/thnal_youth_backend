@@ -1,14 +1,17 @@
 package org.example.tnal_youth_backend.member.password.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class MemberPasswordResetRequest {
 
     @JsonProperty("newPassword")
@@ -20,8 +23,9 @@ public class MemberPasswordResetRequest {
     )
     private String newPassword;
 
-    @JsonProperty("confirmPassword")
-    @JsonAlias("confirm_password")
-    @NotBlank(message = "Confirm password is required")
+    @NotBlank(
+            message = "Password confirmation is required"
+    )
+    @JsonProperty("confirm_password")
     private String confirmPassword;
 }

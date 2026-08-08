@@ -1,5 +1,8 @@
 package org.example.tnal_youth_backend.member.member.repository;
 
+import org.example.tnal_youth_backend.authentication.model.entity.Role;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.springframework.data.domain.Page;
@@ -9,8 +12,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface MemberRepository
         extends JpaRepository<Member, Long> {
@@ -371,120 +376,140 @@ public interface MemberRepository
 
     @Query(
             value = """
-                SELECT
-                    m.id,
-                    m.full_name_km,
-                    m.full_name_en,
-                    m.gender,
+            SELECT
+                m.id,
+                m.full_name_km,
+                m.full_name_en,
+                m.gender,
 
-                    CASE m.gender
-                        WHEN 'MALE' THEN 'ប្រុស'
-                        WHEN 'FEMALE' THEN 'ស្រី'
-                        WHEN 'MONK' THEN 'ព្រះសង្ឃ'
-                        WHEN 'OTHER' THEN 'ផ្សេងៗ'
-                        ELSE m.gender
-                    END AS gender_label_km,
+                CASE m.gender
+                    WHEN 'MALE' THEN 'ប្រុស'
+                    WHEN 'FEMALE' THEN 'ស្រី'
+                    WHEN 'MONK' THEN 'ព្រះសង្ឃ'
+                    WHEN 'OTHER' THEN 'ផ្សេងៗ'
+                    ELSE m.gender
+                END AS gender_label_km,
 
-                    b.id AS branch_id,
-                    b.name_km AS branch_name_km,
+                b.id AS branch_id,
+                b.name_km AS branch_name_km,
 
-                    ms.id AS status_id,
-                    ms.code AS status_code,
-                    ms.label_km AS status_label_km,
-                    ms.label_en AS status_label_en,
+                ms.id AS status_id,
+                ms.code AS status_code,
+                ms.label_km AS status_label_km,
+                ms.label_en AS status_label_en,
 
-                    ml.id AS level_id,
-                    ml.code AS level_code,
-                    ml.label_km AS level_label_km,
-                    ml.label_en AS level_label_en,
+                ml.id AS level_id,
+                ml.code AS level_code,
+                ml.label_km AS level_label_km,
+                ml.label_en AS level_label_en,
 
-                    f.id AS profile_photo_id,
-                    f.file_path AS profile_photo_url,
+                f.id AS profile_photo_id,
+                f.file_path AS profile_photo_url,
 
-                    m.joined_on
+                m.joined_on
 
-                FROM members m
+            FROM members m
 
-                INNER JOIN branches b
-                        ON b.id = m.branch_id
+            INNER JOIN branches b
+                    ON b.id = m.branch_id
 
-                INNER JOIN member_statuses ms
-                        ON ms.id = m.status_id
+            INNER JOIN member_statuses ms
+                    ON ms.id = m.status_id
 
-                LEFT JOIN member_levels ml
-                       ON ml.id = m.level_id
+            LEFT JOIN member_levels ml
+                   ON ml.id = m.level_id
 
-                LEFT JOIN files f
-                       ON f.id = m.profile_photo_id
+            LEFT JOIN files f
+                   ON f.id = m.profile_photo_id
 
-                WHERE (
-                    :search IS NULL
-                    OR :search = ''
-                    OR LOWER(m.full_name_km)
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.full_name_en, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.member_no, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.phone, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.email, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                )
+            WHERE (
+                :search IS NULL
+                OR :search = ''
+                OR LOWER(m.full_name_km)
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.full_name_en, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.member_no, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.phone, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.email, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+            )
 
-                AND (
-                    :branchId IS NULL
-                    OR m.branch_id = :branchId
-                )
+            /*
+             * Security scope:
+             * Admin bypasses this condition.
+             * Secretary/branch leader only see accessible branches.
+             */
+            AND (
+                :unrestrictedScope = TRUE
+                OR m.branch_id IN (:branchScope)
+            )
 
-                AND (
-                    :statusId IS NULL
-                    OR m.status_id = :statusId
-                )
+            /*
+             * Optional dropdown filter.
+             */
+            AND (
+                :branchId IS NULL
+                OR m.branch_id = :branchId
+            )
 
-                AND (
-                    :gender IS NULL
-                    OR m.gender = :gender
-                )
+            AND (
+                :statusId IS NULL
+                OR m.status_id = :statusId
+            )
 
-                ORDER BY
-                    m.created_at DESC,
-                    m.id DESC
-                """,
+            AND (
+                :gender IS NULL
+                OR m.gender = :gender
+            )
+
+            ORDER BY
+                m.created_at DESC,
+                m.id DESC
+            """,
 
             countQuery = """
-                SELECT COUNT(*)
-                FROM members m
-                WHERE (
-                    :search IS NULL
-                    OR :search = ''
-                    OR LOWER(m.full_name_km)
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.full_name_en, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.member_no, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.phone, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(COALESCE(m.email, ''))
-                        LIKE LOWER(CONCAT('%', :search, '%'))
-                )
+            SELECT COUNT(*)
 
-                AND (
-                    :branchId IS NULL
-                    OR m.branch_id = :branchId
-                )
+            FROM members m
 
-                AND (
-                    :statusId IS NULL
-                    OR m.status_id = :statusId
-                )
+            WHERE (
+                :search IS NULL
+                OR :search = ''
+                OR LOWER(m.full_name_km)
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.full_name_en, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.member_no, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.phone, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(m.email, ''))
+                    LIKE LOWER(CONCAT('%', :search, '%'))
+            )
 
-                AND (
-                    :gender IS NULL
-                    OR m.gender = :gender
-                )
-                """,
+            AND (
+                :unrestrictedScope = TRUE
+                OR m.branch_id IN (:branchScope)
+            )
+
+            AND (
+                :branchId IS NULL
+                OR m.branch_id = :branchId
+            )
+
+            AND (
+                :statusId IS NULL
+                OR m.status_id = :statusId
+            )
+
+            AND (
+                :gender IS NULL
+                OR m.gender = :gender
+            )
+            """,
 
             nativeQuery = true
     )
@@ -495,6 +520,12 @@ public interface MemberRepository
             @Param("branchId")
             Long branchId,
 
+            @Param("branchScope")
+            Set<Long> branchScope,
+
+            @Param("unrestrictedScope")
+            boolean unrestrictedScope,
+
             @Param("statusId")
             Short statusId,
 
@@ -503,4 +534,142 @@ public interface MemberRepository
 
             Pageable pageable
     );
+
+    long countByBranchIdIn(
+            Iterable<Long> branchIds
+    );
+
+    long countByBranchId(
+            Long branchId
+    );
+
+
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role IN :roles
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchManagementMembers(
+            Long branchId,
+            Collection<UserRole> roles
+    );
+
+    @Query("""
+    SELECT CASE
+        WHEN COUNT(m) > 0
+            THEN true
+        ELSE false
+    END
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role = :role
+""")
+    boolean existsBranchMemberWithRole(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("role")
+            UserRole role
+    );
+
+    @Query("""
+    SELECT m
+    FROM Member m
+    LEFT JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND (
+          u.id IS NULL
+          OR u.role <> :excludedRole
+      )
+      AND (
+          :search = ''
+          OR LOWER(m.fullNameKm)
+                LIKE CONCAT('%', LOWER(:search), '%')
+          OR LOWER(COALESCE(m.fullNameEn, ''))
+                LIKE CONCAT('%', LOWER(:search), '%')
+          OR COALESCE(m.phone, '')
+                LIKE CONCAT('%', :search, '%')
+      )
+      AND (
+          :gender IS NULL
+          OR m.gender = :gender
+      )
+      AND (
+          :statusId IS NULL
+          OR m.status.id = :statusId
+      )
+    ORDER BY m.createdAt DESC
+""")
+    Page<Member> findBranchMembersExcludingRole(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("excludedRole")
+            UserRole excludedRole,
+
+            @Param("search")
+            String search,
+
+            @Param("gender")
+            Gender gender,
+
+            @Param("statusId")
+            Short statusId,
+
+            Pageable pageable
+    );
+
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE u.role = :role
+      AND (
+          :currentLeaderMemberId IS NULL
+          OR m.id <> :currentLeaderMemberId
+      )
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchLeaderCandidates(
+            @Param("role")
+            UserRole role,
+
+            @Param("currentLeaderMemberId")
+            Long currentLeaderMemberId
+    );
+    @Query("""
+    SELECT
+        m AS member,
+        u.role AS role
+    FROM Member m
+    JOIN User u
+        ON u.memberId = m.id
+    WHERE m.branchId = :branchId
+      AND u.role IN :eligibleRoles
+    ORDER BY m.fullNameKm ASC
+""")
+    List<BranchManagementProjection>
+    findBranchLeaderCandidates(
+            @Param("branchId")
+            Long branchId,
+
+            @Param("eligibleRoles")
+            Collection<UserRole> eligibleRoles
+    );
+
+
 }

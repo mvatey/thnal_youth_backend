@@ -1,18 +1,35 @@
 package org.example.tnal_youth_backend.member.branch.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.example.tnal_youth_backend.authentication.model.entity.Role;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
+
 import java.time.LocalDate;
 
 public record BranchLeaderResponse(
-        Long id,
-        String nameKm,
-        String nameEn,
-        String gender,
-        String status,
+
+        @JsonProperty("member_id")
+        Long memberId,
+
+        @JsonProperty("full_name_km")
+        String fullNameKm,
+
+        @JsonProperty("full_name_en")
+        String fullNameEn,
+
         String phone,
+
         String email,
+
+        @JsonProperty("date_of_birth")
         LocalDate dateOfBirth,
-        LocalDate joinedAt,
-        Long profilePhotoId,
-        String profileImage,
-        String role
-) {}
+
+        @JsonProperty("joined_on")
+        LocalDate joinedOn,
+
+        Gender gender,
+
+        UserRole role
+) {
+}

@@ -1,23 +1,29 @@
 package org.example.tnal_youth_backend.member.branch.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.Role;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
-import org.example.tnal_youth_backend.member.branch.dto.response.BranchOptionResponse;
-import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
-import org.example.tnal_youth_backend.member.branch.dto.response.BranchLeaderResponse;
+import org.example.tnal_youth_backend.member.branch.dto.response.*;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.mapper.BranchMapper;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +44,8 @@ public class BranchServiceImpl implements BranchService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final ActivityRepository activityRepository;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -175,8 +183,18 @@ public class BranchServiceImpl implements BranchService {
     ) {
 
         validateLocation(
+                request.branchLevelId(),
+                request.provinceId(),
                 request.districtId(),
                 request.communeId()
+        );
+
+        validateUniqueBranchLocation(
+                request.branchLevelId(),
+                request.provinceId(),
+                request.districtId(),
+                request.communeId(),
+                null
         );
 
         String branchCode = normalizeRequired(
@@ -242,8 +260,18 @@ public class BranchServiceImpl implements BranchService {
         Branch branch = findBranchById(id);
 
         validateLocation(
+                request.branchLevelId(),
+                request.provinceId(),
                 request.districtId(),
                 request.communeId()
+        );
+
+        validateUniqueBranchLocation(
+                request.branchLevelId(),
+                request.provinceId(),
+                request.districtId(),
+                request.communeId(),
+                id
         );
 
         if (request.parentBranchId() != null) {
@@ -351,19 +379,89 @@ public class BranchServiceImpl implements BranchService {
     }
 
     private void validateLocation(
+            Short branchLevelId,
+            Short provinceId,
             Integer districtId,
             Integer communeId
     ) {
-
-        if (communeId != null && districtId == null) {
-
+        if (branchLevelId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "District ID is required when commune ID is provided"
+                    "Branch level is required"
             );
-
         }
 
+        if (provinceId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Province is required"
+            );
+        }
+
+        /*
+         * Province-level branch.
+         */
+        if (branchLevelId == 1) {
+            if (
+                    districtId != null
+                            || communeId != null
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Province-level branch cannot have district or commune"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * District-level branch.
+         */
+        if (branchLevelId == 2) {
+            if (districtId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "District is required for a district-level branch"
+                );
+            }
+
+            if (communeId != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "District-level branch cannot have a commune"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * Commune-level branch.
+         */
+        if (branchLevelId == 3) {
+            if (districtId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "District is required for a commune-level branch"
+                );
+            }
+
+            if (communeId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Commune is required for a commune-level branch"
+                );
+            }
+
+            return;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Unsupported branch level ID: "
+                        + branchLevelId
+        );
     }
 
     private void validateDuplicate(
@@ -519,4 +617,913 @@ public class BranchServiceImpl implements BranchService {
         return currentUser.getId();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Branch getAccessibleBranchById(
+            Long branchId
+    ) {
+        if (branchId == null || branchId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID must be greater than zero"
+            );
+        }
+
+        Branch branch =
+                branchRepository
+                        .findById(branchId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Branch not found with ID: "
+                                                + branchId
+                                )
+                        );
+
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(principal.getId())
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        /*
+         * Admin can select any valid branch.
+         */
+        if (role == UserRole.ADMIN) {
+            return branch;
+        }
+
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to select a branch"
+            );
+        }
+
+        Long currentMemberId =
+                currentUser.getMemberId();
+
+        if (currentMemberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentMemberId
+                                )
+                );
+
+        /*
+         * Fallback to the staff member's current branch when
+         * branch_staff does not contain an active assignment.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(currentMemberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        if (!accessibleBranchIds.contains(branchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "The selected branch is outside your accessible scope"
+            );
+        }
+
+        return branch;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BranchSummaryResponse getBranchSummary() {
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(
+                                principal.getId()
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        /*
+         * Replace this later with status lookup by code
+         * if ACTIVE is not always ID 1.
+         */
+        Short activeStatusId = 1;
+
+        if (role == UserRole.ADMIN) {
+            long totalBranches =
+                    branchRepository.count();
+
+            long activeBranches =
+                    branchRepository
+                            .countByStatusId(
+                                    activeStatusId
+                            );
+
+            long totalMembers =
+                    memberRepository.count();
+
+            return new BranchSummaryResponse(
+                    totalBranches,
+                    activeBranches,
+                    totalMembers
+            );
+        }
+
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view branch summary"
+            );
+        }
+
+        Long memberId =
+                currentUser.getMemberId();
+
+        if (memberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        memberId
+                                )
+                );
+
+        /*
+         * Fallback to the member's primary branch.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+            Member currentMember =
+                    memberRepository
+                            .findById(
+                                    memberId
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (currentMember.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        currentMember.getBranchId()
+                );
+            }
+        }
+
+        if (accessibleBranchIds.isEmpty()) {
+            return new BranchSummaryResponse(
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        long totalBranches =
+                branchRepository
+                        .countByIdIn(
+                                accessibleBranchIds
+                        );
+
+        long activeBranches =
+                branchRepository
+                        .countByIdInAndStatusId(
+                                accessibleBranchIds,
+                                activeStatusId
+                        );
+
+        long totalMembers =
+                memberRepository
+                        .countByBranchIdIn(
+                                accessibleBranchIds
+                        );
+
+        return new BranchSummaryResponse(
+                totalBranches,
+                activeBranches,
+                totalMembers
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BranchPageResponse getBranchPage(
+            int page,
+            int size,
+            String search,
+            Short levelId,
+            Short provinceId,
+            Integer districtId,
+            Short statusId
+    ) {
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        if (levelId != null && levelId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch level ID must be greater than zero"
+            );
+        }
+
+        if (provinceId != null && provinceId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Province ID must be greater than zero"
+            );
+        }
+
+        if (districtId != null && districtId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "District ID must be greater than zero"
+            );
+        }
+
+        if (statusId != null && statusId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Status ID must be greater than zero"
+            );
+        }
+
+        String normalizedSearch =
+                search == null
+                        ? ""
+                        : search.trim();
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "createdAt"
+                        )
+                );
+
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(
+                                principal.getId()
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        Page<Branch> branchPage;
+
+        /*
+         * ADMIN can view all branches.
+         */
+        if (role == UserRole.ADMIN) {
+            branchPage =
+                    branchRepository
+                            .findBranchPageForAdmin(
+                                    normalizedSearch,
+                                    levelId,
+                                    provinceId,
+                                    districtId,
+                                    statusId,
+                                    pageable
+                            );
+
+        } else if (
+                role == UserRole.SECRETARY
+                        || role == UserRole.BRANCH_LEADER
+        ) {
+            Long memberId =
+                    currentUser.getMemberId();
+
+            if (memberId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account is not linked to a member record"
+                );
+            }
+
+            Set<Long> accessibleBranchIds =
+                    new LinkedHashSet<>(
+                            branchStaffRepository
+                                    .findActiveBranchIdsByMemberId(
+                                            memberId
+                                    )
+                    );
+
+            /*
+             * Fallback to the member's primary branch.
+             */
+            if (accessibleBranchIds.isEmpty()) {
+                Member currentMember =
+                        memberRepository
+                                .findById(
+                                        memberId
+                                )
+                                .orElseThrow(() ->
+                                        new ResponseStatusException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Linked member record was not found"
+                                        )
+                                );
+
+                if (currentMember.getBranchId() != null) {
+                    accessibleBranchIds.add(
+                            currentMember.getBranchId()
+                    );
+                }
+            }
+
+            /*
+             * Avoid calling an IN query with an empty collection.
+             */
+            if (accessibleBranchIds.isEmpty()) {
+                return new BranchPageResponse(
+                        List.of(),
+                        page,
+                        size,
+                        0,
+                        0,
+                        true,
+                        true
+                );
+            }
+
+            branchPage =
+                    branchRepository
+                            .findBranchPageByScope(
+                                    accessibleBranchIds,
+                                    normalizedSearch,
+                                    levelId,
+                                    provinceId,
+                                    districtId,
+                                    statusId,
+                                    pageable
+                            );
+
+        } else {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view the branch page"
+            );
+        }
+
+        List<BranchTableItemResponse> content =
+                branchPage
+                        .getContent()
+                        .stream()
+                        .map(this::toBranchTableItem)
+                        .toList();
+
+        return new BranchPageResponse(
+                content,
+                branchPage.getNumber(),
+                branchPage.getSize(),
+                branchPage.getTotalElements(),
+                branchPage.getTotalPages(),
+                branchPage.isFirst(),
+                branchPage.isLast()
+        );
+    }
+
+    private BranchTableItemResponse toBranchTableItem(
+            Branch branch
+    ) {
+        long memberCount =
+                memberRepository
+                        .countByBranchId(
+                                branch.getId()
+                        );
+
+        return new BranchTableItemResponse(
+                branch.getId(),
+
+                branch.getBranchCode(),
+
+                branch.getNameKm(),
+
+                branch.getNameEn(),
+
+                branch.getBranchLevelId(),
+
+                null, // branchLevelNameKm
+
+                branch.getProvinceId(),
+
+                null, // provinceNameKm
+
+                branch.getDistrictId(),
+
+                null, // districtNameKm
+
+                branch.getCommuneId(),
+
+                null, // communeNameKm
+
+                memberCount,
+
+                branch.getStatusId(),
+
+                null, // statusNameKm
+
+                branch.getCreatedAt()
+        );
+    }
+
+    private Long getCurrentUserId() {
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return principal.getId();
+    }
+
+    private void validateUniqueBranchLocation(
+            Short branchLevelId,
+            Short provinceId,
+            Integer districtId,
+            Integer communeId,
+            Long currentBranchId
+    ) {
+        boolean duplicate;
+
+        /*
+         * Province-level branch.
+         */
+        if (branchLevelId == 1) {
+            duplicate =
+                    currentBranchId == null
+                            ? branchRepository
+                            .existsByBranchLevelIdAndProvinceId(
+                                    branchLevelId,
+                                    provinceId
+                            )
+                            : branchRepository
+                            .existsByBranchLevelIdAndProvinceIdAndIdNot(
+                                    branchLevelId,
+                                    provinceId,
+                                    currentBranchId
+                            );
+
+            if (duplicate) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A province-level branch already exists for this province"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * District-level branch.
+         */
+        if (branchLevelId == 2) {
+            duplicate =
+                    currentBranchId == null
+                            ? branchRepository
+                            .existsByBranchLevelIdAndDistrictId(
+                                    branchLevelId,
+                                    districtId
+                            )
+                            : branchRepository
+                            .existsByBranchLevelIdAndDistrictIdAndIdNot(
+                                    branchLevelId,
+                                    districtId,
+                                    currentBranchId
+                            );
+
+            if (duplicate) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A district-level branch already exists for this district"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * Commune-level branch.
+         */
+        if (branchLevelId == 3) {
+            duplicate =
+                    currentBranchId == null
+                            ? branchRepository
+                            .existsByBranchLevelIdAndCommuneId(
+                                    branchLevelId,
+                                    communeId
+                            )
+                            : branchRepository
+                            .existsByBranchLevelIdAndCommuneIdAndIdNot(
+                                    branchLevelId,
+                                    communeId,
+                                    currentBranchId
+                            );
+
+            if (duplicate) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A commune-level branch already exists for this commune"
+                );
+            }
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BranchDetailPageResponse getBranchDetails(
+            Long branchId
+    ) {
+        Branch branch =
+                getAccessibleBranchById(branchId);
+
+        BranchDetailResponse branchResponse =
+                branchMapper.toDetailResponse(branch);
+
+        long totalMembers =
+                memberRepository.countByBranchId(branchId);
+
+        long totalActivities =
+                activityRepository.countByBranchId(branchId);
+
+        List<BranchLeaderResponse> leaders =
+                memberRepository
+                        .findBranchManagementMembers(
+                                branchId,
+                                List.of(
+                                        UserRole.BRANCH_LEADER,
+                                        UserRole.SECRETARY
+                                )
+                        )
+                        .stream()
+                        .map(item ->
+                                branchMapper
+                                        .toBranchLeaderResponse(
+                                                item.getMember(),
+                                                item.getRole()
+                                        )
+                        )
+                        .toList();
+
+        return new BranchDetailPageResponse(
+                branchResponse,
+                new BranchDetailSummaryResponse(
+                        totalMembers,
+                        totalActivities
+                ),
+                leaders
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BranchMemberPageResponse getBranchMembers(
+            Long branchId,
+            int page,
+            int size,
+            String search,
+            Gender gender,
+            Short statusId
+    ) {
+        getAccessibleBranchById(branchId);
+
+        String normalizedSearch =
+                search == null
+                        ? ""
+                        : search.trim();
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "createdAt"
+                        )
+                );
+
+        Page<Member> result =
+                memberRepository
+                        .findBranchMembersExcludingRole(
+                                branchId,
+                                UserRole.BRANCH_LEADER,
+                                normalizedSearch,
+                                gender,
+                                statusId,
+                                pageable
+                        );
+
+        List<BranchMemberTableItemResponse> content =
+                result.getContent()
+                        .stream()
+                        .map(
+                                branchMapper
+                                        ::toBranchMemberTableItemResponse
+                        )
+                        .toList();
+
+        return new BranchMemberPageResponse(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void assignBranchLeader(
+            Long branchId,
+            Long memberId
+    ) {
+        Branch branch =
+                branchRepository
+                        .findById(branchId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Branch not found"
+                                )
+                        );
+
+        Member selectedMember =
+                memberRepository
+                        .findById(memberId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Selected member was not found"
+                                )
+                        );
+
+        /*
+         * The selected candidate must belong
+         * to the branch being edited.
+         */
+        if (
+                selectedMember.getBranchId() == null
+                        || !selectedMember
+                        .getBranchId()
+                        .equals(branch.getId())
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Selected member does not belong to this branch"
+            );
+        }
+
+        User selectedUser =
+                userRepository
+                        .findByMemberId(memberId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Selected member does not have a user account"
+                                )
+                        );
+
+        UserRole selectedCurrentRole =
+                selectedUser.getRole();
+
+        /*
+         * A member or secretary can be promoted.
+         * Selecting the current leader can be treated
+         * as a no-op.
+         */
+        if (
+                selectedCurrentRole != UserRole.MEMBER
+                        && selectedCurrentRole != UserRole.SECRETARY
+                        && selectedCurrentRole != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only a member or secretary can become branch leader"
+            );
+        }
+
+        List<BranchManagementProjection> managementMembers =
+                memberRepository
+                        .findBranchManagementMembers(
+                                branchId,
+                                List.of(
+                                        UserRole.BRANCH_LEADER
+                                )
+                        );
+
+        User currentLeaderUser = null;
+
+        for (
+                BranchManagementProjection projection
+                : managementMembers
+        ) {
+            Member currentLeaderMember =
+                    projection.getMember();
+
+            /*
+             * The selected member is already the leader.
+             */
+            if (
+                    currentLeaderMember
+                            .getId()
+                            .equals(memberId)
+            ) {
+                return;
+            }
+
+            currentLeaderUser =
+                    userRepository
+                            .findByMemberId(
+                                    currentLeaderMember.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.CONFLICT,
+                                            "Current branch leader does not have a user account"
+                                    )
+                            );
+
+            break;
+        }
+
+        /*
+         * Demote the existing branch leader.
+         */
+        if (currentLeaderUser != null) {
+            currentLeaderUser.setRole(
+                    UserRole.MEMBER
+            );
+
+            userRepository.save(
+                    currentLeaderUser
+            );
+        }
+
+        /*
+         * Promote the selected candidate.
+         */
+        selectedUser.setRole(
+                UserRole.BRANCH_LEADER
+        );
+
+        userRepository.save(
+                selectedUser
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchLeaderCandidateResponse>
+    getBranchLeaderCandidates(
+            Long branchId
+    ) {
+        /*
+         * Also validates that the authenticated user
+         * may access this branch.
+         */
+        getAccessibleBranchById(branchId);
+
+        return memberRepository
+                .findBranchLeaderCandidates(
+                        branchId,
+                        List.of(
+                                UserRole.MEMBER,
+                                UserRole.SECRETARY
+                        )
+                )
+                .stream()
+                .map(candidate ->
+                        branchMapper
+                                .toBranchLeaderCandidateResponse(
+                                        candidate.getMember(),
+                                        candidate.getRole()
+                                )
+                )
+                .toList();
+    }
 }

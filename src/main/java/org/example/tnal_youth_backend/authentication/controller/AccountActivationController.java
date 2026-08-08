@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth/activation")
 @RequiredArgsConstructor
 @Tag(
-        name = "Authentication - Account Activation",
+        name = "0.0 Authentication - Account Activation",
         description = "Activate newly created member accounts"
 )
 public class AccountActivationController {

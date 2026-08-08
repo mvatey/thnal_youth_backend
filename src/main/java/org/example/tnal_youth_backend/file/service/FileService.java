@@ -17,6 +17,14 @@ public interface FileService {
             Long id
     );
 
+    FileResponse uploadFile(
+            MultipartFile file
+    );
+
+//    FileResponse getFileByPath(
+//            String filePath
+//    );
+
     FileResponse createFile(
             CreateFileRequest request
     );
@@ -24,6 +32,10 @@ public interface FileService {
     FileResponse updateFile(
             Long id,
             UpdateFileRequest request
+    );
+
+    FileEntity uploadFileEntity(
+            MultipartFile file
     );
 
     void deleteFile(

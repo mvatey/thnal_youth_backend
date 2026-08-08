@@ -67,6 +67,7 @@ public class FileServiceImpl implements FileService {
             );
 
     private final FileRepository fileRepository;
+
     private final FileMapper fileMapper;
     private final Path uploadRoot;
 
@@ -97,6 +98,12 @@ public class FileServiceImpl implements FileService {
     // EXISTING FILE METADATA OPERATIONS
     // ============================================================
 
+    /*
+     * ==========================================================
+     * READ
+     * ==========================================================
+     */
+
     @Override
     @Transactional(readOnly = true)
     public List<FileResponse> getAllFiles() {
@@ -114,6 +121,46 @@ public class FileServiceImpl implements FileService {
         FileEntity file = findFileById(id);
 
         return fileMapper.toResponse(file);
+    }
+
+    /*
+     * ==========================================================
+     * PHYSICAL FILE UPLOAD
+     * ==========================================================
+     */
+
+    /*
+     * Used by POST /api/files/upload.
+     *
+     * Returns the normal file response DTO.
+     */
+    @Override
+    @Transactional
+    public FileResponse uploadFile(
+            MultipartFile multipartFile
+    ) {
+        FileEntity savedFile =
+                uploadFileEntity(
+                        multipartFile
+                );
+
+        return fileMapper.toResponse(
+                savedFile
+        );
+    }
+
+    /*
+     * Internal reusable upload method.
+     *
+     * MemberService uses this method so it can immediately assign
+     * the saved FileEntity to member.profilePhoto.
+     */
+    @Override
+    @Transactional
+    public FileEntity uploadFileEntity(
+            MultipartFile multipartFile
+    ) {
+        return uploadImage(multipartFile, null);
     }
 
     @Override
@@ -138,33 +185,58 @@ public class FileServiceImpl implements FileService {
                         request.mimeType()
                 );
 
-        if (fileRepository.existsByFilePath(filePath)) {
+        if (
+                fileRepository
+                        .existsByFilePath(
+                                filePath
+                        )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "File path already exists: " + filePath
+                    "File path already exists: "
+                            + filePath
             );
         }
 
-        FileEntity file = FileEntity.builder()
-                .filePath(filePath)
-                .originalName(originalName)
-                .mimeType(mimeType)
-                .sizeBytes(request.sizeBytes())
-                .uploadedById(request.uploadedById())
-                .build();
+        FileEntity file =
+                FileEntity.builder()
+                        .filePath(
+                                filePath
+                        )
+                        .originalName(
+                                originalName
+                        )
+                        .mimeType(
+                                mimeType
+                        )
+                        .sizeBytes(
+                                request.sizeBytes()
+                        )
+                        .uploadedById(
+                                request.uploadedById()
+                        )
+                        .build();
 
         try {
             FileEntity savedFile =
-                    fileRepository.saveAndFlush(file);
+                    fileRepository
+                            .saveAndFlush(
+                                    file
+                            );
 
-            return fileMapper.toResponse(savedFile);
+            return fileMapper.toResponse(
+                    savedFile
+            );
 
-        } catch (DataIntegrityViolationException exception) {
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     createDatabaseErrorMessage(
                             request.uploadedById()
-                    )
+                    ),
+                    exception
             );
         }
     }
@@ -175,7 +247,8 @@ public class FileServiceImpl implements FileService {
             Long id,
             UpdateFileRequest request
     ) {
-        FileEntity file = findFileById(id);
+        FileEntity file =
+                findFileById(id);
 
         String filePath =
                 normalizeRequiredText(
@@ -204,25 +277,45 @@ public class FileServiceImpl implements FileService {
         if (pathAlreadyExists) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "File path already exists: " + filePath
+                    "File path already exists: "
+                            + filePath
             );
         }
 
-        file.setFilePath(filePath);
-        file.setOriginalName(originalName);
-        file.setMimeType(mimeType);
-        file.setSizeBytes(request.sizeBytes());
+        file.setFilePath(
+                filePath
+        );
+
+        file.setOriginalName(
+                originalName
+        );
+
+        file.setMimeType(
+                mimeType
+        );
+
+        file.setSizeBytes(
+                request.sizeBytes()
+        );
 
         try {
             FileEntity updatedFile =
-                    fileRepository.saveAndFlush(file);
+                    fileRepository
+                            .saveAndFlush(
+                                    file
+                            );
 
-            return fileMapper.toResponse(updatedFile);
+            return fileMapper.toResponse(
+                    updatedFile
+            );
 
-        } catch (DataIntegrityViolationException exception) {
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "File metadata could not be updated"
+                    "File metadata could not be updated",
+                    exception
             );
         }
     }
@@ -253,7 +346,8 @@ public class FileServiceImpl implements FileService {
                     """
                     Cannot delete this file because another database \
                     record is using it
-                    """
+                    """,
+                    exception
             );
 
         } catch (IOException exception) {
@@ -688,11 +782,13 @@ public class FileServiceImpl implements FileService {
             );
         }
 
-        return fileRepository.findById(id)
+        return fileRepository
+                .findById(id)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "File not found with ID: " + id
+                                "File not found with ID: "
+                                        + id
                         )
                 );
     }
@@ -701,7 +797,10 @@ public class FileServiceImpl implements FileService {
             String value,
             String fieldName
     ) {
-        if (value == null || value.isBlank()) {
+        if (
+                value == null
+                        || value.isBlank()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     fieldName + " is required"
@@ -717,7 +816,10 @@ public class FileServiceImpl implements FileService {
         return normalizeRequiredText(
                 mimeType,
                 "MIME type"
-        ).toLowerCase(Locale.ROOT);
+        )
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
     private String createDatabaseErrorMessage(
@@ -736,4 +838,5 @@ public class FileServiceImpl implements FileService {
                 filePath is unique and sizeBytes is greater than zero.
                 """;
     }
+
 }

@@ -30,22 +30,12 @@ public record MemberEducationRequest(
         )
         String fieldOfStudy,
 
-        @JsonProperty("country_code")
-        @Pattern(
-                regexp = "^[A-Za-z]{2}$",
-                message = "Country code must contain exactly two letters"
-        )
-        String countryCode,
-
         @JsonProperty("country_name")
         @Size(
                 max = 100,
                 message = "Country name must not exceed 100 characters"
         )
         String countryName,
-
-        @JsonProperty("province_id")
-        Short provinceId,
 
         @JsonProperty("province_name")
         @Size(
@@ -73,19 +63,4 @@ public record MemberEducationRequest(
                 || !endDate.isBefore(startDate);
     }
 
-    @AssertTrue(
-            message = "Cambodian education must use province_id, not province_name"
-    )
-    public boolean isCambodianLocationValid() {
-        if (countryCode == null) {
-            return true;
-        }
-
-        if ("KH".equalsIgnoreCase(countryCode)) {
-            return provinceName == null
-                    || provinceName.isBlank();
-        }
-
-        return provinceId == null;
-    }
 }

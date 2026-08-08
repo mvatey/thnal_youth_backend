@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 
 import java.time.OffsetDateTime;
@@ -13,15 +14,6 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(
         name = "member_skills",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uq_member_skill_name",
-                        columnNames = {
-                                "member_id",
-                                "skill_name"
-                        }
-                )
-        },
         indexes = {
                 @Index(
                         name = "idx_member_skills_member_id",
@@ -41,7 +33,9 @@ import java.time.OffsetDateTime;
 public class MemberSkill {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(
@@ -57,17 +51,19 @@ public class MemberSkill {
     @Column(
             name = "skill_name",
             nullable = false,
-            length = 255
+            length = 150
     )
     private String skillName;
 
-    /*
-     * Database foreign key:
-     * member_skills.proficiency_level_id
-     * → proficiency_levels.id
-     */
-    @Column(name = "proficiency_level_id")
+    @Column(
+            name = "proficiency_level_id",
+            nullable = false
+    )
     private Short proficiencyLevelId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_file_id")
+    private FileEntity certificateFile;
 
     @Column(
             name = "created_at",
@@ -84,7 +80,8 @@ public class MemberSkill {
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -97,6 +94,7 @@ public class MemberSkill {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt =
+                OffsetDateTime.now();
     }
 }

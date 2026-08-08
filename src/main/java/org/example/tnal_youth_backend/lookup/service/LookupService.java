@@ -28,23 +28,66 @@ public interface LookupService {
 
     List<LookupOptionResponse<Short>> getBranchStatusOptions();
 
-    List<LookupOptionResponse<Short>> getProvinceOptions();
+    List<LookupOptionResponse<Short>> getProvinceLookupOptions();
 
     List<LookupOptionResponse<Integer>> getDistrictOptions(Short provinceId);
 
     List<LookupOptionResponse<Integer>> getCommuneOptions(Integer districtId);
 
-    List<LookupOptionResponse<Short>> getEducationLevelOptions();
-
     List<LookupOptionResponse<Short>> getEmploymentSectorOptions();
 
-    List<LookupOptionResponse<Short>> getProficiencyLevelOptions();
-
     List<LookupOptionResponse<String>> getCountryOptions();
-
-    List<LookupOptionResponse<Short>> getActivityTypeOptions();
 
     List<LookupOptionResponse<Short>> getActivitySectorOptions();
 
     List<LookupOptionResponse<Short>> getActivityStatusOptions();
+
+    List<LookupOptionResponse<Short>>
+    getActivityTypeOptions();
+
+    List<LookupOptionResponse<Short>>
+    getAttendanceStatusOptions();
+
+    List<LookupOptionResponse<Short>>
+    getEthnicityOptions();
+
+    List<LookupOptionResponse<Short>>
+    getReligionOptions();
+
+    List<LookupOptionResponse<String>>
+    getTshirtSizeOptions();
+
+    List<LookupOptionResponse<Short>>
+    getEducationLevelOptions();
+
+    List<LookupOptionResponse<Short>>
+    getLanguageOptions();
+
+    List<LookupOptionResponse<Short>>
+    getSkillOptions();
+
+    List<LookupOptionResponse<Short>>
+    getProficiencyLevelOptions();
+
+    List<LookupOptionResponse<Short>>
+    getPoliticalPartyOptions();
+
+    List<ProvinceOptionResponse>
+    getProvinceOptions();
+
+    List<LocationOptionResponse>
+    getProvinces();
+
+    List<LocationOptionResponse>
+    getDistricts(
+            Short provinceId
+    );
+
+    List<LocationOptionResponse>
+    getCommunes(
+            Integer districtId
+    );
+
+    List<BranchStatusOptionResponse>
+    getBranchStatuses();
 }

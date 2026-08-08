@@ -4,15 +4,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.lookup.dto.*;
 import org.example.tnal_youth_backend.lookup.service.LookupService;
-import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
-import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/lookups")
@@ -30,6 +30,22 @@ public class LookupController {
         return ResponseEntity.ok(
                 lookupService
                         .getBranchOptions()
+        );
+    }
+
+    @GetMapping("/branches/province-options")
+    @PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<List<ProvinceOptionResponse>>
+    getProvinceOptions() {
+        return ResponseEntity.ok(
+                lookupService
+                        .getProvinceOptions()
         );
     }
 
@@ -57,20 +73,6 @@ public class LookupController {
         );
     }
 
-    @GetMapping("/tshirt-sizes")
-    public ResponseEntity<List<LookupOptionResponse<String>>> getTshirtSizeOptions() {
-        return ResponseEntity.ok(
-                Arrays.stream(TshirtSize.values())
-                        .map(size -> new LookupOptionResponse<>(
-                                size.getValue(),
-                                size.name(),
-                                size.getValue(),
-                                size.getValue()
-                        ))
-                        .toList()
-        );
-    }
-
     @GetMapping("/nationalities")
     public ResponseEntity<List<NationalityOptionResponse>>
     getNationalityOptions() {
@@ -92,32 +94,32 @@ public class LookupController {
         return ResponseEntity.ok(lookupService.getBranchLevelOptions());
     }
 
-    @GetMapping("/branch-statuses")
-    public ResponseEntity<List<LookupOptionResponse<Short>>> getBranchStatusOptions() {
+    @GetMapping("/branch-status-options")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getBranchStatusLookupOptions() {
         return ResponseEntity.ok(lookupService.getBranchStatusOptions());
     }
 
-    @GetMapping("/provinces")
-    public ResponseEntity<List<LookupOptionResponse<Short>>> getProvinceOptions() {
-        return ResponseEntity.ok(lookupService.getProvinceOptions());
+    @GetMapping("/province-options")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getProvinceLookupOptions() {
+        return ResponseEntity.ok(lookupService.getProvinceLookupOptions());
     }
 
-    @GetMapping("/districts")
+    @GetMapping("/district-options")
     public ResponseEntity<List<LookupOptionResponse<Integer>>> getDistrictOptions(
             @RequestParam Short provinceId
     ) {
         return ResponseEntity.ok(lookupService.getDistrictOptions(provinceId));
     }
 
-    @GetMapping("/communes")
+    @GetMapping("/commune-options")
     public ResponseEntity<List<LookupOptionResponse<Integer>>> getCommuneOptions(
             @RequestParam Integer districtId
     ) {
         return ResponseEntity.ok(lookupService.getCommuneOptions(districtId));
     }
 
-    @GetMapping("/education-levels")
-    public ResponseEntity<List<LookupOptionResponse<Short>>> getEducationLevelOptions() {
+    @GetMapping("/education-level-options")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getEducationLevelLookupOptions() {
         return ResponseEntity.ok(lookupService.getEducationLevelOptions());
     }
 
@@ -126,8 +128,8 @@ public class LookupController {
         return ResponseEntity.ok(lookupService.getEmploymentSectorOptions());
     }
 
-    @GetMapping("/proficiency-levels")
-    public ResponseEntity<List<LookupOptionResponse<Short>>> getProficiencyLevelOptions() {
+    @GetMapping("/proficiency-level-options")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getProficiencyLevelLookupOptions() {
         return ResponseEntity.ok(lookupService.getProficiencyLevelOptions());
     }
 
@@ -136,8 +138,8 @@ public class LookupController {
         return ResponseEntity.ok(lookupService.getCountryOptions());
     }
 
-    @GetMapping("/activity-types")
-    public ResponseEntity<List<LookupOptionResponse<Short>>> getActivityTypeOptions() {
+    @GetMapping("/activity-type-options")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getActivityTypeLookupOptions() {
         return ResponseEntity.ok(lookupService.getActivityTypeOptions());
     }
 
@@ -149,5 +151,147 @@ public class LookupController {
     @GetMapping("/activity-statuses")
     public ResponseEntity<List<LookupOptionResponse<Short>>> getActivityStatusOptions() {
         return ResponseEntity.ok(lookupService.getActivityStatusOptions());
+    }
+
+    @GetMapping("/activity-types")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getActivityTypeOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getActivityTypeOptions()
+        );
+    }
+
+    @GetMapping("/attendance-statuses")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getAttendanceStatusOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getAttendanceStatusOptions()
+        );
+    }
+
+    @GetMapping("/ethnicities")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getEthnicityOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getEthnicityOptions()
+        );
+    }
+
+    @GetMapping("/religions")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getReligionOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getReligionOptions()
+        );
+    }
+
+    @GetMapping("/tshirt-sizes")
+    public ResponseEntity<
+            List<LookupOptionResponse<String>>
+            >
+    getTshirtSizeOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getTshirtSizeOptions()
+        );
+    }
+
+    @GetMapping("/education-levels")
+    public ResponseEntity<
+            List<LookupOptionResponse<Short>>
+            >
+    getEducationLevelOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getEducationLevelOptions()
+        );
+    }
+
+    @GetMapping("/languages")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getLanguages() {
+        return ResponseEntity.ok(
+                lookupService.getLanguageOptions()
+        );
+    }
+
+    @GetMapping("/skills")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getSkills() {
+        return ResponseEntity.ok(
+                lookupService.getSkillOptions()
+        );
+    }
+
+    @GetMapping("/proficiency-levels")
+    public ResponseEntity<List<LookupOptionResponse<Short>>>
+    getProficiencyLevels() {
+        return ResponseEntity.ok(
+                lookupService.getProficiencyLevelOptions()
+        );
+    }
+
+    @GetMapping("/political-parties")
+    public ResponseEntity<
+            List<LookupOptionResponse<Short>>
+            >
+    getPoliticalPartyOptions() {
+        return ResponseEntity.ok(
+                lookupService
+                        .getPoliticalPartyOptions()
+        );
+    }
+
+    @GetMapping("/provinces")
+    public ResponseEntity<List<LocationOptionResponse>>
+    getProvinces() {
+        return ResponseEntity.ok(
+                lookupService.getProvinces()
+        );
+    }
+
+    @GetMapping("/districts")
+    public ResponseEntity<List<LocationOptionResponse>>
+    getDistricts(
+            @RequestParam
+            Short provinceId
+    ) {
+        return ResponseEntity.ok(
+                lookupService.getDistricts(
+                        provinceId
+                )
+        );
+    }
+
+    @GetMapping("/communes")
+    public ResponseEntity<List<LocationOptionResponse>>
+    getCommunes(
+            @RequestParam
+            Integer districtId
+    ) {
+        return ResponseEntity.ok(
+                lookupService.getCommunes(
+                        districtId
+                )
+        );
+    }
+
+    @GetMapping("/branch-statuses")
+    public ResponseEntity<List<BranchStatusOptionResponse>>
+    getBranchStatuses() {
+        return ResponseEntity.ok(
+                lookupService
+                        .getBranchStatuses()
+        );
     }
 }

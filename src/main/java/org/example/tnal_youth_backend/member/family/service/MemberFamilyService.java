@@ -1,29 +1,16 @@
 package org.example.tnal_youth_backend.member.family.service;
 
-import org.example.tnal_youth_backend.member.family.dto.request.MemberFamilyRequest;
-import org.example.tnal_youth_backend.member.family.dto.response.MemberFamilyResponse;
-
-import java.util.List;
+import org.example.tnal_youth_backend.member.family.dto.request.MemberFamilyInfoRequest;
+import org.example.tnal_youth_backend.member.family.dto.response.MemberFamilyInfoResponse;
 
 public interface MemberFamilyService {
 
-    List<MemberFamilyResponse> getFamilyByMemberId(
+    MemberFamilyInfoResponse getFamilyInfo(
             Long memberId
     );
 
-    MemberFamilyResponse createFamilyRecord(
+    MemberFamilyInfoResponse updateFamilyInfo(
             Long memberId,
-            MemberFamilyRequest request
-    );
-
-    MemberFamilyResponse updateFamilyRecord(
-            Long memberId,
-            Long familyId,
-            MemberFamilyRequest request
-    );
-
-    void deleteFamilyRecord(
-            Long memberId,
-            Long familyId
+            MemberFamilyInfoRequest request
     );
 }

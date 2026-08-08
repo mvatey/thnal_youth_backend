@@ -102,11 +102,19 @@ public class Member {
     )
     private String placeOfBirth;
 
+    @Enumerated(EnumType.STRING)
     @Column(
             name = "tshirt_size",
-            length = 10
+            length = 20
     )
-    private String tshirtSize;
+    private TshirtSize tshirtSize;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "marital_status",
+            length = 20
+    )
+    private MaritalStatus maritalStatus;
 
     @Column(
             name = "phone",

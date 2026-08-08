@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.password.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -9,16 +10,19 @@ import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.password.dto.request.MemberPasswordResetRequest;
+import org.example.tnal_youth_backend.member.password.dto.request.UpdateMemberRoleRequest;
 import org.example.tnal_youth_backend.member.password.dto.response.MemberPasswordStatusResponse;
 import org.example.tnal_youth_backend.member.password.exception.MemberPasswordException;
 import org.example.tnal_youth_backend.member.password.service.MemberPasswordService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.OffsetDateTime;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +39,8 @@ public class MemberPasswordServiceImpl
 
     private final PasswordEncoder passwordEncoder;
 
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenRepository
+            refreshTokenRepository;
 
     /*
      * ==========================================================
@@ -52,11 +57,17 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
-        requireMember(memberId);
+        requireMember(
+                memberId
+        );
 
         return userRepository
-                .findByMemberId(memberId)
-                .map(this::toResponse)
+                .findByMemberId(
+                        memberId
+                )
+                .map(
+                        this::toResponse
+                )
                 .orElseGet(() ->
                         noAccountResponse(
                                 memberId
@@ -80,16 +91,23 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
-        requireMember(memberId);
+        requireMember(
+                memberId
+        );
 
         User user =
                 requireUserAccount(
                         memberId
                 );
 
-        if (user.getStatus()
-                != UserStatus.PENDING_ACTIVATION) {
+        validateCanManageTargetAccount(
+                user
+        );
 
+        if (
+                user.getStatus()
+                        != UserStatus.PENDING_ACTIVATION
+        ) {
             throw new MemberPasswordException(
                     "Activation OTP can only be sent to an account "
                             + "that is pending activation"
@@ -109,15 +127,213 @@ public class MemberPasswordServiceImpl
         }
 
         /*
-         * We still need to connect this to your existing OTP
-         * service using purpose ACCOUNT_ACTIVATION.
-         *
-         * Do not silently return success before the OTP is
-         * actually generated and delivered.
+         * Connect this with the existing OTP service using
+         * ACCOUNT_ACTIVATION as the OTP purpose.
          */
         throw new ResponseStatusException(
                 HttpStatus.NOT_IMPLEMENTED,
                 "Activation OTP delivery has not been connected yet"
+        );
+    }
+
+    /*
+     * ==========================================================
+     * RESET PASSWORD
+     * ==========================================================
+     */
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse resetPassword(
+            Long memberId,
+            MemberPasswordResetRequest request
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password reset request is required"
+            );
+        }
+
+        String newPassword =
+                request.getNewPassword();
+
+        String confirmPassword =
+                request.getConfirmPassword();
+
+        if (
+                newPassword == null
+                        || newPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+
+        if (newPassword.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must contain at least 6 characters"
+            );
+        }
+
+        if (
+                confirmPassword == null
+                        || confirmPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation is required"
+            );
+        }
+
+        if (!newPassword.equals(confirmPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation does not match"
+            );
+        }
+
+        User user =
+                requireUserAccount(
+                        memberId
+                );
+
+        validateCanManageTargetAccount(
+                user
+        );
+
+        /*
+         * Staff must not bypass first-time OTP activation.
+         */
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This account is pending activation. "
+                            + "The member must complete OTP activation first."
+            );
+        }
+
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        newPassword
+                )
+        );
+
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        User savedUser =
+                userRepository.saveAndFlush(
+                        user
+                );
+
+        /*
+         * Log out all current sessions after changing password.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
+        );
+    }
+
+    /*
+     * ==========================================================
+     * UPDATE ACCOUNT ROLE
+     * ==========================================================
+     */
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse updateAccountRole(
+            Long memberId,
+            UpdateMemberRoleRequest request
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        if (
+                request == null
+                        || request.role() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Role is required"
+            );
+        }
+
+        User targetUser =
+                requireUserAccount(
+                        memberId
+                );
+
+        UserRole actorRole =
+                getCurrentActorRole();
+
+        UserRole targetCurrentRole =
+                targetUser.getRole();
+
+        UserRole requestedRole =
+                request.role();
+
+        validateRoleChange(
+                actorRole,
+                targetCurrentRole,
+                requestedRole
+        );
+
+        if (targetCurrentRole == requestedRole) {
+            return toResponse(
+                    targetUser
+            );
+        }
+
+        targetUser.setRole(
+                requestedRole
+        );
+
+        User savedUser =
+                userRepository.saveAndFlush(
+                        targetUser
+                );
+
+        /*
+         * The user's permissions changed, so old sessions
+         * should no longer remain active.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
         );
     }
 
@@ -137,32 +353,40 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
-        requireMember(memberId);
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
 
         User user =
                 requireUserAccount(
                         memberId
                 );
 
-        /*
-         * A member who has never activated their account
-         * should complete activation instead of being disabled.
-         */
-        if (user.getStatus()
-                == UserStatus.PENDING_ACTIVATION) {
+        validateCanManageTargetAccount(
+                user
+        );
 
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
             throw new MemberPasswordException(
-                    "Pending activation accounts cannot be disabled."
+                    "Pending activation accounts cannot be disabled"
             );
         }
 
-        /*
-         * Already inactive.
-         */
-        if (user.getStatus()
-                == UserStatus.INACTIVE) {
-
-            return toResponse(user);
+        if (
+                user.getStatus()
+                        == UserStatus.INACTIVE
+        ) {
+            return toResponse(
+                    user
+            );
         }
 
         user.setStatus(
@@ -170,7 +394,6 @@ public class MemberPasswordServiceImpl
         );
 
         user.setLockedUntil(null);
-
         user.setFailedLoginCount(0);
 
         User savedUser =
@@ -178,7 +401,16 @@ public class MemberPasswordServiceImpl
                         user
                 );
 
-        return toResponse(savedUser);
+        /*
+         * Immediately end existing sessions after disabling.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
+        );
     }
 
     /*
@@ -197,19 +429,31 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
-        requireMember(memberId);
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
 
         User user =
                 requireUserAccount(
                         memberId
                 );
 
-        /*
-         * Never allow staff to bypass first-time OTP activation.
-         */
-        if (user.getStatus()
-                == UserStatus.PENDING_ACTIVATION) {
+        validateCanManageTargetAccount(
+                user
+        );
 
+        /*
+         * Staff cannot bypass first-time OTP activation.
+         */
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
             throw new MemberPasswordException(
                     "This account is still pending activation. "
                             + "The member must verify OTP and set "
@@ -217,23 +461,19 @@ public class MemberPasswordServiceImpl
             );
         }
 
-        /*
-         * activatedAt proves that the member completed
-         * the first-time activation flow before.
-         */
         if (user.getActivatedAt() == null) {
             throw new MemberPasswordException(
-                    "This account has not completed OTP activation yet."
+                    "This account has not completed OTP activation yet"
             );
         }
 
-        /*
-         * Already enabled.
-         */
-        if (user.getStatus()
-                == UserStatus.ACTIVE) {
-
-            return toResponse(user);
+        if (
+                user.getStatus()
+                        == UserStatus.ACTIVE
+        ) {
+            return toResponse(
+                    user
+            );
         }
 
         user.setStatus(
@@ -241,7 +481,6 @@ public class MemberPasswordServiceImpl
         );
 
         user.setLockedUntil(null);
-
         user.setFailedLoginCount(0);
 
         User savedUser =
@@ -249,7 +488,328 @@ public class MemberPasswordServiceImpl
                         user
                 );
 
-        return toResponse(savedUser);
+        /*
+         * Remove old sessions so the user signs in again
+         * with the current account state.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
+        );
+    }
+
+    /*
+     * ==========================================================
+     * ROLE VALIDATION
+     * ==========================================================
+     */
+
+    private void validateRoleChange(
+            UserRole actorRole,
+            UserRole targetCurrentRole,
+            UserRole requestedRole
+    ) {
+        if (actorRole == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account does not have a valid role"
+            );
+        }
+
+        if (targetCurrentRole == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The target account does not have a role"
+            );
+        }
+
+        if (requestedRole == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Requested role is required"
+            );
+        }
+
+        /*
+         * ADMIN must never be assigned through the member page.
+         */
+        if (requestedRole == UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "ADMIN role cannot be assigned from the member page"
+            );
+        }
+
+        /*
+         * Existing ADMIN accounts must not be managed through
+         * the normal member-management page.
+         */
+        if (targetCurrentRole == UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "ADMIN accounts cannot be managed from the member page"
+            );
+        }
+
+        /*
+         * ADMIN:
+         * - may manage MEMBER, SECRETARY, and BRANCH_LEADER
+         * - may assign any of those three roles
+         */
+        if (actorRole == UserRole.ADMIN) {
+            if (
+                    requestedRole != UserRole.MEMBER
+                            && requestedRole != UserRole.SECRETARY
+                            && requestedRole
+                            != UserRole.BRANCH_LEADER
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Admin can assign MEMBER, SECRETARY, "
+                                + "or BRANCH_LEADER only"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * BRANCH_LEADER:
+         * - cannot manage another BRANCH_LEADER
+         * - can manage MEMBER and SECRETARY only
+         * - can assign MEMBER or SECRETARY
+         *
+         * Branch scope is already checked through
+         * memberAccessValidator.
+         */
+        if (actorRole == UserRole.BRANCH_LEADER) {
+            if (
+                    targetCurrentRole
+                            == UserRole.BRANCH_LEADER
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Branch leader cannot manage another "
+                                + "branch leader's role"
+                );
+            }
+
+            if (
+                    targetCurrentRole != UserRole.MEMBER
+                            && targetCurrentRole
+                            != UserRole.SECRETARY
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Branch leader can only manage MEMBER "
+                                + "or SECRETARY accounts"
+                );
+            }
+
+            if (
+                    requestedRole != UserRole.MEMBER
+                            && requestedRole
+                            != UserRole.SECRETARY
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Branch leader can only assign MEMBER "
+                                + "or SECRETARY"
+                );
+            }
+
+            return;
+        }
+
+        /*
+         * SECRETARY:
+         * - can manage an existing MEMBER account only
+         * - cannot promote the member
+         * - therefore, the requested role must remain MEMBER
+         *
+         * Branch scope is already checked through
+         * memberAccessValidator.
+         */
+        if (actorRole == UserRole.SECRETARY) {
+            if (targetCurrentRole != UserRole.MEMBER) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Secretary can only manage MEMBER accounts"
+                );
+            }
+
+            if (requestedRole != UserRole.MEMBER) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Secretary cannot promote or change "
+                                + "a member's account role"
+                );
+            }
+
+            return;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You are not allowed to change account roles"
+        );
+    }
+
+    /*
+     * ==========================================================
+     * ACCOUNT MANAGEMENT VALIDATION
+     * ==========================================================
+     */
+
+    private void validateCanManageTargetAccount(
+            User targetUser
+    ) {
+        UserRole actorRole =
+                getCurrentActorRole();
+
+        UserRole targetRole =
+                targetUser.getRole();
+
+        if (targetRole == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The target account does not have a role"
+            );
+        }
+
+        if (targetRole == UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "ADMIN accounts cannot be managed "
+                            + "from the member page"
+            );
+        }
+
+        /*
+         * ADMIN can manage all non-admin member accounts.
+         */
+        if (actorRole == UserRole.ADMIN) {
+            return;
+        }
+
+        /*
+         * BRANCH_LEADER can manage MEMBER or SECRETARY
+         * accounts inside their accessible branch scope.
+         */
+        if (actorRole == UserRole.BRANCH_LEADER) {
+            if (
+                    targetRole == UserRole.MEMBER
+                            || targetRole == UserRole.SECRETARY
+            ) {
+                return;
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Branch leader can only manage MEMBER "
+                            + "or SECRETARY accounts"
+            );
+        }
+
+        /*
+         * SECRETARY can manage normal MEMBER accounts only.
+         */
+        if (actorRole == UserRole.SECRETARY) {
+            if (targetRole == UserRole.MEMBER) {
+                return;
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Secretary can only manage MEMBER accounts"
+            );
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You are not allowed to manage this account"
+        );
+    }
+
+    /*
+     * ==========================================================
+     * CURRENT ACTOR ROLE
+     * ==========================================================
+     */
+
+    private UserRole getCurrentActorRole() {
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (
+                authentication == null
+                        || !authentication.isAuthenticated()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not authenticated"
+            );
+        }
+
+        if (
+                hasAuthority(
+                        authentication,
+                        "ROLE_ADMIN"
+                )
+        ) {
+            return UserRole.ADMIN;
+        }
+
+        if (
+                hasAuthority(
+                        authentication,
+                        "ROLE_BRANCH_LEADER"
+                )
+        ) {
+            return UserRole.BRANCH_LEADER;
+        }
+
+        if (
+                hasAuthority(
+                        authentication,
+                        "ROLE_SECRETARY"
+                )
+        ) {
+            return UserRole.SECRETARY;
+        }
+
+        if (
+                hasAuthority(
+                        authentication,
+                        "ROLE_MEMBER"
+                )
+        ) {
+            return UserRole.MEMBER;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Authenticated user does not have a supported role"
+        );
+    }
+
+    private boolean hasAuthority(
+            Authentication authentication,
+            String authority
+    ) {
+        return authentication
+                .getAuthorities()
+                .stream()
+                .anyMatch(grantedAuthority ->
+                        authority.equals(
+                                grantedAuthority.getAuthority()
+                        )
+                );
     }
 
     /*
@@ -261,16 +821,19 @@ public class MemberPasswordServiceImpl
     private Member requireMember(
             Long memberId
     ) {
-        if (memberId == null
-                || memberId <= 0) {
-
+        if (
+                memberId == null
+                        || memberId <= 0
+        ) {
             throw new MemberPasswordException(
                     "Member ID must be greater than zero"
             );
         }
 
         return memberRepository
-                .findById(memberId)
+                .findById(
+                        memberId
+                )
                 .orElseThrow(() ->
                         new MemberPasswordException(
                                 "Member was not found with ID: "
@@ -289,12 +852,29 @@ public class MemberPasswordServiceImpl
             Long memberId
     ) {
         return userRepository
-                .findByMemberId(memberId)
+                .findByMemberId(
+                        memberId
+                )
                 .orElseThrow(() ->
                         new MemberPasswordException(
                                 "This member does not have "
                                         + "a login account"
                         )
+                );
+    }
+
+    /*
+     * ==========================================================
+     * REFRESH TOKEN REVOCATION
+     * ==========================================================
+     */
+
+    private void revokeRefreshTokens(
+            User user
+    ) {
+        refreshTokenRepository
+                .deleteByUser(
+                        user
                 );
     }
 
@@ -354,58 +934,164 @@ public class MemberPasswordServiceImpl
     private String normalizeEmail(
             String email
     ) {
-        if (email == null
-                || email.isBlank()) {
-
+        if (
+                email == null
+                        || email.isBlank()
+        ) {
             return null;
         }
 
         return email
                 .trim()
-                .toLowerCase();
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
     @Override
     @Transactional
-    public MemberPasswordStatusResponse resetPassword(
+    public MemberPasswordStatusResponse changeOwnPassword(
             Long memberId,
-            MemberPasswordResetRequest request
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
     ) {
-        if (!request.getNewPassword().equals(
-                request.getConfirmPassword()
-        )) {
+        /*
+         * This confirms that MEMBER may only access
+         * their own linked member record.
+         */
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        User user =
+                requireUserAccount(
+                        memberId
+                );
+
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The account must complete activation before changing its password"
+            );
+        }
+
+        if (
+                user.getStatus()
+                        != UserStatus.ACTIVE
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only an active account can change its password"
+            );
+        }
+
+        if (
+                oldPassword == null
+                        || oldPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is required"
+            );
+        }
+
+        if (
+                !passwordEncoder.matches(
+                        oldPassword,
+                        user.getPasswordHash()
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is incorrect"
+            );
+        }
+
+        if (
+                newPassword == null
+                        || newPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+
+        if (newPassword.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must contain at least 6 characters"
+            );
+        }
+
+        if (
+                confirmPassword == null
+                        || confirmPassword.isBlank()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation is required"
+            );
+        }
+
+        if (
+                !newPassword.equals(
+                        confirmPassword
+                )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Password confirmation does not match"
             );
         }
 
-        User user = userRepository
-                .findByMemberId(memberId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "This member does not have a user account"
-                        )
-                );
+        /*
+         * Prevent reusing the current password.
+         */
+        if (
+                passwordEncoder.matches(
+                        newPassword,
+                        user.getPasswordHash()
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must be different from the old password"
+            );
+        }
 
         user.setPasswordHash(
                 passwordEncoder.encode(
-                        request.getNewPassword()
+                        newPassword
                 )
         );
 
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 
-        userRepository.save(user);
+        User savedUser =
+                userRepository.saveAndFlush(
+                        user
+                );
 
         /*
-         * Revoke old sessions so the previous password/session
-         * cannot continue being used.
+         * Log out existing sessions after password change.
          */
-        refreshTokenRepository.deleteByUser(user);
+        revokeRefreshTokens(
+                savedUser
+        );
 
-        return getPasswordStatus(memberId);
+        return toResponse(
+                savedUser
+        );
     }
 }

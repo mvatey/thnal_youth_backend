@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
         )
         """)
 @Tag(
-        name = "B. Member Page - Participation",
+        name = "3.2 Member Page - Participation",
         description = "Manage participation for a selected member"
 )
 public class MemberParticipationController {
@@ -58,7 +58,10 @@ public class MemberParticipationController {
             String search,
 
             @RequestParam(required = false)
-            Short typeId
+            Short typeId,
+
+            @RequestParam(required = false)
+                    Short attendanceStatusId
     ) {
         return ResponseEntity.ok(
                 memberParticipationService
@@ -67,7 +70,8 @@ public class MemberParticipationController {
                                 page,
                                 size,
                                 search,
-                                typeId
+                                typeId,
+                                attendanceStatusId
                         )
         );
     }

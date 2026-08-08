@@ -7,8 +7,11 @@ import org.example.tnal_youth_backend.member.language.dto.request.MemberLanguage
 import org.example.tnal_youth_backend.member.language.dto.response.MemberLanguageResponse;
 import org.example.tnal_youth_backend.member.language.service.MemberLanguageService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -16,7 +19,7 @@ import java.util.List;
 @RequestMapping("/api/members/{memberId}/languages")
 @RequiredArgsConstructor
 @Tag(
-        name = "B. Member Page - Languages",
+        name = "3.0.5.1 Member Page - Languages",
         description = "Manage languages for a selected member"
 )
 public class MemberLanguageController {
@@ -24,17 +27,34 @@ public class MemberLanguageController {
     private final MemberLanguageService languageService;
 
     @GetMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER',
+                'MEMBER'
+            )
+            """)
     public ResponseEntity<List<MemberLanguageResponse>>
     getByMemberId(
             @PathVariable Long memberId
     ) {
         return ResponseEntity.ok(
-                languageService.getByMemberId(memberId)
+                languageService.getByMemberId(
+                        memberId
+                )
         );
     }
 
     @PostMapping
-    public ResponseEntity<MemberLanguageResponse> create(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberLanguageResponse>
+    create(
             @PathVariable Long memberId,
 
             @Valid
@@ -52,7 +72,14 @@ public class MemberLanguageController {
     }
 
     @PutMapping("/{languageId}")
-    public ResponseEntity<MemberLanguageResponse> update(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberLanguageResponse>
+    update(
             @PathVariable Long memberId,
             @PathVariable Long languageId,
 
@@ -70,7 +97,14 @@ public class MemberLanguageController {
     }
 
     @DeleteMapping("/{languageId}")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("""
+            hasAnyRole(
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<Void>
+    delete(
             @PathVariable Long memberId,
             @PathVariable Long languageId
     ) {
@@ -79,6 +113,55 @@ public class MemberLanguageController {
                 languageId
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    @PutMapping(
+            value = "/{languageId}/certificate",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("""
+        hasAnyRole(
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberLanguageResponse>
+    uploadCertificate(
+            @PathVariable Long memberId,
+            @PathVariable Long languageId,
+
+            @RequestPart("file")
+            MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                languageService.uploadCertificate(
+                        memberId,
+                        languageId,
+                        file
+                )
+        );
+    }
+
+    @DeleteMapping("/{languageId}/certificate")
+    @PreAuthorize("""
+        hasAnyRole(
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<MemberLanguageResponse>
+    removeCertificate(
+            @PathVariable Long memberId,
+            @PathVariable Long languageId
+    ) {
+        return ResponseEntity.ok(
+                languageService.removeCertificate(
+                        memberId,
+                        languageId
+                )
+        );
     }
 }

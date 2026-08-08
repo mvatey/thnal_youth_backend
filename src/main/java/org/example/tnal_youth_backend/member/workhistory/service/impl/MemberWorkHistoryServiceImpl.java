@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.workhistory.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
 import org.example.tnal_youth_backend.member.workhistory.entity.MemberWorkHistory;
@@ -25,13 +26,16 @@ public class MemberWorkHistoryServiceImpl
     private final MemberWorkHistoryRepository workHistoryRepository;
     private final MemberRepository memberRepository;
     private final MemberWorkHistoryMapper workHistoryMapper;
+    private final MemberAccessValidator
+            memberAccessValidator;
 
     @Override
     @Transactional(readOnly = true)
     public List<MemberWorkHistoryResponse> getByMemberId(
             Long memberId
     ) {
-        verifyMemberExists(memberId);
+        memberAccessValidator
+                .validateAccessibleMember(memberId);
 
         return workHistoryRepository
                 .findAllByMemberIdOrderByStartDateDescIdDesc(
@@ -48,6 +52,9 @@ public class MemberWorkHistoryServiceImpl
             Long memberId,
             MemberWorkHistoryRequest request
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(memberId);
+
         Member member = findMember(memberId);
 
         MemberWorkHistory workHistory =
@@ -65,14 +72,22 @@ public class MemberWorkHistoryServiceImpl
                                         "Position title"
                                 )
                         )
+                        .roleTitle(
+                                trimToNull(
+                                        request.roleTitle()
+                                )
+                        )
                         .address(
-                                trimToNull(request.address())
+                                trimToNull(
+                                        request.address()
+                                )
                         )
-                        .employmentSectorId(
-                                request.employmentSectorId()
+                        .startDate(
+                                request.startDate()
                         )
-                        .startDate(request.startDate())
-                        .endDate(request.endDate())
+                        .endDate(
+                                request.endDate()
+                        )
                         .build();
 
         try {
@@ -85,11 +100,8 @@ public class MemberWorkHistoryServiceImpl
         } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    """
-                    Work history could not be saved. Check that \
-                    employment_sector_id exists and the date range \
-                    is valid.
-                    """
+                    "Work history could not be saved. Check that the date range is valid.",
+                    exception
             );
         }
     }
@@ -101,8 +113,14 @@ public class MemberWorkHistoryServiceImpl
             Long workId,
             MemberWorkHistoryRequest request
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(memberId);
+
         MemberWorkHistory workHistory =
-                findWorkHistory(memberId, workId);
+                findWorkHistory(
+                        memberId,
+                        workId
+                );
 
         workHistory.setOrganizationName(
                 normalizeRequired(
@@ -118,12 +136,16 @@ public class MemberWorkHistoryServiceImpl
                 )
         );
 
-        workHistory.setAddress(
-                trimToNull(request.address())
+        workHistory.setRoleTitle(
+                trimToNull(
+                        request.roleTitle()
+                )
         );
 
-        workHistory.setEmploymentSectorId(
-                request.employmentSectorId()
+        workHistory.setAddress(
+                trimToNull(
+                        request.address()
+                )
         );
 
         workHistory.setStartDate(
@@ -144,11 +166,8 @@ public class MemberWorkHistoryServiceImpl
         } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    """
-                    Work history could not be updated. Check that \
-                    employment_sector_id exists and the date range \
-                    is valid.
-                    """
+                    "Work history could not be updated. Check that the date range is valid.",
+                    exception
             );
         }
     }
@@ -159,8 +178,14 @@ public class MemberWorkHistoryServiceImpl
             Long memberId,
             Long workId
     ) {
+        memberAccessValidator
+                .validateAccessibleMember(memberId);
+
         MemberWorkHistory workHistory =
-                findWorkHistory(memberId, workId);
+                findWorkHistory(
+                        memberId,
+                        workId
+                );
 
         workHistoryRepository.delete(workHistory);
     }
