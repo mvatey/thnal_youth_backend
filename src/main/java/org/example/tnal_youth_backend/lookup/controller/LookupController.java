@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.lookup.dto.*;
 import org.example.tnal_youth_backend.lookup.service.LookupService;
+import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
+import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/lookups")
@@ -52,6 +54,20 @@ public class LookupController {
     getMemberLevelOptions() {
         return ResponseEntity.ok(
                 lookupService.getMemberLevelOptions()
+        );
+    }
+
+    @GetMapping("/tshirt-sizes")
+    public ResponseEntity<List<LookupOptionResponse<String>>> getTshirtSizeOptions() {
+        return ResponseEntity.ok(
+                Arrays.stream(TshirtSize.values())
+                        .map(size -> new LookupOptionResponse<>(
+                                size.getValue(),
+                                size.name(),
+                                size.getValue(),
+                                size.getValue()
+                        ))
+                        .toList()
         );
     }
 

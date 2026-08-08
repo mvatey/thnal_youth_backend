@@ -311,6 +311,7 @@ public class AuthServiceImpl implements AuthService {
 
         return UserProfileResponse.builder()
                 .id(user.getId())
+                .memberId(user.getMemberId())
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .fullNameKm(user.getFullNameKm())

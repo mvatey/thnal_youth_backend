@@ -15,6 +15,8 @@ public class UserProfileResponse {
 
     private Long id;
 
+    private Long memberId;
+
     private String phone;
 
     private String email;
