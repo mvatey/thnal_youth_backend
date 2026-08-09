@@ -18,19 +18,20 @@ public class DashboardController {
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryResponse> getSummary(
-            @RequestParam(required = false) String month
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Long branchId
     ) {
         return ResponseEntity.ok(
-                dashboardService.getSummary(month)
+                dashboardService.getSummary(month, branchId)
         );
     }
 
     @GetMapping("/activities")
     public ResponseEntity<DashboardActivitiesResponse>
-    getActivities() {
+    getActivities(@RequestParam(required = false) Long branchId) {
 
         return ResponseEntity.ok(
-                dashboardService.getActivities()
+                dashboardService.getActivities(branchId)
         );
     }
 
@@ -38,22 +39,24 @@ public class DashboardController {
     public ResponseEntity<ActivityTypeBreakdownResponse>
     getActivityTypeBreakdown(
             @RequestParam(required = false)
-            String month
+            String month,
+            @RequestParam(required = false) Long branchId
     ) {
         return ResponseEntity.ok(
                 dashboardService
-                        .getActivityTypeBreakdown(month)
+                        .getActivityTypeBreakdown(month, branchId)
         );
     }
     @GetMapping("/participation-trend")
     public ResponseEntity<ParticipationTrendResponse>
     getParticipationTrend(
                     @RequestParam(required = false)
-                    Integer year
+                    Integer year,
+                    @RequestParam(required = false) Long branchId
             ) {
         return ResponseEntity.ok(
                 dashboardService
-                        .getParticipationTrend(year)
+                        .getParticipationTrend(year, branchId)
         );
     }
 

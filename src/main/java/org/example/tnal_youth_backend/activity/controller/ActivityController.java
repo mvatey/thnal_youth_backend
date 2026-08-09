@@ -69,7 +69,8 @@ public class ActivityController {
             @RequestParam(required = false) Short typeId,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date
+            LocalDate date,
+            Authentication authentication
     ) {
         return activityService.getActivities(
                 page,
@@ -77,7 +78,8 @@ public class ActivityController {
                 search,
                 sectorId,
                 typeId,
-                date
+                date,
+                extractCurrentUserId(authentication)
         );
     }
 

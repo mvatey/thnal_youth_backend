@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.lookup.dto.*;
 import org.example.tnal_youth_backend.lookup.service.LookupService;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +31,15 @@ public class LookupController {
         return ResponseEntity.ok(
                 lookupService
                         .getBranchOptions()
+        );
+    }
+
+    @GetMapping("/activity-invitable-branches")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    public ResponseEntity<List<LookupOptionResponse<Long>>>
+    getActivityInvitableBranchOptions() {
+        return ResponseEntity.ok(
+                lookupService.getActivityInvitableBranchOptions()
         );
     }
 

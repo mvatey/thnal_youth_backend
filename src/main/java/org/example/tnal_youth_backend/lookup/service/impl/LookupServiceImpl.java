@@ -59,6 +59,24 @@ public class LookupServiceImpl
 
     @Override
     @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Long>>
+    getActivityInvitableBranchOptions() {
+        return branchService
+                .getAllActiveBranchOptions()
+                .stream()
+                .map(branch ->
+                        new LookupOptionResponse<>(
+                                branch.id(),
+                                branch.branchCode(),
+                                branch.nameKm(),
+                                branch.nameEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<LookupOptionResponse<Short>>
     getMemberStatusOptions() {
         return memberStatusService

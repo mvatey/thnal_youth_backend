@@ -12,18 +12,23 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
 import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepository;
+import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
+import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
+import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Locale;
 import java.util.Set;
@@ -42,8 +47,12 @@ public class MyAccountServiceImpl implements MyAccountService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final FileRepository fileRepository;
+    private final FileService fileService;
     private final MemberStatusRepository memberStatusRepository;
     private final MemberLevelRepository memberLevelRepository;
+    private final ReligionRepository religionRepository;
+    private final NationalityRepository nationalityRepository;
+    private final EthnicityRepository ethnicityRepository;
     private final JdbcTemplate jdbcTemplate;
 
     private final PasswordEncoder passwordEncoder;
@@ -213,6 +222,13 @@ public class MyAccountServiceImpl implements MyAccountService {
         member.setBio(
                 normalize(request.bio())
         );
+        member.setTshirtSize(normalize(request.tshirtSize()));
+        member.setReligion(request.religionId() == null ? null : religionRepository.findById(request.religionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Religion not found")));
+        member.setNationality(request.nationalityId() == null ? null : nationalityRepository.findById(request.nationalityId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nationality not found")));
+        member.setEthnicity(request.ethnicityId() == null ? null : ethnicityRepository.findById(request.ethnicityId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ethnicity not found")));
 
         validateBranch(request.branchId());
 
@@ -254,6 +270,31 @@ public class MyAccountServiceImpl implements MyAccountService {
                     member.getProfilePhoto().getFilePath()
             );
         }
+
+        Member savedMember = memberRepository.save(member);
+        User savedUser = userRepository.save(user);
+
+        return myAccountMapper.toResponse(
+                savedUser,
+                savedMember
+        );
+    }
+
+    @Override
+    @Transactional
+    public MyAccountResponse updateProfilePhoto(
+            MultipartFile file
+    ) {
+        User user = getCurrentUserFromDatabase();
+        Member member = getLinkedMember(user);
+
+        FileEntity uploadedPhoto = fileService.uploadImage(
+                file,
+                user.getId()
+        );
+
+        member.setProfilePhoto(uploadedPhoto);
+        user.setProfileImage(uploadedPhoto.getFilePath());
 
         Member savedMember = memberRepository.save(member);
         User savedUser = userRepository.save(user);

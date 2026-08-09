@@ -2,14 +2,22 @@ package org.example.tnal_youth_backend.activity.repository;
 
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface ActivityRepository
         extends JpaRepository<Activity, Long> {
+
+    Page<Activity> findAllByBranchIdIn(
+            Collection<Long> branchIds,
+            Pageable pageable
+    );
 
     List<Activity> findAllByStatus_CodeIgnoreCaseAndStartsAtLessThanEqual(
             String statusCode,

@@ -40,6 +40,12 @@ public record UpdateMyAccountRequest(
 
         Gender gender,
 
+        Short nationalityId,
+
+        Short religionId,
+
+        Short ethnicityId,
+
         @Past(message = "Date of birth must be in the past")
         LocalDate dateOfBirth,
 
@@ -50,6 +56,9 @@ public record UpdateMyAccountRequest(
         String permanentAddress,
 
         String bio,
+
+        @Size(max = 10, message = "T-shirt size must not exceed 10 characters")
+        String tshirtSize,
 
         @NotNull(message = "Branch ID is required")
         Long branchId,

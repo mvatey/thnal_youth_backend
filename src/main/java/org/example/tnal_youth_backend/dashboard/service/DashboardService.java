@@ -5,19 +5,22 @@ import org.example.tnal_youth_backend.dashboard.dto.*;
 public interface DashboardService {
 
     DashboardSummaryResponse getSummary(
-            String month
+            String month,
+            Long branchId
     );
 
-    DashboardActivitiesResponse getActivities();
+    DashboardActivitiesResponse getActivities(Long branchId);
 
     ActivityTypeBreakdownResponse
     getActivityTypeBreakdown(
-            String month
+            String month,
+            Long branchId
     );
 
     ParticipationTrendResponse
     getParticipationTrend(
-            Integer year
+            Integer year,
+            Long branchId
     );
 
     BranchPerformanceResponse getBranchPerformance(

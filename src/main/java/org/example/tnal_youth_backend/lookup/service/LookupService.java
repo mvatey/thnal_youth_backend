@@ -9,6 +9,9 @@ public interface LookupService {
     List<LookupOptionResponse<Long>>
     getBranchOptions();
 
+    List<LookupOptionResponse<Long>>
+    getActivityInvitableBranchOptions();
+
     List<LookupOptionResponse<Short>>
     getMemberStatusOptions();
 

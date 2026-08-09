@@ -12,6 +12,8 @@ public interface BranchService {
 
     List<BranchOptionResponse> getAccessibleBranchOptions();
 
+    List<BranchOptionResponse> getAllActiveBranchOptions();
+
     List<BranchResponse> getAllBranches();
 
     BranchResponse getBranchById(Long id);

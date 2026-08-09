@@ -28,6 +28,12 @@ public record MyAccountResponse(
 
         LookupResponse status,
 
+        LookupResponse religion,
+
+        LookupResponse nationality,
+
+        LookupResponse ethnicity,
+
         String phone,
 
         String email,
@@ -35,6 +41,16 @@ public record MyAccountResponse(
         LocalDate dateOfBirth,
 
         LocalDate joinedOn,
+
+        String placeOfBirth,
+
+        String currentAddress,
+
+        String permanentAddress,
+
+        String tshirtSize,
+
+        String bio,
 
         ProfilePhotoResponse profilePhoto,
 

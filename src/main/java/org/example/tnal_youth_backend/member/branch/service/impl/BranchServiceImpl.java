@@ -153,6 +153,23 @@ public class BranchServiceImpl implements BranchService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<BranchOptionResponse> getAllActiveBranchOptions() {
+        return branchRepository
+                .findAllActiveBranches()
+                .stream()
+                .map(branch ->
+                        new BranchOptionResponse(
+                                branch.getId(),
+                                branch.getBranchCode(),
+                                branch.getNameKm(),
+                                branch.getNameEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<BranchResponse> getAllBranches() {
         return branchRepository.findAll()
                 .stream()

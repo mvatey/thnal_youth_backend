@@ -9,7 +9,9 @@ import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountRe
 import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountSummaryResponse;
 import org.example.tnal_youth_backend.account.myaccount.service.MyAccountService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/my-account")
@@ -66,6 +68,22 @@ public class MyAccountController {
                 myAccountService.updateMyAccount(
                         request
                 )
+        );
+    }
+
+    /*
+     * Upload and assign the authenticated member's profile photo.
+     * The physical image is stored in uploads/images by FileService.
+     */
+    @PostMapping(
+            value = "/profile-photo",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<MyAccountResponse> updateProfilePhoto(
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                myAccountService.updateProfilePhoto(file)
         );
     }
 

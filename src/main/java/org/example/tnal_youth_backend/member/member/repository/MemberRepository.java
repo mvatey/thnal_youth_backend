@@ -336,6 +336,15 @@ public interface MemberRepository
             Gender gender
     );
 
+    long countByBranchId(
+            Long branchId
+    );
+
+    long countByGenderAndBranchId(
+            Gender gender,
+            Long branchId
+    );
+
     @Query("""
             SELECT COUNT(member)
             FROM Member member
@@ -346,6 +355,19 @@ public interface MemberRepository
     long countByReligionCode(
             @Param("religionCode")
             String religionCode
+    );
+
+    @Query("""
+            SELECT COUNT(member)
+            FROM Member member
+            JOIN member.religion religion
+            WHERE UPPER(religion.code) =
+                  UPPER(:religionCode)
+              AND member.branchId = :branchId
+            """)
+    long countByReligionCodeAndBranchId(
+            @Param("religionCode") String religionCode,
+            @Param("branchId") Long branchId
     );
 
     @Query("""

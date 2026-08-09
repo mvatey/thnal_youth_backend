@@ -8,6 +8,9 @@ import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
+import org.example.tnal_youth_backend.member.religion.entity.Religion;
+import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -46,10 +49,18 @@ public class MyAccountMapper {
                 toLookupResponse(
                         member.getStatus()
                 ),
+                toLookupResponse(member.getReligion()),
+                toLookupResponse(member.getNationality()),
+                toLookupResponse(member.getEthnicity()),
                 member.getPhone(),
                 member.getEmail(),
                 member.getDateOfBirth(),
                 member.getJoinedOn(),
+                member.getPlaceOfBirth(),
+                member.getCurrentAddress(),
+                member.getPermanentAddress(),
+                member.getTshirtSize(),
+                member.getBio(),
                 toProfilePhotoResponse(
                         member.getProfilePhoto(),
                         user.getProfileImage()
@@ -148,6 +159,18 @@ public class MyAccountMapper {
                     value.getLabelKm(),
                     value.getLabelEn()
             );
+        }
+
+        if (lookup instanceof Religion value) {
+            return new MyAccountResponse.LookupResponse(value.getId(), value.getCode(), value.getLabelKm(), value.getLabelEn());
+        }
+
+        if (lookup instanceof Nationality value) {
+            return new MyAccountResponse.LookupResponse(value.getId(), value.getCode(), value.getLabelKm(), value.getLabelEn());
+        }
+
+        if (lookup instanceof Ethnicity value) {
+            return new MyAccountResponse.LookupResponse(value.getId(), value.getCode(), value.getLabelKm(), value.getLabelEn());
         }
 
         return null;
