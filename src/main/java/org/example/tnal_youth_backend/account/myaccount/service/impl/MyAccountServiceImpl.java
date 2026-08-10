@@ -318,11 +318,6 @@ public class MyAccountServiceImpl implements MyAccountService {
     ) {
         User user = getCurrentUserFromDatabase();
 
-        validateCurrentPassword(
-                request.currentPassword(),
-                user.getPasswordHash()
-        );
-
         validatePasswordConfirmation(
                 request.newPassword(),
                 request.confirmPassword()
@@ -699,21 +694,6 @@ public class MyAccountServiceImpl implements MyAccountService {
      * PASSWORD VALIDATION
      * ==========================================================
      */
-
-    private void validateCurrentPassword(
-            String currentPassword,
-            String currentPasswordHash
-    ) {
-        if (currentPasswordHash == null
-                || !passwordEncoder.matches(
-                currentPassword,
-                currentPasswordHash
-        )) {
-            throw new IllegalArgumentException(
-                    "Current password is incorrect"
-            );
-        }
-    }
 
     private void validatePasswordConfirmation(
             String newPassword,

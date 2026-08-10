@@ -37,6 +37,7 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
     private static final String USD = "USD";
     private static final String KHR = "KHR";
     private static final String ROLE_BRANCH_LEADER = "BRANCH_LEADER";
+    private static final String ROLE_SECRETARY = "SECRETARY";
 
     private final MonthlyDonationRepository monthlyDonationRepository;
     private final DonationService donationService;
@@ -415,7 +416,8 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
         String currentRole =
                 SecurityUtils.getCurrentUserRole();
 
-        if (!ROLE_BRANCH_LEADER.equals(currentRole)) {
+        if (!ROLE_BRANCH_LEADER.equals(currentRole)
+                && !ROLE_SECRETARY.equals(currentRole)) {
             return null;
         }
 
@@ -426,7 +428,7 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
 
         if (branchId == null) {
             throw new AccessDeniedException(
-                    "Your account is a branch leader but is not assigned to a branch"
+                    "Your account is not assigned to a branch"
             );
         }
 

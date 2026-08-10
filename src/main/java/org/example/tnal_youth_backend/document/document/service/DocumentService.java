@@ -9,6 +9,8 @@ public interface DocumentService {
 
     List<DocumentResponse> getAllDocuments();
 
+    List<DocumentResponse> getDocumentsByMemberId(Long memberId);
+
     DocumentResponse getDocumentById(
             Long id
     );

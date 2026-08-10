@@ -24,10 +24,14 @@ public class DocumentController {
 
     @GetMapping
     public ResponseEntity<List<DocumentResponse>>
-    getAllDocuments() {
+    getAllDocuments(
+            @RequestParam(required = false) Long memberId
+    ) {
 
         return ResponseEntity.ok(
-                documentService.getAllDocuments()
+                memberId == null
+                        ? documentService.getAllDocuments()
+                        : documentService.getDocumentsByMemberId(memberId)
         );
     }
 

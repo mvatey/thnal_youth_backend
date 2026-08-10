@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.authentication.model.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,9 +21,9 @@ public class ResetPasswordRequest {
     private String otp;
 
     @NotBlank(message = "New password is required")
-    @Pattern(
-            regexp = "\\d{6}",
-            message = "Password must contain exactly 6 digits"
+    @Size(
+            min = 6,
+            message = "Password must contain at least 6 characters"
     )
     private String newPassword;
 }
