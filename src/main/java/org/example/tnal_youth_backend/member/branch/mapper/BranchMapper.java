@@ -76,7 +76,16 @@ public class BranchMapper {
                 member.getDateOfBirth(),
                 member.getJoinedOn(),
                 member.getGender(),
-                role
+                role,
+                member.getStatus() != null
+                        ? member.getStatus().getCode()
+                        : null,
+                member.getProfilePhoto() != null
+                        ? member.getProfilePhoto().getId()
+                        : null,
+                member.getProfilePhoto() != null
+                        ? member.getProfilePhoto().getFilePath()
+                        : null
         );
     }
 
