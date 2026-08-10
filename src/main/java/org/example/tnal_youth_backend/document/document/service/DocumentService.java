@@ -7,7 +7,12 @@ import java.util.List;
 
 public interface DocumentService {
 
-    List<DocumentResponse> getAllDocuments();
+    List<DocumentResponse> getDocuments(
+            String ownerType,
+            Long ownerId,
+            Short typeId,
+            String search
+    );
 
     DocumentResponse getDocumentById(
             Long id

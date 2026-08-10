@@ -5,12 +5,16 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.document.type.dto.response.DocumentTypeResponse;
 import org.example.tnal_youth_backend.document.type.service.DocumentTypeService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/document-types")
+@RequestMapping({
+        "/api/lookups/document-types",
+        "/api/document-types"
+})
 @RequiredArgsConstructor
 @Tag(
         name = "C. Member Page - Document-types"
@@ -21,6 +25,7 @@ public class DocumentTypeController {
             documentTypeService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<List<DocumentTypeResponse>>
     getDocumentTypes() {
 

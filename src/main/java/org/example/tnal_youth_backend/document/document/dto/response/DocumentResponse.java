@@ -26,6 +26,12 @@ public record DocumentResponse(
 
         UploadedByResponse uploadedBy,
 
+        @JsonProperty("owner_type")
+        String ownerType,
+
+        @JsonProperty("owner_id")
+        Long ownerId,
+
         @JsonProperty("created_at")
         OffsetDateTime createdAt,
 
@@ -54,6 +60,9 @@ public record DocumentResponse(
                 Long id,
 
                 String url,
+
+                @JsonProperty("content_url")
+                String contentUrl,
 
                 String originalName,
 

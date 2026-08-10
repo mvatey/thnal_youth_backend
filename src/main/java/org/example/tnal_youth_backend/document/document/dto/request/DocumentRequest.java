@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 public record DocumentRequest(
 
         @JsonProperty("type_id")
+        @NotNull(message = "Document type ID is required")
         @Positive(message = "Document type ID must be positive")
         Short typeId,
 
@@ -20,8 +21,8 @@ public record DocumentRequest(
 
         @NotBlank(message = "Document title is required")
         @Size(
-                max = 500,
-                message = "Document title must not exceed 500 characters"
+                max = 255,
+                message = "Document title must not exceed 255 characters"
         )
         String title,
 
@@ -41,11 +42,7 @@ public record DocumentRequest(
 
         @JsonProperty("activity_id")
         @Positive(message = "Activity ID must be positive")
-        Long activityId,
-
-        @JsonProperty("uploaded_by")
-        @Positive(message = "Uploaded-by user ID must be positive")
-        Long uploadedById
+        Long activityId
 ) {
 
     @AssertTrue(

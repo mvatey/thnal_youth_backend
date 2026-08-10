@@ -2,13 +2,14 @@ package org.example.tnal_youth_backend.document.document.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
-import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
 import org.example.tnal_youth_backend.document.document.dto.response.DocumentResponse;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.mapper.DocumentMapper;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
 import org.example.tnal_youth_backend.document.document.service.DocumentService;
+import org.example.tnal_youth_backend.document.document.service.DocumentAccessPolicy;
 import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepository;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -32,15 +34,29 @@ public class DocumentServiceImpl
     private final BranchRepository branchRepository;
     private final MemberRepository memberRepository;
     private final ActivityRepository activityRepository;
-    private final UserRepository userRepository;
     private final DocumentMapper documentMapper;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
     @Override
     @Transactional(readOnly = true)
-    public List<DocumentResponse> getAllDocuments() {
+    public List<DocumentResponse> getDocuments(
+            String ownerType,
+            Long ownerId,
+            Short typeId,
+            String search
+    ) {
+        String normalizedOwnerType = normalizeOwnerType(ownerType);
+        validateOwnerFilter(normalizedOwnerType, ownerId);
+        User currentUser = documentAccessPolicy.currentUser();
+        String normalizedSearch = trimToNull(search);
+
         return documentRepository
                 .findAllByOrderByCreatedAtDescIdDesc()
                 .stream()
+                .filter(document -> documentAccessPolicy.canAccess(currentUser, document))
+                .filter(document -> matchesOwner(document, normalizedOwnerType, ownerId))
+                .filter(document -> typeId == null || typeId.equals(document.getTypeId()))
+                .filter(document -> matchesSearch(document, normalizedSearch))
                 .map(documentMapper::toResponse)
                 .toList();
     }
@@ -50,9 +66,9 @@ public class DocumentServiceImpl
     public DocumentResponse getDocumentById(
             Long id
     ) {
-        return documentMapper.toResponse(
-                findDocument(id)
-        );
+        Document document = findDocument(id);
+        documentAccessPolicy.requireAccess(documentAccessPolicy.currentUser(), document);
+        return documentMapper.toResponse(document);
     }
 
     @Override
@@ -61,6 +77,13 @@ public class DocumentServiceImpl
             DocumentRequest request
     ) {
         validateRequest(request);
+        User currentUser = documentAccessPolicy.currentUser();
+        documentAccessPolicy.requireOwnerAccess(
+                currentUser,
+                request.branchId(),
+                request.memberId(),
+                request.activityId()
+        );
 
         Document document = Document.builder()
                 .typeId(request.typeId())
@@ -76,7 +99,7 @@ public class DocumentServiceImpl
                 .branchId(request.branchId())
                 .memberId(request.memberId())
                 .activityId(request.activityId())
-                .uploadedById(request.uploadedById())
+                .uploadedById(currentUser.getId())
                 .build();
 
         try {
@@ -97,8 +120,16 @@ public class DocumentServiceImpl
             DocumentRequest request
     ) {
         Document document = findDocument(id);
+        User currentUser = documentAccessPolicy.currentUser();
+        documentAccessPolicy.requireAccess(currentUser, document);
 
         validateRequest(request);
+        documentAccessPolicy.requireOwnerAccess(
+                currentUser,
+                request.branchId(),
+                request.memberId(),
+                request.activityId()
+        );
 
         document.setTypeId(request.typeId());
         document.setFileId(request.fileId());
@@ -114,7 +145,6 @@ public class DocumentServiceImpl
         document.setBranchId(request.branchId());
         document.setMemberId(request.memberId());
         document.setActivityId(request.activityId());
-        document.setUploadedById(request.uploadedById());
 
         try {
             Document updated =
@@ -131,6 +161,7 @@ public class DocumentServiceImpl
     @Transactional
     public void deleteDocument(Long id) {
         Document document = findDocument(id);
+        documentAccessPolicy.requireAccess(documentAccessPolicy.currentUser(), document);
 
         try {
             documentRepository.delete(document);
@@ -170,9 +201,9 @@ public class DocumentServiceImpl
         validateOwnerSelection(request);
 
         if (request.typeId() != null
-                && !documentTypeRepository.existsById(
-                request.typeId()
-        )) {
+                && documentTypeRepository.findById(request.typeId())
+                .filter(type -> Boolean.TRUE.equals(type.getIsActive()))
+                .isEmpty()) {
 
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
@@ -227,17 +258,69 @@ public class DocumentServiceImpl
             );
         }
 
-        if (request.uploadedById() != null
-                && !userRepository.existsById(
-                request.uploadedById()
-        )) {
+    }
 
+    private String normalizeOwnerType(String ownerType) {
+        String normalized = trimToNull(ownerType);
+        if (normalized == null) {
+            return null;
+        }
+
+        normalized = normalized.toUpperCase(Locale.ROOT);
+        if (!normalized.equals("BRANCH")
+                && !normalized.equals("MEMBER")
+                && !normalized.equals("ACTIVITY")) {
             throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Uploader not found with ID: "
-                            + request.uploadedById()
+                    HttpStatus.BAD_REQUEST,
+                    "owner_type must be BRANCH, MEMBER, or ACTIVITY"
             );
         }
+        return normalized;
+    }
+
+    private void validateOwnerFilter(String ownerType, Long ownerId) {
+        if (ownerId != null && ownerId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "owner_id must be positive");
+        }
+        if (ownerId != null && ownerType == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "owner_type is required with owner_id");
+        }
+    }
+
+    private boolean matchesOwner(Document document, String ownerType, Long ownerId) {
+        if (ownerType == null) {
+            return true;
+        }
+
+        Long documentOwnerId = switch (ownerType) {
+            case "BRANCH" -> document.getBranchId();
+            case "MEMBER" -> document.getMemberId();
+            case "ACTIVITY" -> document.getActivityId();
+            default -> null;
+        };
+        return documentOwnerId != null && (ownerId == null || ownerId.equals(documentOwnerId));
+    }
+
+    private boolean matchesSearch(Document document, String search) {
+        if (search == null) {
+            return true;
+        }
+
+        String needle = search.toLowerCase(Locale.ROOT);
+        return contains(document.getTitle(), needle)
+                || contains(document.getDescription(), needle)
+                || (document.getFile() != null && contains(document.getFile().getOriginalName(), needle))
+                || (document.getBranch() != null
+                    && (contains(document.getBranch().getNameKm(), needle)
+                    || contains(document.getBranch().getNameEn(), needle)))
+                || (document.getMember() != null
+                    && (contains(document.getMember().getFullNameKm(), needle)
+                    || contains(document.getMember().getFullNameEn(), needle)
+                    || contains(document.getMember().getMemberNo(), needle)));
+    }
+
+    private boolean contains(String value, String lowerCaseNeedle) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(lowerCaseNeedle);
     }
 
     private void validateOwnerSelection(

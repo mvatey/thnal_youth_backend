@@ -42,6 +42,10 @@ public class DocumentMapper {
 
                 toUploadedBy(document.getUploadedById()),
 
+                ownerType(document),
+
+                ownerId(document),
+
                 document.getCreatedAt(),
 
                 document.getUpdatedAt()
@@ -92,6 +96,8 @@ public class DocumentMapper {
 
                 file.getFilePath(),
 
+                "/api/files/" + file.getId() + "/content",
+
                 file.getOriginalName(),
 
                 file.getMimeType(),
@@ -102,6 +108,26 @@ public class DocumentMapper {
 
                 Math.round(sizeMb * 100.0) / 100.0
         );
+    }
+
+    private String ownerType(Document document) {
+        if (document.getBranchId() != null) {
+            return "BRANCH";
+        }
+        if (document.getMemberId() != null) {
+            return "MEMBER";
+        }
+        return document.getActivityId() == null ? null : "ACTIVITY";
+    }
+
+    private Long ownerId(Document document) {
+        if (document.getBranchId() != null) {
+            return document.getBranchId();
+        }
+        if (document.getMemberId() != null) {
+            return document.getMemberId();
+        }
+        return document.getActivityId();
     }
 
     private DocumentResponse.BranchResponse toBranch(
