@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonat
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationPageResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MemberMonthlyDonationHistoryResponse;
 import org.example.tnal_youth_backend.donation.monthly.service.MonthlyDonationService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,18 @@ public class MonthlyDonationController {
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
 
     private final MonthlyDonationService monthlyDonationService;
+
+    @GetMapping("/members/{memberId}")
+    @PreAuthorize(STAFF)
+    public ApiResponse<MemberMonthlyDonationHistoryResponse> getMemberHistory(
+            @PathVariable Long memberId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return ApiResponse.ok(
+                monthlyDonationService.getMemberHistory(memberId, page, size)
+        );
+    }
 
     @GetMapping("/members")
     @PreAuthorize(STAFF)

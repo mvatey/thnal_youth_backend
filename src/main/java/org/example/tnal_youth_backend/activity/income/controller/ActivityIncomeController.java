@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.activity.income.dto.request.ActivityIncome
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeBatchResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeDetailResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomePageResponse;
+import org.example.tnal_youth_backend.activity.income.dto.response.MemberActivityIncomeHistoryResponse;
 import org.example.tnal_youth_backend.activity.income.service.ActivityIncomeService;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -32,6 +33,18 @@ public class ActivityIncomeController {
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
 
     private final ActivityIncomeService activityIncomeService;
+
+    @GetMapping("/incomes/members/{memberId}")
+    @PreAuthorize(STAFF)
+    public ApiResponse<MemberActivityIncomeHistoryResponse> getMemberHistory(
+            @PathVariable Long memberId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return ApiResponse.ok(
+                activityIncomeService.getMemberHistory(memberId, page, size)
+        );
+    }
 
     @PostMapping("/{activityId}/incomes/batch")
     @PreAuthorize(STAFF)

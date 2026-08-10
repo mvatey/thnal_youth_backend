@@ -656,10 +656,15 @@ public interface MemberRepository
         m AS member,
         u.role AS role
     FROM Member m
-    JOIN User u
+    LEFT JOIN User u
         ON u.memberId = m.id
+    JOIN m.status memberStatus
     WHERE m.branchId = :branchId
-      AND u.role IN :eligibleRoles
+      AND (
+          u.id IS NULL
+          OR u.role IN :eligibleRoles
+      )
+      AND UPPER(memberStatus.code) = 'ACTIVE'
     ORDER BY m.fullNameKm ASC
 """)
     List<BranchManagementProjection>

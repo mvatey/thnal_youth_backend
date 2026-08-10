@@ -28,6 +28,9 @@ public class User implements UserDetails {
     @Column(name = "member_id")
     private Long memberId;
 
+    @Column(name = "branch_id")
+    private Long branchId;
+
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 

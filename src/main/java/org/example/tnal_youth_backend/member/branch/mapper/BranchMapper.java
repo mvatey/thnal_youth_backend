@@ -140,7 +140,8 @@ public class BranchMapper {
                 role,
                 member.getProfilePhoto() != null
                         ? member.getProfilePhoto().getId()
-                        : null
+                        : null,
+                role != null
         );
     }
 }

@@ -13,10 +13,12 @@ import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchR
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityParticipantService;
+import org.example.tnal_youth_backend.activity.service.ActivityAccessPolicy;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,8 @@ public class ActivityParticipantServiceImpl
 
     private final ActivityParticipantMapper
             participantMapper;
+    private final ActivityAccessPolicy activityAccessPolicy;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -58,6 +62,7 @@ public class ActivityParticipantServiceImpl
         Activity activity = findActivity(activityId);
 
         User invitedBy = findUser(currentUserId);
+        activityAccessPolicy.requireCanInviteMembers(invitedBy, activity);
 
         validateActivityCanBeModified(activity);
 
@@ -159,6 +164,7 @@ public class ActivityParticipantServiceImpl
                 new ArrayList<>();
 
         for (Member member : members) {
+            activityAccessPolicy.requireMemberFromActorBranch(invitedBy, member.getBranchId());
             ParticipantAccess participantAccess =
                     resolveParticipantAccess(
                             activity,
@@ -199,6 +205,15 @@ public class ActivityParticipantServiceImpl
                 );
 
         participantRepository.flush();
+
+        notificationService.notifyActivityUsers(
+                "Activity invitation",
+                "You were invited to " + activity.getTitleKm(),
+                activity.getId(),
+                invitedBy.getBranchId(),
+                notificationService.activeUserIdsForMembers(
+                        members.stream().map(Member::getId).toList())
+        );
 
         return savedParticipants
                 .stream()

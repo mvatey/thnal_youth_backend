@@ -1,7 +1,7 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public record SetActivationPasswordRequest(
 
@@ -18,9 +18,10 @@ public record SetActivationPasswordRequest(
         @NotBlank(
                 message = "New password is required"
         )
-        @Pattern(
-                regexp = "\\d{6}",
-                message = "Password must contain exactly 6 digits"
+        @Size(
+                min = 8,
+                max = 72,
+                message = "Password must contain between 8 and 72 characters"
         )
         String newPassword
 ) {

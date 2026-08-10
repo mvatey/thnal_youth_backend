@@ -588,6 +588,12 @@ public class LookupServiceImpl
     public List<LookupOptionResponse<Short>> getActivityStatusOptions() {
         return getSimpleActiveLookup("activity_statuses");
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Short>> getPaymentMethodOptions() {
+        return getSimpleActiveLookup("payment_methods");
+    }
     @Override
     @Transactional(readOnly = true)
     public List<LookupOptionResponse<Short>>

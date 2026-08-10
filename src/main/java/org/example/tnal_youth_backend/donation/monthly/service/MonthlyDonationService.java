@@ -5,10 +5,17 @@ import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonat
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationPageResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MemberMonthlyDonationHistoryResponse;
 
 import java.time.LocalDate;
 
 public interface MonthlyDonationService {
+
+    MemberMonthlyDonationHistoryResponse getMemberHistory(
+            Long memberId,
+            int page,
+            int size
+    );
 
     MonthlyDonationMemberPageResponse listMembers(
             Long branchId,

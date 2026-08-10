@@ -1411,6 +1411,16 @@ public class BranchServiceImpl implements BranchService {
         UserRole selectedCurrentRole =
                 selectedUser.getRole();
 
+        if (!branchStaffRepository.isActiveMemberOfBranch(
+                branchId,
+                memberId
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The branch leader must be an active member of this branch"
+            );
+        }
+
         /*
          * A member or secretary can be promoted.
          * Selecting the current leader can be treated
@@ -1427,72 +1437,16 @@ public class BranchServiceImpl implements BranchService {
             );
         }
 
-        List<BranchManagementProjection> managementMembers =
-                memberRepository
-                        .findBranchManagementMembers(
-                                branchId,
-                                List.of(
-                                        UserRole.BRANCH_LEADER
-                                )
-                        );
-
-        User currentLeaderUser = null;
-
-        for (
-                BranchManagementProjection projection
-                : managementMembers
-        ) {
-            Member currentLeaderMember =
-                    projection.getMember();
-
-            /*
-             * The selected member is already the leader.
-             */
-            if (
-                    currentLeaderMember
-                            .getId()
-                            .equals(memberId)
-            ) {
-                return;
-            }
-
-            currentLeaderUser =
-                    userRepository
-                            .findByMemberId(
-                                    currentLeaderMember.getId()
-                            )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.CONFLICT,
-                                            "Current branch leader does not have a user account"
-                                    )
-                            );
-
-            break;
-        }
-
         /*
-         * Demote the existing branch leader.
+         * Keep branch_staff and users.role in sync. The repository
+         * closes the previous assignment, demotes its account when it
+         * no longer leads another branch, and promotes the selection.
+         * It also inserts the first assignment when no leader exists.
          */
-        if (currentLeaderUser != null) {
-            currentLeaderUser.setRole(
-                    UserRole.MEMBER
-            );
-
-            userRepository.save(
-                    currentLeaderUser
-            );
-        }
-
-        /*
-         * Promote the selected candidate.
-         */
-        selectedUser.setRole(
-                UserRole.BRANCH_LEADER
-        );
-
-        userRepository.save(
-                selectedUser
+        branchStaffRepository.assignLeader(
+                branchId,
+                memberId,
+                requireCurrentUserId()
         );
     }
 
@@ -1513,7 +1467,8 @@ public class BranchServiceImpl implements BranchService {
                         branchId,
                         List.of(
                                 UserRole.MEMBER,
-                                UserRole.SECRETARY
+                                UserRole.SECRETARY,
+                                UserRole.BRANCH_LEADER
                         )
                 )
                 .stream()

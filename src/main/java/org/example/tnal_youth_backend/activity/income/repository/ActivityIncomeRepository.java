@@ -8,12 +8,86 @@ import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncom
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeListItemResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeMemberRowResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeSummaryResponse;
+import org.example.tnal_youth_backend.activity.income.dto.response.MemberActivityIncomeResponse;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
 @Mapper
 public interface ActivityIncomeRepository {
+
+    @Select("SELECT branch_id FROM members WHERE id = #{memberId}")
+    Long findMemberBranchId(@Param("memberId") Long memberId);
+
+    @Select("""
+        SELECT n.id AS donationId,
+               n.donation_no AS donationNo,
+               a.id AS activityId,
+               a.title_km AS activityTitleKm,
+               a.title_en AS activityTitleEn,
+               n.amount_khr AS amountKhr,
+               n.amount_usd AS amountUsd,
+               n.total_amount_usd AS totalAmountUsd,
+               pm.code AS paymentMethodCode,
+               pm.label_km AS paymentMethodLabelKm,
+               pm.label_en AS paymentMethodLabelEn,
+               n.paid_at AS receivedAt,
+               n.recorded_by AS recordedById,
+               ru.full_name_km AS recordedByName,
+               n.receipt_file_id AS receiptFileId,
+               n.note
+        FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
+        JOIN activities a ON a.id = n.activity_id
+        LEFT JOIN payment_methods pm ON pm.id = n.payment_method_id
+        LEFT JOIN members ru ON ru.id = n.recorded_by
+        WHERE dt.code = 'ACTIVITY_DONATION'
+          AND n.member_id = #{memberId}
+        ORDER BY n.paid_at DESC, n.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+        """)
+    List<MemberActivityIncomeResponse> findMemberHistory(
+            @Param("memberId") Long memberId,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
+        WHERE dt.code = 'ACTIVITY_DONATION'
+          AND n.member_id = #{memberId}
+        """)
+    long countMemberHistory(@Param("memberId") Long memberId);
+
+    @Select("""
+        SELECT COUNT(DISTINCT n.activity_id) AS memberCount,
+               COALESCE(SUM(n.amount_khr), 0) AS totalKhr,
+               COALESCE(SUM(n.amount_usd), 0) AS totalUsd,
+               COALESCE(SUM(n.total_amount_usd), 0) AS overallTotalUsd
+        FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
+        WHERE dt.code = 'ACTIVITY_DONATION'
+          AND n.member_id = #{memberId}
+        """)
+    ActivityIncomeSummaryResponse summarizeMemberHistory(
+            @Param("memberId") Long memberId
+    );
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
+        JOIN payment_methods pm ON pm.id = n.payment_method_id
+        WHERE dt.code = 'ACTIVITY_DONATION'
+          AND n.member_id = #{memberId}
+          AND UPPER(pm.code) = #{methodCode}
+        """)
+    long countMemberHistoryByMethod(
+            @Param("memberId") Long memberId,
+            @Param("methodCode") String methodCode
+    );
 
     @Select("""
         SELECT branch_id

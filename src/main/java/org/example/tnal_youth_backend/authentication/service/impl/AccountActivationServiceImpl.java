@@ -616,11 +616,12 @@ public class AccountActivationServiceImpl
             );
         }
 
-        if (!newPassword.matches("\\d{6}")) {
+        if (newPassword.length() < 8
+                || newPassword.length() > 72) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Password must contain exactly 6 digits"
+                    "Password must contain between 8 and 72 characters"
             );
         }
     }

@@ -55,9 +55,10 @@ public class ActivityController {
 
     @GetMapping("/{activityId}")
     public ActivityResponse getActivityById(
-            @PathVariable Long activityId
+            @PathVariable Long activityId,
+            Authentication authentication
     ) {
-        return activityService.getActivityById(activityId);
+        return activityService.getActivityById(activityId, extractCurrentUserId(authentication));
     }
 
     @GetMapping
@@ -67,9 +68,11 @@ public class ActivityController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Short sectorId,
             @RequestParam(required = false) Short typeId,
+            @RequestParam(required = false) Long branchId,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date
+            LocalDate date,
+            Authentication authentication
     ) {
         return activityService.getActivities(
                 page,
@@ -77,7 +80,9 @@ public class ActivityController {
                 search,
                 sectorId,
                 typeId,
-                date
+                date,
+                branchId,
+                extractCurrentUserId(authentication)
         );
     }
 

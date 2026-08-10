@@ -10,6 +10,7 @@ import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncom
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomePageResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeSavedItemResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeSummaryResponse;
+import org.example.tnal_youth_backend.activity.income.dto.response.MemberActivityIncomeHistoryResponse;
 import org.example.tnal_youth_backend.activity.income.repository.ActivityIncomeRepository;
 import org.example.tnal_youth_backend.activity.income.service.ActivityIncomeService;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
@@ -46,6 +47,37 @@ public class ActivityIncomeServiceImpl implements ActivityIncomeService {
     private final DonationRepository donationRepository;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberActivityIncomeHistoryResponse getMemberHistory(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        validatePage(page, size);
+        Long branchId = activityIncomeRepository.findMemberBranchId(memberId);
+        if (branchId == null) {
+            throw new BusinessException("MEMBER_NOT_FOUND", "Member does not exist");
+        }
+        enforceBranchAccess(branchId);
+
+        ActivityIncomeSummaryResponse summary =
+                activityIncomeRepository.summarizeMemberHistory(memberId);
+
+        return new MemberActivityIncomeHistoryResponse(
+                activityIncomeRepository.findMemberHistory(
+                        memberId, size, page * size),
+                activityIncomeRepository.countMemberHistory(memberId),
+                summary == null ? 0 : summary.getMemberCount(),
+                zeroIfNull(summary == null ? null : summary.getTotalKhr()),
+                zeroIfNull(summary == null ? null : summary.getTotalUsd()),
+                zeroIfNull(summary == null ? null : summary.getOverallTotalUsd()),
+                activityIncomeRepository.countMemberHistoryByMethod(memberId, "MATERIAL"),
+                activityIncomeRepository.countMemberHistory(memberId)
+                        - activityIncomeRepository.countMemberHistoryByMethod(memberId, "CASH")
+        );
+    }
 
     @Override
     @Transactional

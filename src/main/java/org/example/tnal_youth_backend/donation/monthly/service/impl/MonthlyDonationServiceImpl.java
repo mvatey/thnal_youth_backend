@@ -14,6 +14,7 @@ import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonat
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationRowResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSavedItemResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSummaryResponse;
+import org.example.tnal_youth_backend.donation.monthly.dto.response.MemberMonthlyDonationHistoryResponse;
 import org.example.tnal_youth_backend.donation.monthly.repository.MonthlyDonationRepository;
 import org.example.tnal_youth_backend.donation.monthly.service.MonthlyDonationService;
 import org.example.tnal_youth_backend.donation.service.DonationService;
@@ -41,6 +42,36 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
     private final MonthlyDonationRepository monthlyDonationRepository;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberMonthlyDonationHistoryResponse getMemberHistory(
+            Long memberId,
+            int page,
+            int size
+    ) {
+        validatePage(page, size);
+        Long branchId = monthlyDonationRepository.findMemberBranchId(memberId);
+        if (branchId == null) {
+            throw new BusinessException("MEMBER_NOT_FOUND", "Member does not exist");
+        }
+        enforceBranchAccess(branchId);
+
+        MonthlyDonationSummaryResponse summary =
+                monthlyDonationRepository.summarizeMemberHistory(memberId);
+
+        return new MemberMonthlyDonationHistoryResponse(
+                monthlyDonationRepository.findMemberHistory(
+                        memberId, size, page * size),
+                monthlyDonationRepository.countMemberHistory(memberId),
+                zeroIfNull(summary == null ? null : summary.getTotalKhr()),
+                zeroIfNull(summary == null ? null : summary.getTotalUsd()),
+                zeroIfNull(summary == null ? null : summary.getOverallTotalUsd()),
+                monthlyDonationRepository.countMemberHistoryByMethod(memberId, "CASH"),
+                monthlyDonationRepository.countMemberHistory(memberId)
+                        - monthlyDonationRepository.countMemberHistoryByMethod(memberId, "CASH")
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)

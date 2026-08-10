@@ -11,10 +11,12 @@ import org.example.tnal_youth_backend.activity.model.response.ActivityInvitedBra
 import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
+import org.example.tnal_youth_backend.activity.service.ActivityAccessPolicy;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,8 @@ public class ActivityInvitedBranchServiceImpl
 
     private final ActivityInvitedBranchMapper
             invitedBranchMapper;
+    private final ActivityAccessPolicy activityAccessPolicy;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -49,6 +53,8 @@ public class ActivityInvitedBranchServiceImpl
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
+        User invitedBy = findUser(currentUserId);
+        activityAccessPolicy.requireCanManageHostActivity(invitedBy, activity);
 
         /*
          * Both INTERNAL and EXTERNAL activities can invite
@@ -68,8 +74,6 @@ public class ActivityInvitedBranchServiceImpl
         Branch branch = findBranch(
                 request.getBranchId()
         );
-
-        User invitedBy = findUser(currentUserId);
 
         /*
          * The activity host branch must not invite itself.
@@ -117,6 +121,8 @@ public class ActivityInvitedBranchServiceImpl
                             existingInvitation
                     );
 
+            notifyInvitedBranchStaff(savedInvitation);
+
             return invitedBranchMapper.toResponse(
                     savedInvitation
             );
@@ -155,6 +161,8 @@ public class ActivityInvitedBranchServiceImpl
                     invitedBranchRepository.saveAndFlush(
                             invitation
                     );
+
+            notifyInvitedBranchStaff(savedInvitation);
 
             return invitedBranchMapper.toResponse(
                     savedInvitation
@@ -233,6 +241,14 @@ public class ActivityInvitedBranchServiceImpl
         }
 
         User respondedBy = findUser(currentUserId);
+        Long invitedBranchId = invitation.getBranch().getId();
+        if (respondedBy.getBranchId() == null
+                || !respondedBy.getBranchId().equals(invitedBranchId)
+                || (respondedBy.getRole() != org.example.tnal_youth_backend.authentication.model.enums.UserRole.SECRETARY
+                && respondedBy.getRole() != org.example.tnal_youth_backend.authentication.model.enums.UserRole.BRANCH_LEADER)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only staff from the invited branch can answer this invitation");
+        }
 
         invitation.setInvitationStatus(
                 responseStatus
@@ -505,5 +521,17 @@ public class ActivityInvitedBranchServiceImpl
         return trimmed.isEmpty()
                 ? null
                 : trimmed;
+    }
+
+    private void notifyInvitedBranchStaff(ActivityInvitedBranch invitation) {
+        Long branchId = invitation.getBranch().getId();
+        notificationService.notifyActivityUsers(
+                "Activity branch invitation",
+                "Your branch was invited to " + invitation.getActivity().getTitleKm()
+                        + ". Open the activity to invite members from your branch.",
+                invitation.getActivity().getId(),
+                branchId,
+                notificationService.activeBranchStaffUserIds(branchId)
+        );
     }
 }

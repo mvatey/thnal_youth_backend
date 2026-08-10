@@ -31,6 +31,34 @@ public interface NotificationRepo {
         """)
     int countActiveType(@Param("typeId") Short typeId);
 
+    @Select("""
+        SELECT id
+        FROM notification_types
+        WHERE code = #{code} AND is_active = TRUE
+        LIMIT 1
+        """)
+    Short findActiveTypeIdByCode(@Param("code") String code);
+
+    @Select("""
+        SELECT u.id
+        FROM users u
+        WHERE u.branch_id = #{branchId}
+          AND u.status = 'ACTIVE'
+          AND u.role IN ('BRANCH_LEADER', 'SECRETARY')
+        ORDER BY u.id
+        """)
+    List<Long> findActiveBranchStaffUserIds(@Param("branchId") Long branchId);
+
+    @Select({
+            "<script>",
+            "SELECT u.id FROM users u",
+            "WHERE u.status = 'ACTIVE' AND u.member_id IN",
+            "<foreach collection='memberIds' item='mid' open='(' separator=',' close=')'>#{mid}</foreach>",
+            "ORDER BY u.id",
+            "</script>"
+    })
+    List<Long> findActiveUserIdsByMemberIds(@Param("memberIds") List<Long> memberIds);
+
     // ---------- idempotency ----------
 
     /**

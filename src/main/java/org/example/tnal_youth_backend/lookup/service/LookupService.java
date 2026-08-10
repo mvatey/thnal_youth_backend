@@ -42,6 +42,8 @@ public interface LookupService {
 
     List<LookupOptionResponse<Short>> getActivityStatusOptions();
 
+    List<LookupOptionResponse<Short>> getPaymentMethodOptions();
+
     List<LookupOptionResponse<Short>>
     getActivityTypeOptions();
 

@@ -153,6 +153,11 @@ public class LookupController {
         return ResponseEntity.ok(lookupService.getActivityStatusOptions());
     }
 
+    @GetMapping("/payment-methods")
+    public ResponseEntity<List<LookupOptionResponse<Short>>> getPaymentMethodOptions() {
+        return ResponseEntity.ok(lookupService.getPaymentMethodOptions());
+    }
+
     @GetMapping("/activity-types")
     public ResponseEntity<List<LookupOptionResponse<Short>>>
     getActivityTypeOptions() {

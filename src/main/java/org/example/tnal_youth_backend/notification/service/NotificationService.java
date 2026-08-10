@@ -90,6 +90,40 @@ public class NotificationService {
         return new NotificationCreateResultDTO(nid, recipientCount, n.getCreatedAt());
     }
 
+    public void notifyActivityUsers(
+            String title,
+            String body,
+            Long activityId,
+            Long branchId,
+            List<Long> userIds
+    ) {
+        if (userIds == null || userIds.isEmpty()) return;
+        Short typeId = repo.findActiveTypeIdByCode("ACTIVITY_INVITATION");
+        if (typeId == null) {
+            throw new BusinessException("NOTIF_TYPE_INACTIVE",
+                    "ACTIVITY_INVITATION notification type is missing or inactive");
+        }
+        NotificationCreateDTO request = new NotificationCreateDTO();
+        request.setTypeId(typeId);
+        request.setTitle(title);
+        request.setBody(body);
+        request.setActionUrl("/activity/" + activityId);
+        request.setActivityId(activityId);
+        request.setBranchId(branchId);
+        request.setTarget(NotificationCreateDTO.TargetMode.USERS);
+        request.setTargetUserIds(userIds);
+        create(request);
+    }
+
+    public List<Long> activeBranchStaffUserIds(Long branchId) {
+        return repo.findActiveBranchStaffUserIds(branchId);
+    }
+
+    public List<Long> activeUserIdsForMembers(List<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) return List.of();
+        return repo.findActiveUserIdsByMemberIds(memberIds);
+    }
+
     private int fanOut(Long nid, NotificationCreateDTO req) {
         return switch (req.getTarget()) {
             case ALL -> repo.fanOutAll(nid);

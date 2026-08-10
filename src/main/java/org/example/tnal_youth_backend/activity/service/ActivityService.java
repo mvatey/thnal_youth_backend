@@ -15,7 +15,8 @@ public interface ActivityService {
     );
 
     ActivityResponse getActivityById(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     );
 
     ActivityPageResponse getActivities(
@@ -24,7 +25,9 @@ public interface ActivityService {
             String search,
             Short sectorId,
             Short typeId,
-            LocalDate date
+            LocalDate date,
+            Long branchId,
+            Long currentUserId
     );
 
     ActivityResponse updateActivity(

@@ -4,10 +4,17 @@ import org.example.tnal_youth_backend.activity.income.dto.request.ActivityIncome
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeBatchResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomeDetailResponse;
 import org.example.tnal_youth_backend.activity.income.dto.response.ActivityIncomePageResponse;
+import org.example.tnal_youth_backend.activity.income.dto.response.MemberActivityIncomeHistoryResponse;
 
 import java.time.OffsetDateTime;
 
 public interface ActivityIncomeService {
+
+    MemberActivityIncomeHistoryResponse getMemberHistory(
+            Long memberId,
+            int page,
+            int size
+    );
 
     ActivityIncomeBatchResponse createBatch(
             Long activityId,

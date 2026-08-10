@@ -16,6 +16,9 @@ import org.example.tnal_youth_backend.activity.repository.ActivitySectorReposito
 import org.example.tnal_youth_backend.activity.repository.ActivityStatusRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityService;
+import org.example.tnal_youth_backend.activity.service.ActivityAccessPolicy;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -38,6 +42,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivitySectorRepository activitySectorRepository;
     private final ActivityStatusRepository activityStatusRepository;
     private final ActivityMapper activityMapper;
+    private final ActivityAccessPolicy activityAccessPolicy;
 
     @Override
     @Transactional
@@ -45,7 +50,9 @@ public class ActivityServiceImpl implements ActivityService {
             CreateActivityRequest request,
             Long currentUserId
     ) {
+        User currentUser = activityAccessPolicy.requireUser(currentUserId);
         validateCreateRequest(request);
+        activityAccessPolicy.requireCanCreateForBranch(currentUser, request.getBranchId());
 
         ActivityType activityType =
                 getActiveActivityType(request.getTypeId());
@@ -89,9 +96,11 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional(readOnly = true)
     public ActivityResponse getActivityById(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     ) {
         Activity activity = getActivity(activityId);
+        activityAccessPolicy.requireCanView(activityAccessPolicy.requireUser(currentUserId), activity);
 
         return activityMapper.toResponse(activity);
     }
@@ -104,7 +113,9 @@ public class ActivityServiceImpl implements ActivityService {
             String search,
             Short sectorId,
             Short typeId,
-            LocalDate date
+            LocalDate date,
+            Long branchId,
+            Long currentUserId
     ) {
         if (page < 0) {
             throw new ResponseStatusException(
@@ -129,12 +140,35 @@ public class ActivityServiceImpl implements ActivityService {
                 )
         );
 
-        /*
-         * Search and filter repository logic can be added later.
-         * For now, this preserves the existing pagination behavior.
-         */
-        Page<Activity> activityPage =
-                activityRepository.findAll(pageable);
+        User currentUser = activityAccessPolicy.requireUser(currentUserId);
+        boolean filterDate = date != null;
+        OffsetDateTime dateStart = filterDate
+                ? date.atStartOfDay().atOffset(ZoneOffset.ofHours(7))
+                : OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        OffsetDateTime dateEnd = filterDate ? dateStart.plusDays(1) : dateStart.plusYears(200);
+
+        Page<Activity> activityPage;
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            activityPage = activityRepository.findAdminActivities(
+                    branchId, trimToNull(search), sectorId, typeId, filterDate, dateStart, dateEnd, pageable);
+        } else if (currentUser.getRole() == UserRole.SECRETARY
+                || currentUser.getRole() == UserRole.BRANCH_LEADER) {
+            if (branchId != null && !branchId.equals(currentUser.getBranchId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Branch staff cannot browse another branch directly");
+            }
+            activityPage = activityRepository.findStaffVisibleActivities(
+                    currentUser.getBranchId(), trimToNull(search), sectorId, typeId,
+                    filterDate, dateStart, dateEnd, pageable);
+        } else {
+            if (currentUser.getMemberId() == null) {
+                return ActivityPageResponse.builder().content(List.of()).page(page).size(size)
+                        .totalElements(0).totalPages(0).first(true).last(true).build();
+            }
+            activityPage = activityRepository.findMemberInvitedActivities(
+                    currentUser.getMemberId(), trimToNull(search), sectorId, typeId,
+                    filterDate, dateStart, dateEnd, pageable);
+        }
 
         List<ActivityListItemResponse> content =
                 activityPage.getContent()
@@ -163,11 +197,11 @@ public class ActivityServiceImpl implements ActivityService {
         validateUpdateRequest(request);
 
         Activity activity = getActivity(activityId);
-
-        validateUpdatePermission(
-                activity,
-                currentUserId
-        );
+        User currentUser = activityAccessPolicy.requireUser(currentUserId);
+        activityAccessPolicy.requireCanManageHostActivity(currentUser, activity);
+        if (!activity.getBranchId().equals(request.getBranchId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The host branch cannot be changed");
+        }
 
         ActivityType activityType =
                 getActiveActivityType(request.getTypeId());
@@ -448,28 +482,6 @@ public class ActivityServiceImpl implements ActivityService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "A future activity cannot be marked as ongoing"
-            );
-        }
-    }
-
-    private void validateUpdatePermission(
-            Activity activity,
-            Long currentUserId
-    ) {
-        if (currentUserId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authentication is required"
-            );
-        }
-
-        if (activity.getCreatedBy() == null
-                || !activity.getCreatedBy()
-                .equals(currentUserId)) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Only the activity creator can update this activity"
             );
         }
     }

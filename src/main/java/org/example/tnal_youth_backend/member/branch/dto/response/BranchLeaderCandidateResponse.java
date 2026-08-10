@@ -25,6 +25,9 @@ public record BranchLeaderCandidateResponse(
         UserRole currentRole,
 
         @JsonProperty("profile_photo_id")
-        Long profilePhotoId
+        Long profilePhotoId,
+
+        @JsonProperty("has_account")
+        boolean hasAccount
 ) {
 }
