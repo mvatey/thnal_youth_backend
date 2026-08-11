@@ -24,6 +24,8 @@ public class MonthlyDonationController {
 
     private static final String STAFF =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String DONATION_ENTRY =
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
     private final MonthlyDonationService monthlyDonationService;
 
@@ -50,7 +52,7 @@ public class MonthlyDonationController {
     }
 
     @PostMapping("/batch")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<MonthlyDonationBatchResponse>> createBatch(
             @Valid @RequestBody MonthlyDonationBatchRequest request
     ) {

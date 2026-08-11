@@ -34,4 +34,9 @@ public interface ActivityService {
             Long currentUserId
     );
 
+    ActivityResponse completeActivity(
+            Long activityId,
+            Long currentUserId
+    );
+
 }

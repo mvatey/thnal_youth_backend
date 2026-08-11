@@ -103,9 +103,21 @@ public interface DonationRepository {
      * call this.
      */
     @Select("""
-        SELECT branch_id
-        FROM users
-        WHERE id = #{userId}
+        SELECT COALESCE(
+            m.branch_id,
+            u.branch_id,
+            (
+                SELECT bs.branch_id
+                FROM branch_staff bs
+                WHERE bs.member_id = u.member_id
+                  AND bs.ended_on IS NULL
+                ORDER BY bs.is_primary DESC, bs.started_on DESC, bs.id DESC
+                LIMIT 1
+            )
+        )
+        FROM users u
+        LEFT JOIN members m ON m.id = u.member_id
+        WHERE u.id = #{userId}
         """)
     Long findBranchIdByUserId(@Param("userId") Long userId);
 

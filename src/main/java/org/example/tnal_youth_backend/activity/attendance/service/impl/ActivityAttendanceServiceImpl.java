@@ -192,7 +192,7 @@ public class ActivityAttendanceServiceImpl
     ) {
         Activity activity = findActivity(activityId);
 
-        validateAttendanceCanBeModified(activity);
+        validateManualAttendanceCanBeModified(activity);
         validateCurrentUser(currentUserId);
 
         ActivityParticipant participant =
@@ -356,6 +356,34 @@ public class ActivityAttendanceServiceImpl
                     HttpStatus.CONFLICT,
                     "Attendance cannot be modified for a "
                             + "completed or cancelled activity"
+            );
+        }
+    }
+
+    /**
+     * Manual attendance correction is part of the completed-activity flow.
+     * A completed activity may therefore still be marked present/absent, while
+     * a cancelled activity remains locked. Check-in and check-out continue to
+     * use the stricter validation above.
+     */
+    private void validateManualAttendanceCanBeModified(
+            Activity activity
+    ) {
+        if (activity.getStatus() == null
+                || activity.getStatus().getCode() == null) {
+            return;
+        }
+
+        String statusCode =
+                activity.getStatus()
+                        .getCode()
+                        .trim()
+                        .toUpperCase(Locale.ROOT);
+
+        if ("CANCELLED".equals(statusCode)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Attendance cannot be modified for a cancelled activity"
             );
         }
     }

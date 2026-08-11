@@ -315,6 +315,39 @@ public class ActivityServiceImpl implements ActivityService {
         return activityMapper.toResponse(updatedActivity);
     }
 
+    @Override
+    @Transactional
+    public ActivityResponse completeActivity(
+            Long activityId,
+            Long currentUserId
+    ) {
+        Activity activity = getActivity(activityId);
+
+        validateUpdatePermission(
+                activity,
+                currentUserId
+        );
+
+        ActivityStatus completedStatus =
+                activityStatusRepository
+                        .findByCodeIgnoreCase("COMPLETED")
+                        .filter(status ->
+                                Boolean.TRUE.equals(status.getActive())
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.INTERNAL_SERVER_ERROR,
+                                        "COMPLETED activity status is not configured"
+                                )
+                        );
+
+        activity.setStatus(completedStatus);
+
+        return activityMapper.toResponse(
+                activityRepository.save(activity)
+        );
+    }
+
     private Activity getActivity(
             Long activityId
     ) {

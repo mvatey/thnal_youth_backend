@@ -38,11 +38,12 @@ import java.time.OffsetDateTime;
 public class DonationController {
 
     private static final String STAFF = "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String DONATION_ENTRY = "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
     private final DonationService service;
 
     @PostMapping
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<DonationCreateResultResponse>> create(
             @Valid @RequestBody DonationCreateRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(service.create(req)));

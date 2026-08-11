@@ -53,6 +53,17 @@ public class ActivityController {
         );
     }
 
+    @PatchMapping("/{activityId}/complete")
+    public ActivityResponse completeActivity(
+            @PathVariable Long activityId,
+            Authentication authentication
+    ) {
+        return activityService.completeActivity(
+                activityId,
+                extractCurrentUserId(authentication)
+        );
+    }
+
     @GetMapping("/{activityId}")
     public ActivityResponse getActivityById(
             @PathVariable Long activityId

@@ -25,11 +25,13 @@ public class SponsorDonationController {
 
     private static final String STAFF =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String DONATION_ENTRY =
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
     private final SponsorDonationService service;
 
     @PostMapping
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<SponsorDonationRowResponse>> create(
             @Valid @RequestBody SponsorDonationUpsertRequest request
     ) {

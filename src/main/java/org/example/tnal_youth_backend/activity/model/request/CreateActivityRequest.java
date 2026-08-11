@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.activity.model.request;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -43,11 +42,9 @@ public class CreateActivityRequest {
 
 
     @NotNull(message = "Activity start time is required")
-    @Future(message = "Activity start time must be in the future")
     private OffsetDateTime startsAt;
 
     @NotNull(message = "Activity end time is required")
-    @Future(message = "Activity end time must be in the future")
     private OffsetDateTime endsAt;
 
     private Short provinceId;
