@@ -48,6 +48,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -112,28 +113,55 @@ public class MemberServiceImpl implements MemberService {
     @Transactional(readOnly = true)
     public MemberSummaryResponse getMemberSummary() {
 
+        Long effectiveBranchId =
+                resolveMemberListBranchId(null);
+
         long totalMembers =
-                memberRepository.count();
+                effectiveBranchId == null
+                        ? memberRepository.count()
+                        : memberRepository.countByBranchId(
+                                effectiveBranchId
+                        );
 
         long femaleMembers =
-                memberRepository.countByGender(
-                        Gender.FEMALE
-                );
+                effectiveBranchId == null
+                        ? memberRepository.countByGender(
+                                Gender.FEMALE
+                        )
+                        : memberRepository.countByGenderAndBranchId(
+                                Gender.FEMALE,
+                                effectiveBranchId
+                        );
 
         long monkMembers =
-                memberRepository.countByGender(
-                        Gender.MONK
-                );
+                effectiveBranchId == null
+                        ? memberRepository.countByGender(
+                                Gender.MONK
+                        )
+                        : memberRepository.countByGenderAndBranchId(
+                                Gender.MONK,
+                                effectiveBranchId
+                        );
 
         long buddhistMembers =
-                memberRepository.countByReligionCode(
-                        BUDDHISM_CODE
-                );
+                effectiveBranchId == null
+                        ? memberRepository.countByReligionCode(
+                                BUDDHISM_CODE
+                        )
+                        : memberRepository.countByReligionCodeAndBranchId(
+                                BUDDHISM_CODE,
+                                effectiveBranchId
+                        );
 
         long islamMembers =
-                memberRepository.countByReligionCode(
-                        ISLAM_CODE
-                );
+                effectiveBranchId == null
+                        ? memberRepository.countByReligionCode(
+                                ISLAM_CODE
+                        )
+                        : memberRepository.countByReligionCodeAndBranchId(
+                                ISLAM_CODE,
+                                effectiveBranchId
+                        );
 
         return new MemberSummaryResponse(
                 totalMembers,
@@ -187,6 +215,9 @@ public class MemberServiceImpl implements MemberService {
 
         String normalizedSearch =
                 trimToNull(search);
+
+        Long effectiveBranchId =
+                resolveMemberListBranchId(branchId);
 
         Pageable pageable =
                 PageRequest.of(
@@ -284,6 +315,39 @@ public class MemberServiceImpl implements MemberService {
 
         return memberMapper.toDetailResponse(
                 member
+        );
+    }
+
+    @Override
+    @Transactional
+    public MemberDetailResponse updateProfilePhoto(
+            Long id,
+            MultipartFile file
+    ) {
+        Member member = findDetailedMember(id);
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        FileEntity uploadedPhoto = fileService.uploadImage(
+                file,
+                getCurrentUserId()
+        );
+
+        member.setProfilePhoto(uploadedPhoto);
+        Member savedMember = memberRepository.save(member);
+
+        userRepository.findByMemberId(id)
+                .ifPresent(user -> {
+                    user.setProfileImage(
+                            uploadedPhoto.getFilePath()
+                    );
+                    userRepository.save(user);
+                });
+
+        return memberMapper.toDetailResponse(
+                savedMember
         );
     }
 
@@ -1278,6 +1342,57 @@ public class MemberServiceImpl implements MemberService {
                     "You do not have permission to access this branch"
             );
         }
+    }
+
+    private Long resolveMemberListBranchId(
+            Long requestedBranchId
+    ) {
+        User currentUser = getCurrentUser();
+        UserRole role = currentUser.getRole();
+
+        if (role == UserRole.ADMIN) {
+            return requestedBranchId;
+        }
+
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to list members"
+            );
+        }
+
+        if (currentUser.getMemberId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        Member currentMember = memberRepository
+                .findById(currentUser.getMemberId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Linked member record was not found"
+                ));
+
+        Long assignedBranchId = currentMember.getBranchId();
+        if (assignedBranchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your member record is not assigned to a branch"
+            );
+        }
+
+        if (requestedBranchId != null
+                && !assignedBranchId.equals(requestedBranchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You cannot access members from another branch"
+            );
+        }
+
+        return assignedBranchId;
     }
 
     /*

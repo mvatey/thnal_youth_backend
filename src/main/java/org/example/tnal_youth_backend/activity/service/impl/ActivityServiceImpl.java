@@ -16,6 +16,12 @@ import org.example.tnal_youth_backend.activity.repository.ActivitySectorReposito
 import org.example.tnal_youth_backend.activity.repository.ActivityStatusRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityService;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +33,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +46,9 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivitySectorRepository activitySectorRepository;
     private final ActivityStatusRepository activityStatusRepository;
     private final ActivityMapper activityMapper;
+    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
+    private final BranchStaffRepository branchStaffRepository;
 
     @Override
     @Transactional
@@ -104,7 +115,8 @@ public class ActivityServiceImpl implements ActivityService {
             String search,
             Short sectorId,
             Short typeId,
-            LocalDate date
+            LocalDate date,
+            Long currentUserId
     ) {
         if (page < 0) {
             throw new ResponseStatusException(
@@ -133,8 +145,22 @@ public class ActivityServiceImpl implements ActivityService {
          * Search and filter repository logic can be added later.
          * For now, this preserves the existing pagination behavior.
          */
-        Page<Activity> activityPage =
-                activityRepository.findAll(pageable);
+        Page<Activity> activityPage;
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Authenticated user could not be found"
+                ));
+
+        if (currentUser.getRole() == UserRole.SECRETARY) {
+            Set<Long> branchIds = resolveSecretaryBranchIds(currentUser);
+            activityPage = activityRepository.findAllByBranchIdIn(
+                    branchIds,
+                    pageable
+            );
+        } else {
+            activityPage = activityRepository.findAll(pageable);
+        }
 
         List<ActivityListItemResponse> content =
                 activityPage.getContent()
@@ -151,6 +177,40 @@ public class ActivityServiceImpl implements ActivityService {
                 .first(activityPage.isFirst())
                 .last(activityPage.isLast())
                 .build();
+    }
+
+    private Set<Long> resolveSecretaryBranchIds(User user) {
+        if (user.getMemberId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Secretary account is not linked to a member"
+            );
+        }
+
+        Member member = memberRepository.findById(user.getMemberId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Secretary member record could not be found"
+                ));
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        if (member.getBranchId() != null) {
+            branchIds.add(member.getBranchId());
+        }
+
+        if (branchIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Secretary is not assigned to a branch"
+            );
+        }
+
+        return Set.copyOf(branchIds);
     }
 
     @Override

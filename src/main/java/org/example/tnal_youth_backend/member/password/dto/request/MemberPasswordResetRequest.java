@@ -17,9 +17,9 @@ public class MemberPasswordResetRequest {
     @JsonProperty("newPassword")
     @JsonAlias("new_password")
     @NotBlank(message = "New password is required")
-    @Pattern(
-            regexp = "\\d{6}",
-            message = "Password must contain exactly 6 digits"
+    @Size(
+            min = 6,
+            message = "Password must contain at least 6 characters"
     )
     private String newPassword;
 

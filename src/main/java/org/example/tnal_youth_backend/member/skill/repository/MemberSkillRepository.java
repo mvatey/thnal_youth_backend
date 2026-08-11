@@ -20,6 +20,13 @@ public interface MemberSkillRepository
             Long memberId
     );
 
+    default Optional<MemberSkill> findByIdAndMemberId(
+            Long skillId,
+            Long memberId
+    ) {
+        return findByIdAndMember_Id(skillId, memberId);
+    }
+
     boolean
     existsByMember_IdAndSkillNameIgnoreCase(
             Long memberId,

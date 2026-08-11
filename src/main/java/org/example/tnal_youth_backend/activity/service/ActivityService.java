@@ -24,7 +24,8 @@ public interface ActivityService {
             String search,
             Short sectorId,
             Short typeId,
-            LocalDate date
+            LocalDate date,
+            Long currentUserId
     );
 
     ActivityResponse updateActivity(

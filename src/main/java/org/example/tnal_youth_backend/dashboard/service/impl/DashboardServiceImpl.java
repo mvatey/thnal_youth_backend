@@ -42,7 +42,8 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public DashboardSummaryResponse getSummary(
-            String month
+            String month,
+            Long branchId
     ) {
         DashboardScope scope =
                 dashboardScopeResolver.resolve(month);
@@ -51,7 +52,7 @@ public class DashboardServiceImpl implements DashboardService {
                 scope.monthRange();
 
         Collection<Long> branchIds =
-                scope.accessibleBranchIds();
+                resolvePerformanceBranchIds(scope, branchId);
 
         long currentMembers;
         long previousMembers;
@@ -62,7 +63,7 @@ public class DashboardServiceImpl implements DashboardService {
         DonationTotals currentDonations;
         DonationTotals previousDonations;
 
-        if (scope.organizationWide()) {
+        if (scope.organizationWide() && branchId == null) {
 
             currentMembers =
                     dashboardRepository
@@ -224,7 +225,7 @@ public class DashboardServiceImpl implements DashboardService {
     // =========================================================
 
     @Override
-    public DashboardActivitiesResponse getActivities() {
+    public DashboardActivitiesResponse getActivities(Long branchId) {
 
         DashboardScope scope =
                 dashboardScopeResolver.resolve(null);
@@ -235,7 +236,10 @@ public class DashboardServiceImpl implements DashboardService {
         List<DashboardActivityRow> recentCompletedRows;
         List<DashboardActivityRow> upcomingRows;
 
-        if (scope.organizationWide()) {
+        Collection<Long> branchIds =
+                resolvePerformanceBranchIds(scope, branchId);
+
+        if (scope.organizationWide() && branchId == null) {
 
             recentCompletedRows =
                     dashboardRepository
@@ -250,13 +254,13 @@ public class DashboardServiceImpl implements DashboardService {
             recentCompletedRows =
                     dashboardRepository
                             .findRecentCompletedActivitiesByBranches(
-                                    scope.accessibleBranchIds()
+                                    branchIds
                             );
 
             upcomingRows =
                     dashboardRepository
                             .findUpcomingActivitiesByBranches(
-                                    scope.accessibleBranchIds(),
+                                    branchIds,
                                     now
                             );
         }
@@ -300,7 +304,8 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public ActivityTypeBreakdownResponse
     getActivityTypeBreakdown(
-            String month
+            String month,
+            Long branchId
     ) {
         DashboardScope scope =
                 dashboardScopeResolver.resolve(month);
@@ -310,7 +315,10 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<ActivityTypeCountRow> rows;
 
-        if (scope.organizationWide()) {
+        Collection<Long> branchIds =
+                resolvePerformanceBranchIds(scope, branchId);
+
+        if (scope.organizationWide() && branchId == null) {
 
             rows =
                     dashboardRepository
@@ -324,7 +332,7 @@ public class DashboardServiceImpl implements DashboardService {
             rows =
                     dashboardRepository
                             .findActivityTypeBreakdownByBranches(
-                                    scope.accessibleBranchIds(),
+                                    branchIds,
                                     range.selectedMonthStart(),
                                     range.nextMonthStart()
                             );
@@ -370,7 +378,8 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public ParticipationTrendResponse
     getParticipationTrend(
-            Integer year
+            Integer year,
+            Long branchId
     ) {
         int selectedYear =
                 dashboardYearResolver.resolve(year);
@@ -398,7 +407,10 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<MonthlyParticipationRow> rows;
 
-        if (scope.organizationWide()) {
+        Collection<Long> branchIds =
+                resolvePerformanceBranchIds(scope, branchId);
+
+        if (scope.organizationWide() && branchId == null) {
 
             rows =
                     dashboardRepository
@@ -412,7 +424,7 @@ public class DashboardServiceImpl implements DashboardService {
             rows =
                     dashboardRepository
                             .findParticipationTrendByBranches(
-                                    scope.accessibleBranchIds(),
+                                    branchIds,
                                     start,
                                     end
                             );

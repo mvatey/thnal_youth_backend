@@ -50,7 +50,7 @@ public class FileController {
     }
 
     @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')")
     public ResponseEntity<FileResponse> uploadAttachment(
             @RequestParam("file") MultipartFile file,
             Authentication authentication

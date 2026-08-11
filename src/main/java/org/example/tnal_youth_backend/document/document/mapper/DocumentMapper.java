@@ -6,6 +6,9 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.document.document.dto.response.DocumentResponse;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class DocumentMapper {
 
     private final UserRepository userRepository;
+    private final BranchRepository branchRepository;
 
     public DocumentResponse toResponse(
             Document document
@@ -108,17 +112,27 @@ public class DocumentMapper {
             Document document
     ) {
 
-        if (document.getBranch() == null) {
+        Branch branch = document.getBranch();
+
+        if (branch == null
+                && document.getMember() != null
+                && document.getMember().getBranchId() != null) {
+            branch = branchRepository
+                    .findById(document.getMember().getBranchId())
+                    .orElse(null);
+        }
+
+        if (branch == null) {
             return null;
         }
 
         return new DocumentResponse.BranchResponse(
 
-                document.getBranch().getId(),
+                branch.getId(),
 
-                document.getBranch().getNameKm(),
+                branch.getNameKm(),
 
-                document.getBranch().getNameEn()
+                branch.getNameEn()
         );
     }
 
@@ -130,6 +144,8 @@ public class DocumentMapper {
             return null;
         }
 
+        Gender gender = document.getMember().getGender();
+
         return new DocumentResponse.MemberResponse(
 
                 document.getMember().getId(),
@@ -138,7 +154,13 @@ public class DocumentMapper {
 
                 document.getMember().getFullNameKm(),
 
-                document.getMember().getFullNameEn()
+                document.getMember().getFullNameEn(),
+
+                gender == null ? null : gender.name(),
+
+                gender == null ? null : gender.getLabelKm(),
+
+                gender == null ? null : gender.getLabelEn()
         );
     }
 

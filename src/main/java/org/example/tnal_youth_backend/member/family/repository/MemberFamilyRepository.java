@@ -21,6 +21,19 @@ public interface MemberFamilyRepository
             Long memberId
     );
 
+    default List<MemberFamily> findAllByMemberIdOrderByIdAsc(
+            Long memberId
+    ) {
+        return findAllByMember_IdOrderByIdAsc(memberId);
+    }
+
+    default Optional<MemberFamily> findByIdAndMemberId(
+            Long familyId,
+            Long memberId
+    ) {
+        return findByIdAndMember_Id(familyId, memberId);
+    }
+
     Optional<MemberFamily>
     findByMember_IdAndRelationship(
             Long memberId,

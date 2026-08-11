@@ -92,7 +92,15 @@ public record DocumentResponse(
                 String fullNameKm,
 
                 @JsonProperty("full_name_en")
-                String fullNameEn
+                String fullNameEn,
+
+                String gender,
+
+                @JsonProperty("gender_label_km")
+                String genderLabelKm,
+
+                @JsonProperty("gender_label_en")
+                String genderLabelEn
 
         ) {
         }

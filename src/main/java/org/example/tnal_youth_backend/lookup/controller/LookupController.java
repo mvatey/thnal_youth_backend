@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -46,6 +45,15 @@ public class LookupController {
         return ResponseEntity.ok(
                 lookupService
                         .getProvinceOptions()
+        );
+    }
+
+    @GetMapping("/activity-invitable-branches")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    public ResponseEntity<List<LookupOptionResponse<Long>>>
+    getActivityInvitableBranchOptions() {
+        return ResponseEntity.ok(
+                lookupService.getActivityInvitableBranchOptions()
         );
     }
 

@@ -55,6 +55,11 @@ public interface MemberService {
             UpdateMemberRequest request
     );
 
+    MemberDetailResponse updateProfilePhoto(
+            Long id,
+            MultipartFile file
+    );
+
     void deleteMember(
             Long id
     );

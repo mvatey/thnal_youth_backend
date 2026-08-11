@@ -2,7 +2,6 @@ package org.example.tnal_youth_backend.document.document.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
-import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
 import org.example.tnal_youth_backend.document.document.dto.response.DocumentResponse;
 import org.example.tnal_youth_backend.document.document.entity.Document;
@@ -13,6 +12,7 @@ import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepos
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,6 @@ public class DocumentServiceImpl
     private final BranchRepository branchRepository;
     private final MemberRepository memberRepository;
     private final ActivityRepository activityRepository;
-    private final UserRepository userRepository;
     private final DocumentMapper documentMapper;
 
     @Override
@@ -40,6 +39,23 @@ public class DocumentServiceImpl
     public List<DocumentResponse> getAllDocuments() {
         return documentRepository
                 .findAllByOrderByCreatedAtDescIdDesc()
+                .stream()
+                .map(documentMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> getDocumentsByMemberId(Long memberId) {
+        if (memberId == null || !memberRepository.existsById(memberId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Member not found with ID: " + memberId
+            );
+        }
+
+        return documentRepository
+                .findAllByMemberIdOrderByCreatedAtDescIdDesc(memberId)
                 .stream()
                 .map(documentMapper::toResponse)
                 .toList();
@@ -62,6 +78,9 @@ public class DocumentServiceImpl
     ) {
         validateRequest(request);
 
+        Long currentUserId =
+                SecurityUtils.getCurrentUserId();
+
         Document document = Document.builder()
                 .typeId(request.typeId())
                 .fileId(request.fileId())
@@ -76,7 +95,7 @@ public class DocumentServiceImpl
                 .branchId(request.branchId())
                 .memberId(request.memberId())
                 .activityId(request.activityId())
-                .uploadedById(request.uploadedById())
+                .uploadedById(currentUserId)
                 .build();
 
         try {
@@ -114,7 +133,6 @@ public class DocumentServiceImpl
         document.setBranchId(request.branchId());
         document.setMemberId(request.memberId());
         document.setActivityId(request.activityId());
-        document.setUploadedById(request.uploadedById());
 
         try {
             Document updated =
@@ -227,17 +245,6 @@ public class DocumentServiceImpl
             );
         }
 
-        if (request.uploadedById() != null
-                && !userRepository.existsById(
-                request.uploadedById()
-        )) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Uploader not found with ID: "
-                            + request.uploadedById()
-            );
-        }
     }
 
     private void validateOwnerSelection(

@@ -22,6 +22,13 @@ public interface MemberLanguageRepository
             Long memberId
     );
 
+    default Optional<MemberLanguage> findByIdAndMemberId(
+            Long languageId,
+            Long memberId
+    ) {
+        return findByIdAndMember_Id(languageId, memberId);
+    }
+
     boolean
     existsByMember_IdAndLanguageNameIgnoreCase(
             Long memberId,

@@ -291,10 +291,10 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
             );
         }
 
-        if (!request.getNewPassword().matches("\\d{6}")) {
+        if (request.getNewPassword().length() < 6) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Password must contain exactly 6 digits"
+                    "Password must contain at least 6 characters"
             );
         }
     }
