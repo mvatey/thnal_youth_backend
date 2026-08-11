@@ -2,8 +2,11 @@ package org.example.tnal_youth_backend.document.document.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
-import org.example.tnal_youth_backend.document.document.dto.response.DocumentResponse;
+import org.example.tnal_youth_backend.document.document.dto.response.*;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.mapper.DocumentMapper;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
@@ -11,15 +14,25 @@ import org.example.tnal_youth_backend.document.document.service.DocumentService;
 import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepository;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +46,7 @@ public class DocumentServiceImpl
     private final MemberRepository memberRepository;
     private final ActivityRepository activityRepository;
     private final DocumentMapper documentMapper;
+    private final BranchService branchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -66,8 +80,15 @@ public class DocumentServiceImpl
     public DocumentResponse getDocumentById(
             Long id
     ) {
+        Document document =
+                findDocument(id);
+
+        validateExistingDocumentAccess(
+                document
+        );
+
         return documentMapper.toResponse(
-                findDocument(id)
+                document
         );
     }
 
@@ -78,34 +99,69 @@ public class DocumentServiceImpl
     ) {
         validateRequest(request);
 
+        /*
+         * Security:
+         * Secretary / Branch Leader may only create
+         * documents inside branches they can access.
+         *
+         * ADMIN cannot reach this method because
+         * POST /api/documents is blocked by @PreAuthorize.
+         */
+        validateDocumentOwnerAccess(request);
+
         Long currentUserId =
                 SecurityUtils.getCurrentUserId();
 
-        Document document = Document.builder()
-                .typeId(request.typeId())
-                .fileId(request.fileId())
-                .title(
-                        normalizeRequired(
-                                request.title()
+        Document document =
+                Document.builder()
+                        .typeId(
+                                request.typeId()
                         )
-                )
-                .description(
-                        trimToNull(request.description())
-                )
-                .branchId(request.branchId())
-                .memberId(request.memberId())
-                .activityId(request.activityId())
-                .uploadedById(currentUserId)
-                .build();
+                        .fileId(
+                                request.fileId()
+                        )
+                        .title(
+                                normalizeRequired(
+                                        request.title()
+                                )
+                        )
+                        .description(
+                                trimToNull(
+                                        request.description()
+                                )
+                        )
+                        .branchId(
+                                request.branchId()
+                        )
+                        .memberId(
+                                request.memberId()
+                        )
+                        .activityId(
+                                request.activityId()
+                        )
+                        .uploadedById(
+                                currentUserId
+                        )
+                        .build();
 
         try {
             Document saved =
-                    documentRepository.saveAndFlush(document);
+                    documentRepository
+                            .saveAndFlush(
+                                    document
+                            );
 
-            return documentMapper.toResponse(saved);
+            return documentMapper
+                    .toResponse(
+                            saved
+                    );
 
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException(exception);
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw databaseConstraintException(
+                    exception
+            );
         }
     }
 
@@ -115,46 +171,105 @@ public class DocumentServiceImpl
             Long id,
             DocumentRequest request
     ) {
-        Document document = findDocument(id);
+        Document document =
+                findDocument(id);
 
-        validateRequest(request);
+        /*
+         * User must already have access to the
+         * document being edited.
+         */
+        validateExistingDocumentAccess(
+                document
+        );
 
-        document.setTypeId(request.typeId());
-        document.setFileId(request.fileId());
+        validateRequest(
+                request
+        );
+
+        /*
+         * Also validate the new owner.
+         * Prevents moving the document to a branch
+         * outside the user's scope.
+         */
+        validateDocumentOwnerAccess(
+                request
+        );
+
+        document.setTypeId(
+                request.typeId()
+        );
+
+        document.setFileId(
+                request.fileId()
+        );
 
         document.setTitle(
-                normalizeRequired(request.title())
+                normalizeRequired(
+                        request.title()
+                )
         );
 
         document.setDescription(
-                trimToNull(request.description())
+                trimToNull(
+                        request.description()
+                )
         );
 
-        document.setBranchId(request.branchId());
-        document.setMemberId(request.memberId());
-        document.setActivityId(request.activityId());
+        document.setBranchId(
+                request.branchId()
+        );
+
+        document.setMemberId(
+                request.memberId()
+        );
+
+        document.setActivityId(
+                request.activityId()
+        );
 
         try {
             Document updated =
-                    documentRepository.saveAndFlush(document);
+                    documentRepository
+                            .saveAndFlush(
+                                    document
+                            );
 
-            return documentMapper.toResponse(updated);
+            return documentMapper
+                    .toResponse(
+                            updated
+                    );
 
-        } catch (DataIntegrityViolationException exception) {
-            throw databaseConstraintException(exception);
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
+            throw databaseConstraintException(
+                    exception
+            );
         }
     }
 
     @Override
     @Transactional
-    public void deleteDocument(Long id) {
-        Document document = findDocument(id);
+    public void deleteDocument(
+            Long id
+    ) {
+        Document document =
+                findDocument(id);
+
+        validateExistingDocumentAccess(
+                document
+        );
 
         try {
-            documentRepository.delete(document);
+            documentRepository.delete(
+                    document
+            );
+
             documentRepository.flush();
 
-        } catch (DataIntegrityViolationException exception) {
+        } catch (
+                DataIntegrityViolationException exception
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     """
@@ -316,6 +431,730 @@ public class DocumentServiceImpl
 
                 Database message: %s
                 """.formatted(databaseMessage)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentPageResponse getDocuments(
+            int page,
+            int size,
+            String search,
+            Short typeId,
+            Long branchId,
+            Long memberId,
+            Long activityId,
+            LocalDate date
+    ) {
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        String normalizedSearch =
+                search == null
+                        ? ""
+                        : search.trim();
+
+        /*
+         * Validate optional filters.
+         */
+        if (
+                typeId != null
+                        && !documentTypeRepository.existsById(typeId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Document type not found with ID: "
+                            + typeId
+            );
+        }
+
+        if (
+                branchId != null
+                        && !branchRepository.existsById(branchId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Branch not found with ID: "
+                            + branchId
+            );
+        }
+
+        if (
+                memberId != null
+                        && !memberRepository.existsById(memberId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Member not found with ID: "
+                            + memberId
+            );
+        }
+
+        if (
+                activityId != null
+                        && !activityRepository.existsById(activityId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Activity not found with ID: "
+                            + activityId
+            );
+        }
+
+        /*
+         * Date filter.
+         *
+         * Cambodia time:
+         * selected date 00:00
+         * until next date 00:00
+         */
+        OffsetDateTime startDateTime = null;
+        OffsetDateTime endDateTime = null;
+
+        if (date != null) {
+            ZoneOffset cambodiaOffset =
+                    ZoneOffset.ofHours(7);
+
+            startDateTime =
+                    date
+                            .atStartOfDay()
+                            .atOffset(cambodiaOffset);
+
+            endDateTime =
+                    date
+                            .plusDays(1)
+                            .atStartOfDay()
+                            .atOffset(cambodiaOffset);
+        }
+
+        /*
+         * Resolve authenticated role.
+         */
+        User currentUser =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                currentUser == null
+                        || currentUser.getRole() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        UserRole currentRole =
+                currentUser.getRole();
+
+        boolean isAdmin =
+                currentRole == UserRole.ADMIN;
+
+        if (
+                !isAdmin
+                        && currentRole != UserRole.SECRETARY
+                        && currentRole != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view organizational documents"
+            );
+        }
+
+        /*
+         * ADMIN:
+         * getAccessibleBranchIds() returns all branches.
+         *
+         * SECRETARY / BRANCH_LEADER:
+         * returns only their accessible branches.
+         */
+        Set<Long> accessibleBranchIds =
+                branchService
+                        .getAccessibleBranchIds();
+
+        /*
+         * Non-admin with no branch access has no documents.
+         */
+        if (
+                !isAdmin
+                        && accessibleBranchIds.isEmpty()
+        ) {
+            return new DocumentPageResponse(
+                    List.of(),
+                    page,
+                    size,
+                    0,
+                    0,
+                    true,
+                    true
+            );
+        }
+
+        /*
+         * If frontend explicitly requests branchId,
+         * it must also be inside the user's scope.
+         */
+        if (
+                branchId != null
+                        && !isAdmin
+                        && !accessibleBranchIds.contains(branchId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "The selected branch is outside your accessible scope"
+            );
+        }
+
+        /*
+         * For ADMIN, avoid problems with an empty IN collection.
+         *
+         * The query ignores accessibleBranchIds when isAdmin = true,
+         * but Hibernate still receives a valid non-empty collection.
+         */
+        Set<Long> queryBranchIds =
+                accessibleBranchIds.isEmpty()
+                        ? Set.of(-1L)
+                        : accessibleBranchIds;
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "createdAt"
+                        ).and(
+                                Sort.by(
+                                        Sort.Direction.DESC,
+                                        "id"
+                                )
+                        )
+                );
+
+        Page<Document> result =
+                documentRepository
+                        .findDocumentPage(
+                                normalizedSearch,
+                                typeId,
+                                branchId,
+                                memberId,
+                                activityId,
+                                startDateTime,
+                                endDateTime,
+                                isAdmin,
+                                queryBranchIds,
+                                pageable
+                        );
+
+        List<DocumentResponse> content =
+                result
+                        .getContent()
+                        .stream()
+                        .map(
+                                documentMapper::toResponse
+                        )
+                        .toList();
+
+        return new DocumentPageResponse(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DocumentTypeOptionResponse>
+    getDocumentTypeOptions() {
+
+        return documentTypeRepository
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
+                .stream()
+                .map(type ->
+                        new DocumentTypeOptionResponse(
+                                type.getId(),
+                                type.getCode(),
+                                type.getLabelKm(),
+                                type.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    private void validateDocumentOwnerAccess(
+            DocumentRequest request
+    ) {
+
+        /*
+         * Branch-owned document.
+         */
+        if (request.branchId() != null) {
+
+            branchService
+                    .getAccessibleBranchById(
+                            request.branchId()
+                    );
+
+            return;
+        }
+
+        /*
+         * Member-owned document.
+         *
+         * Member itself must exist, then its branch
+         * must be accessible to the current user.
+         */
+        if (request.memberId() != null) {
+
+            var member =
+                    memberRepository
+                            .findById(
+                                    request.memberId()
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Member not found with ID: "
+                                                    + request.memberId()
+                                    )
+                            );
+
+            branchService
+                    .getAccessibleBranchById(
+                            member.getBranchId()
+                    );
+
+            return;
+        }
+
+        /*
+         * Activity-owned document.
+         */
+        if (request.activityId() != null) {
+
+            var activity =
+                    activityRepository
+                            .findById(
+                                    request.activityId()
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Activity not found with ID: "
+                                                    + request.activityId()
+                                    )
+                            );
+
+            branchService
+                    .getAccessibleBranchById(
+                            activity.getBranchId()
+                    );
+        }
+    }
+
+    private void validateExistingDocumentAccess(
+            Document document
+    ) {
+        if (document == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Document was not found"
+            );
+        }
+
+        /*
+         * Branch-owned document.
+         */
+        if (document.getBranchId() != null) {
+            branchService.getAccessibleBranchById(
+                    document.getBranchId()
+            );
+            return;
+        }
+
+        /*
+         * Member-owned document.
+         */
+        if (document.getMemberId() != null) {
+            Member member =
+                    memberRepository
+                            .findById(document.getMemberId())
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Member not found with ID: "
+                                                    + document.getMemberId()
+                                    )
+                            );
+
+            if (member.getBranchId() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Document member does not belong to a branch"
+                );
+            }
+
+            branchService.getAccessibleBranchById(
+                    member.getBranchId()
+            );
+
+            return;
+        }
+
+        /*
+         * Activity-owned document.
+         */
+        if (document.getActivityId() != null) {
+            var activity =
+                    activityRepository
+                            .findById(document.getActivityId())
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Activity not found with ID: "
+                                                    + document.getActivityId()
+                                    )
+                            );
+
+            if (activity.getBranchId() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Document activity does not belong to a branch"
+                );
+            }
+
+            branchService.getAccessibleBranchById(
+                    activity.getBranchId()
+            );
+
+            return;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Document does not have a valid owner"
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberDocumentPageResponse getMemberDocuments(
+            int page,
+            int size,
+            String search,
+            Short typeId,
+            Long branchId,
+            LocalDate date
+    ) {
+        /*
+         * Pagination validation.
+         */
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        /*
+         * Normalize search.
+         */
+        String normalizedSearch =
+                search == null
+                        ? ""
+                        : search.trim();
+
+        /*
+         * Validate document type when supplied.
+         */
+        if (
+                typeId != null
+                        && !documentTypeRepository.existsById(typeId)
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Document type not found with ID: "
+                            + typeId
+            );
+        }
+
+        /*
+         * Resolve logged-in user.
+         */
+        User currentUser =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                currentUser == null
+                        || currentUser.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        boolean isAdmin =
+                role == UserRole.ADMIN;
+
+        boolean isMember =
+                role == UserRole.MEMBER;
+
+        boolean isStaff =
+                role == UserRole.SECRETARY
+                        || role == UserRole.BRANCH_LEADER;
+
+        if (
+                !isAdmin
+                        && !isMember
+                        && !isStaff
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view member documents"
+            );
+        }
+
+        /*
+         * MEMBER:
+         * backend determines member ID.
+         *
+         * Frontend cannot select another member.
+         */
+        Long currentMemberId = null;
+
+        if (isMember) {
+            currentMemberId =
+                    currentUser.getMemberId();
+
+            if (currentMemberId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account is not linked to a member record"
+                );
+            }
+
+            /*
+             * Member only sees own documents.
+             * Ignore branch filter.
+             */
+            branchId = null;
+        }
+
+        /*
+         * Branch scope for Secretary / Branch Leader.
+         */
+        Set<Long> accessibleBranchIds =
+                Set.of(-1L);
+
+        if (isStaff) {
+            accessibleBranchIds =
+                    branchService
+                            .getAccessibleBranchIds();
+
+            if (accessibleBranchIds.isEmpty()) {
+                return new MemberDocumentPageResponse(
+                        List.of(),
+                        page,
+                        size,
+                        0,
+                        0,
+                        true,
+                        true
+                );
+            }
+
+            if (
+                    branchId != null
+                            && !accessibleBranchIds.contains(branchId)
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "The selected branch is outside your accessible scope"
+                );
+            }
+        }
+
+        /*
+         * ADMIN may filter by any valid branch.
+         */
+        if (
+                isAdmin
+                        && branchId != null
+        ) {
+            Long requestedBranchId =
+                    branchId;
+
+            branchRepository
+                    .findById(requestedBranchId)
+                    .orElseThrow(() ->
+                            new ResponseStatusException(
+                                    HttpStatus.NOT_FOUND,
+                                    "Branch not found with ID: "
+                                            + requestedBranchId
+                            )
+                    );
+        }
+
+        /*
+         * Date filter using Cambodia UTC+7.
+         */
+        OffsetDateTime startDateTime = null;
+        OffsetDateTime endDateTime = null;
+
+        if (date != null) {
+            ZoneOffset cambodiaOffset =
+                    ZoneOffset.ofHours(7);
+
+            startDateTime =
+                    date
+                            .atStartOfDay()
+                            .atOffset(cambodiaOffset);
+
+            endDateTime =
+                    date
+                            .plusDays(1)
+                            .atStartOfDay()
+                            .atOffset(cambodiaOffset);
+        }
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "createdAt"
+                        ).and(
+                                Sort.by(
+                                        Sort.Direction.DESC,
+                                        "id"
+                                )
+                        )
+                );
+
+        Page<Document> result =
+                documentRepository
+                        .findMemberDocumentPage(
+                                normalizedSearch,
+                                typeId,
+                                branchId,
+                                startDateTime,
+                                endDateTime,
+                                isAdmin,
+                                isMember,
+                                isStaff,
+                                currentMemberId,
+                                accessibleBranchIds,
+                                pageable
+                        );
+
+        /*
+         * Build table response.
+         */
+        List<MemberDocumentTableItemResponse> content =
+                result
+                        .getContent()
+                        .stream()
+                        .map(document -> {
+
+                            Member member =
+                                    memberRepository
+                                            .findById(
+                                                    document.getMemberId()
+                                            )
+                                            .orElseThrow(() ->
+                                                    new ResponseStatusException(
+                                                            HttpStatus.NOT_FOUND,
+                                                            "Member not found with ID: "
+                                                                    + document.getMemberId()
+                                                    )
+                                            );
+
+                            DocumentType documentType =
+                                    documentTypeRepository
+                                            .findById(
+                                                    document.getTypeId()
+                                            )
+                                            .orElseThrow(() ->
+                                                    new ResponseStatusException(
+                                                            HttpStatus.NOT_FOUND,
+                                                            "Document type not found with ID: "
+                                                                    + document.getTypeId()
+                                                    )
+                                            );
+
+                            return new MemberDocumentTableItemResponse(
+                                    document.getId(),
+
+                                    member.getId(),
+
+                                    member.getFullNameKm(),
+
+                                    member.getFullNameEn(),
+
+                                    member.getGender() == null
+                                            ? null
+                                            : member.getGender().name(),
+
+                                    documentType.getId(),
+
+                                    documentType.getLabelKm(),
+
+                                    documentType.getLabelEn(),
+
+                                    document.getTitle(),
+
+                                    document.getDescription(),
+
+                                    document.getFileId(),
+
+                                    document.getCreatedAt(),
+
+                                    document.getUpdatedAt()
+                            );
+                        })
+                        .toList();
+
+        return new MemberDocumentPageResponse(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
         );
     }
 }
