@@ -1543,4 +1543,9 @@ public class BranchServiceImpl implements BranchService {
                 )
                 .toList();
     }
+
+    @Override
+    public Set<Long> getAccessibleBranchIds() {
+        return Set.of();
+    }
 }

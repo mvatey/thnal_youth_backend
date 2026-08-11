@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.mapper.DocumentMapper;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
 import org.example.tnal_youth_backend.document.document.service.DocumentService;
+import org.example.tnal_youth_backend.document.type.entity.DocumentType;
 import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepository;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
