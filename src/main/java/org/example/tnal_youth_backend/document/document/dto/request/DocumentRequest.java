@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 public record DocumentRequest(
 
         @JsonProperty("type_id")
+        @NotNull(message = "Document type ID is required")
         @Positive(message = "Document type ID must be positive")
         Short typeId,
 
@@ -41,11 +42,8 @@ public record DocumentRequest(
 
         @JsonProperty("activity_id")
         @Positive(message = "Activity ID must be positive")
-        Long activityId,
+        Long activityId
 
-        @JsonProperty("uploaded_by")
-        @Positive(message = "Uploaded-by user ID must be positive")
-        Long uploadedById
 ) {
 
     @AssertTrue(
@@ -55,20 +53,20 @@ public record DocumentRequest(
                     """
     )
     public boolean isOwnerSelectionValid() {
-        int count = 0;
+        int ownerCount = 0;
 
         if (branchId != null) {
-            count++;
+            ownerCount++;
         }
 
         if (memberId != null) {
-            count++;
+            ownerCount++;
         }
 
         if (activityId != null) {
-            count++;
+            ownerCount++;
         }
 
-        return count == 1;
+        return ownerCount == 1;
     }
 }

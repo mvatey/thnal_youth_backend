@@ -194,4 +194,32 @@ public class FileController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
+
+    @PostMapping(
+            value = "/document-attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize(
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')"
+    )
+    public ResponseEntity<FileResponse>
+    uploadDocumentAttachment(
+            @RequestParam("file")
+            MultipartFile file,
+            Authentication authentication
+    ) {
+        FileEntity saved =
+                fileService.uploadDocumentAttachment(
+                        file,
+                        currentUserId(authentication)
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        fileService.getFileById(
+                                saved.getId()
+                        )
+                );
+    }
 }

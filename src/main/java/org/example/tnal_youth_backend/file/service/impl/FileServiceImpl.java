@@ -839,4 +839,40 @@ public class FileServiceImpl implements FileService {
                 """;
     }
 
+    private static final long MAX_DOCUMENT_SIZE =
+            5L * 1024 * 1024;
+
+    private static final Set<String> DOCUMENT_TYPES =
+            Set.of(
+                    "application/pdf",
+
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+                    "image/jpeg",
+                    "image/png"
+            );
+
+    @Override
+    @Transactional
+    public FileEntity uploadDocumentAttachment(
+            MultipartFile file,
+            Long uploadedById
+    ) {
+        validateMultipartFile(
+                file,
+                MAX_DOCUMENT_SIZE,
+                DOCUMENT_TYPES,
+                "document"
+        );
+
+        return storeMultipartFile(
+                file,
+                uploadedById,
+                "documents"
+        );
+    }
 }

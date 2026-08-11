@@ -87,4 +87,10 @@ public interface FileService {
     FileEntity getFileEntity(
             Long fileId
     );
+
+
+    FileEntity uploadDocumentAttachment(
+            MultipartFile file,
+            Long uploadedById
+    );
 }

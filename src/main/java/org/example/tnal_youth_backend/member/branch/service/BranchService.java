@@ -10,6 +10,7 @@ import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.util.List;
+import java.util.Set;
 
 public interface BranchService {
 
@@ -74,4 +75,6 @@ public interface BranchService {
     getBranchLeaderCandidates(
             Long branchId
     );
+
+    Set<Long> getAccessibleBranchIds();
 }
