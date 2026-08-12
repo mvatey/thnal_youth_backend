@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.dashboard.service.DashboardService;
 import org.example.tnal_youth_backend.dashboard.util.DashboardMonthRange;
 import org.example.tnal_youth_backend.dashboard.util.DashboardPercentageCalculator;
 import org.example.tnal_youth_backend.dashboard.util.DashboardYearResolver;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardRepository dashboardRepository;
     private final DashboardPercentageCalculator percentageCalculator;
     private final DashboardYearResolver dashboardYearResolver;
+    private final BranchRepository branchRepository;
 
     // =========================================================
     // SUMMARY
@@ -52,19 +54,39 @@ public class DashboardServiceImpl implements DashboardService {
                 scope.monthRange();
 
         Collection<Long> branchIds =
-                resolvePerformanceBranchIds(scope, branchId);
+                resolvePerformanceBranchIds(
+                        scope,
+                        branchId
+                );
 
         long currentMembers;
         long previousMembers;
-        long activeBranches;
+
+        long totalBranches;
+
         long currentActivities;
         long previousActivities;
 
         DonationTotals currentDonations;
         DonationTotals previousDonations;
 
-        if (scope.organizationWide() && branchId == null) {
-
+        /*
+         * =========================================================
+         * ADMIN - ORGANIZATION WIDE
+         * =========================================================
+         *
+         * No branch filter selected.
+         *
+         * ADMIN sees:
+         * - all members
+         * - ALL branches
+         * - all activities
+         * - all donations
+         */
+        if (
+                scope.organizationWide()
+                        && branchId == null
+        ) {
             currentMembers =
                     dashboardRepository
                             .countAllActiveMembersBefore(
@@ -77,9 +99,14 @@ public class DashboardServiceImpl implements DashboardService {
                                     range.selectedMonthStartDate()
                             );
 
-            activeBranches =
-                    dashboardRepository
-                            .countAllActiveBranches();
+            /*
+             * IMPORTANT:
+             *
+             * Dashboard card represents TOTAL branches,
+             * not only ACTIVE branches.
+             */
+            totalBranches =
+                    branchRepository.count();
 
             currentActivities =
                     dashboardRepository
@@ -109,6 +136,17 @@ public class DashboardServiceImpl implements DashboardService {
 
         } else {
 
+            /*
+             * =====================================================
+             * SELECTED / ACCESSIBLE BRANCH SCOPE
+             * =====================================================
+             *
+             * ADMIN:
+             * - selected branch
+             *
+             * SECRETARY / BRANCH_LEADER:
+             * - accessible branch(es)
+             */
             currentMembers =
                     dashboardRepository
                             .countActiveMembersByBranchesBefore(
@@ -123,9 +161,13 @@ public class DashboardServiceImpl implements DashboardService {
                                     range.selectedMonthStartDate()
                             );
 
-            activeBranches =
-                    dashboardRepository
-                            .countActiveBranchesByIds(
+            /*
+             * Count every branch in the selected/access scope,
+             * regardless of ACTIVE / INACTIVE status.
+             */
+            totalBranches =
+                    branchRepository
+                            .countByIdIn(
                                     branchIds
                             );
 
@@ -161,62 +203,95 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         DashboardSummaryData summary =
-                DashboardSummaryData.builder()
+                DashboardSummaryData
+                        .builder()
+
                         .members(
-                                MetricResponse.builder()
-                                        .value(currentMembers)
+                                MetricResponse
+                                        .builder()
+                                        .value(
+                                                currentMembers
+                                        )
                                         .changePercent(
-                                                percentageCalculator.calculate(
-                                                        currentMembers,
-                                                        previousMembers
-                                                )
+                                                percentageCalculator
+                                                        .calculate(
+                                                                currentMembers,
+                                                                previousMembers
+                                                        )
                                         )
                                         .build()
                         )
+
                         .branches(
-                                MetricResponse.builder()
-                                        .value(activeBranches)
-                                        .changePercent(null)
-                                        .build()
-                        )
-                        .activities(
-                                MetricResponse.builder()
-                                        .value(currentActivities)
+                                MetricResponse
+                                        .builder()
+                                        .value(
+                                                totalBranches
+                                        )
                                         .changePercent(
-                                                percentageCalculator.calculate(
-                                                        currentActivities,
-                                                        previousActivities
-                                                )
+                                                null
                                         )
                                         .build()
                         )
+
+                        .activities(
+                                MetricResponse
+                                        .builder()
+                                        .value(
+                                                currentActivities
+                                        )
+                                        .changePercent(
+                                                percentageCalculator
+                                                        .calculate(
+                                                                currentActivities,
+                                                                previousActivities
+                                                        )
+                                        )
+                                        .build()
+                        )
+
                         .donations(
-                                DonationMetricResponse.builder()
+                                DonationMetricResponse
+                                        .builder()
                                         .amountKhr(
-                                                currentDonations.amountKhr()
+                                                currentDonations
+                                                        .amountKhr()
                                         )
                                         .amountUsd(
-                                                currentDonations.amountUsd()
+                                                currentDonations
+                                                        .amountUsd()
                                         )
                                         .changePercentKhr(
-                                                percentageCalculator.calculate(
-                                                        currentDonations.amountKhr(),
-                                                        previousDonations.amountKhr()
-                                                )
+                                                percentageCalculator
+                                                        .calculate(
+                                                                currentDonations
+                                                                        .amountKhr(),
+                                                                previousDonations
+                                                                        .amountKhr()
+                                                        )
                                         )
                                         .changePercentUsd(
-                                                percentageCalculator.calculate(
-                                                        currentDonations.amountUsd(),
-                                                        previousDonations.amountUsd()
-                                                )
+                                                percentageCalculator
+                                                        .calculate(
+                                                                currentDonations
+                                                                        .amountUsd(),
+                                                                previousDonations
+                                                                        .amountUsd()
+                                                        )
                                         )
                                         .build()
                         )
+
                         .build();
 
-        return DashboardSummaryResponse.builder()
-                .period(range.period())
-                .summary(summary)
+        return DashboardSummaryResponse
+                .builder()
+                .period(
+                        range.period()
+                )
+                .summary(
+                        summary
+                )
                 .build();
     }
 

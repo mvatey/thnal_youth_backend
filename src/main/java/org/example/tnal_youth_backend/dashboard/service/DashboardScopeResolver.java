@@ -26,19 +26,23 @@ public class DashboardScopeResolver {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
 
-    public DashboardScope resolve(String month) {
-
+    public DashboardScope resolve(
+            String month
+    ) {
         DashboardMonthRange monthRange =
-                dashboardMonthResolver.resolve(month);
+                dashboardMonthResolver.resolve(
+                        month
+                );
 
         Authentication authentication =
                 SecurityContextHolder
                         .getContext()
                         .getAuthentication();
 
-        if (authentication == null
-                || !authentication.isAuthenticated()) {
-
+        if (
+                authentication == null
+                        || !authentication.isAuthenticated()
+        ) {
             throw new DashboardAccessException(
                     "Authentication is required to access the dashboard."
             );
@@ -47,16 +51,28 @@ public class DashboardScopeResolver {
         Object principal =
                 authentication.getPrincipal();
 
-        if (!(principal
-                instanceof CustomUserDetails userDetails)) {
-
+        if (
+                !(principal instanceof CustomUserDetails userDetails)
+        ) {
             throw new DashboardAccessException(
                     "Unable to resolve the authenticated user."
             );
         }
 
-        User user = userDetails.getUser();
-        UserRole role = user.getRole();
+        User user =
+                userDetails.getUser();
+
+        if (
+                user == null
+                        || user.getId() == null
+        ) {
+            throw new DashboardAccessException(
+                    "Unable to resolve the authenticated user."
+            );
+        }
+
+        UserRole role =
+                user.getRole();
 
         if (role == null) {
             throw new DashboardAccessException(
@@ -65,8 +81,15 @@ public class DashboardScopeResolver {
         }
 
         /*
-         * ADMIN sees the whole organization.
-         * No branch IDs need to be supplied.
+         * =====================================================
+         * ADMIN
+         * =====================================================
+         *
+         * Admin is organization-wide.
+         *
+         * No branch IDs are stored in DashboardScope because
+         * DashboardServiceImpl uses organization-wide queries
+         * when organizationWide() is true.
          */
         if (role == UserRole.ADMIN) {
             return new DashboardScope(
@@ -78,23 +101,33 @@ public class DashboardScopeResolver {
         }
 
         /*
-         * SECRETARY and BRANCH_LEADER may be assigned
-         * to one or more branches through branch_staff.
+         * =====================================================
+         * SECRETARY / BRANCH LEADER
+         * =====================================================
+         *
+         * Dashboard data is limited to their accessible
+         * branch scope.
          */
-        if (role == UserRole.SECRETARY
-                || role == UserRole.BRANCH_LEADER) {
-
-            Set<Long> branchIds =
-                    resolveAccessibleBranchIds(user);
+        if (
+                role == UserRole.SECRETARY
+                        || role == UserRole.BRANCH_LEADER
+        ) {
+            Set<Long> accessibleBranchIds =
+                    resolveAccessibleBranchIds(
+                            user
+                    );
 
             return new DashboardScope(
                     user.getId(),
                     role,
-                    branchIds,
+                    accessibleBranchIds,
                     monthRange
             );
         }
 
+        /*
+         * MEMBER does not have access to the main dashboard.
+         */
         throw new DashboardAccessException(
                 "Your role does not have access to the dashboard."
         );
@@ -103,7 +136,8 @@ public class DashboardScopeResolver {
     private Set<Long> resolveAccessibleBranchIds(
             User user
     ) {
-        Long memberId = user.getMemberId();
+        Long memberId =
+                user.getMemberId();
 
         if (memberId == null) {
             throw new DashboardAccessException(
@@ -111,15 +145,25 @@ public class DashboardScopeResolver {
             );
         }
 
-        Member member = memberRepository
-                .findById(memberId)
-                .orElseThrow(() ->
-                        new DashboardAccessException(
-                                "The linked member record could not be found."
+        /*
+         * Verify that the linked member exists.
+         */
+        Member member =
+                memberRepository
+                        .findById(
+                                memberId
                         )
-                );
+                        .orElseThrow(() ->
+                                new DashboardAccessException(
+                                        "The linked member record could not be found."
+                                )
+                        );
 
-        Set<Long> branchIds =
+        /*
+         * First priority:
+         * active branch_staff assignments.
+         */
+        Set<Long> accessibleBranchIds =
                 new LinkedHashSet<>(
                         branchStaffRepository
                                 .findActiveBranchIdsByMemberId(
@@ -128,23 +172,31 @@ public class DashboardScopeResolver {
                 );
 
         /*
-         * Compatibility fallback:
+         * Fallback:
          *
-         * Older users may have members.branch_id populated
-         * but no branch_staff assignment yet.
+         * Older/test data may have members.branch_id but no
+         * active branch_staff record yet.
+         *
+         * Only use the primary branch when branch_staff
+         * returned nothing.
          */
-        if (member.getBranchId() != null) {
-            branchIds.add(
+        if (
+                accessibleBranchIds.isEmpty()
+                        && member.getBranchId() != null
+        ) {
+            accessibleBranchIds.add(
                     member.getBranchId()
             );
         }
 
-        if (branchIds.isEmpty()) {
+        if (accessibleBranchIds.isEmpty()) {
             throw new DashboardAccessException(
                     "The linked member does not have any active branch assignment."
             );
         }
 
-        return Set.copyOf(branchIds);
+        return Set.copyOf(
+                accessibleBranchIds
+        );
     }
 }

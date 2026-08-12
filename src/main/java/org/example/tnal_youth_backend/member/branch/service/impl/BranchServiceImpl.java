@@ -214,10 +214,8 @@ public class BranchServiceImpl implements BranchService {
                 null
         );
 
-        String branchCode = normalizeRequired(
-                request.branchCode(),
-                "Branch code"
-        );
+        String branchCode =
+                generateNextBranchCode();
 
         String nameKm = normalizeRequired(
                 request.nameKm(),
@@ -1545,7 +1543,146 @@ public class BranchServiceImpl implements BranchService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Set<Long> getAccessibleBranchIds() {
-        return Set.of();
+
+        User principal =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                principal == null
+                        || principal.getId() == null
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(principal.getId())
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found"
+                                )
+                        );
+
+        UserRole role =
+                currentUser.getRole();
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        /*
+         * ADMIN:
+         * access to every branch.
+         */
+        if (role == UserRole.ADMIN) {
+            return branchRepository
+                    .findAll()
+                    .stream()
+                    .map(Branch::getId)
+                    .collect(
+                            java.util.stream.Collectors
+                                    .toCollection(
+                                            LinkedHashSet::new
+                                    )
+                    );
+        }
+
+        /*
+         * Only Secretary and Branch Leader
+         * use staff branch scope.
+         */
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to access branch scope"
+            );
+        }
+
+        Long memberId =
+                currentUser.getMemberId();
+
+        if (memberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is not linked to a member record"
+            );
+        }
+
+        /*
+         * First:
+         * get active branch_staff assignments.
+         */
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        memberId
+                                )
+                );
+
+        /*
+         * Fallback:
+         * if branch_staff has no active assignment,
+         * use the member's primary branch.
+         */
+        if (accessibleBranchIds.isEmpty()) {
+
+            Member member =
+                    memberRepository
+                            .findById(memberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
+
+            if (member.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        member.getBranchId()
+                );
+            }
+        }
+
+        return accessibleBranchIds;
+    }
+
+    private String generateNextBranchCode() {
+        long nextNumber =
+                branchRepository.count() + 1;
+
+        String branchCode =
+                String.format(
+                        "BR-%04d",
+                        nextNumber
+                );
+
+        while (
+                branchRepository.existsByBranchCode(
+                        branchCode
+                )
+        ) {
+            nextNumber++;
+
+            branchCode =
+                    String.format(
+                            "BR-%04d",
+                            nextNumber
+                    );
+        }
+
+        return branchCode;
     }
 }

@@ -254,4 +254,8 @@ public interface BranchRepository
             Integer communeId,
             Long id
     );
+
+    boolean existsByBranchCode(
+            String branchCode
+    );
 }
