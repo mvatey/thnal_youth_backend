@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.member.member.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.file.dto.response.FileResponse;
 import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
@@ -24,6 +25,17 @@ public record MemberDetailResponse(
 
         @JsonProperty("branch_id")
         Long branchId,
+
+        @JsonProperty("branch_code")
+        String branchCode,
+
+        @JsonProperty("branch_name_km")
+        String branchNameKm,
+
+        @JsonProperty("branch_name_en")
+        String branchNameEn,
+
+        UserRole role,
 
         LookupResponse status,
 

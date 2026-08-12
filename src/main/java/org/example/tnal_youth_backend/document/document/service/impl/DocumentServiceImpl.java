@@ -520,13 +520,32 @@ public class DocumentServiceImpl
          * selected date 00:00
          * until next date 00:00
          */
-        OffsetDateTime startDateTime = null;
-        OffsetDateTime endDateTime = null;
+        ZoneOffset cambodiaOffset =
+                ZoneOffset.ofHours(7);
 
+        /*
+         * Always provide non-null values to PostgreSQL.
+         *
+         * No date selected:
+         * use a very wide date range.
+         */
+        OffsetDateTime startDateTime =
+                LocalDate
+                        .of(1900, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
+
+        OffsetDateTime endDateTime =
+                LocalDate
+                        .of(9999, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
+
+        /*
+         * Date selected:
+         * restrict to that Cambodia calendar day.
+         */
         if (date != null) {
-            ZoneOffset cambodiaOffset =
-                    ZoneOffset.ofHours(7);
-
             startDateTime =
                     date
                             .atStartOfDay()
@@ -1031,13 +1050,22 @@ public class DocumentServiceImpl
         /*
          * Date filter using Cambodia UTC+7.
          */
-        OffsetDateTime startDateTime = null;
-        OffsetDateTime endDateTime = null;
+        ZoneOffset cambodiaOffset =
+                ZoneOffset.ofHours(7);
+
+        OffsetDateTime startDateTime =
+                LocalDate
+                        .of(1900, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
+
+        OffsetDateTime endDateTime =
+                LocalDate
+                        .of(9999, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
 
         if (date != null) {
-            ZoneOffset cambodiaOffset =
-                    ZoneOffset.ofHours(7);
-
             startDateTime =
                     date
                             .atStartOfDay()

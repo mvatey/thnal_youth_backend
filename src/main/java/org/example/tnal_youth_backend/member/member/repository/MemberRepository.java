@@ -599,35 +599,45 @@ public interface MemberRepository
     );
 
     @Query("""
-    SELECT m
-    FROM Member m
-    LEFT JOIN User u
-        ON u.memberId = m.id
-    WHERE m.branchId = :branchId
-      AND (
-          u.id IS NULL
-          OR u.role <> :excludedRole
-      )
-      AND (
-          :search = ''
-          OR LOWER(m.fullNameKm)
-                LIKE CONCAT('%', LOWER(:search), '%')
-          OR LOWER(COALESCE(m.fullNameEn, ''))
-                LIKE CONCAT('%', LOWER(:search), '%')
-          OR COALESCE(m.phone, '')
-                LIKE CONCAT('%', :search, '%')
-      )
-      AND (
-          :gender IS NULL
-          OR m.gender = :gender
-      )
-      AND (
-          :statusId IS NULL
-          OR m.status.id = :statusId
-      )
-    ORDER BY m.createdAt DESC
+SELECT
+    m AS member,
+    u.role AS role
+FROM Member m
+LEFT JOIN User u
+    ON u.memberId = m.id
+WHERE m.branchId = :branchId
+
+  AND (
+      u.id IS NULL
+      OR u.role <> :excludedRole
+  )
+
+  AND (
+      :search = ''
+      OR LOWER(m.fullNameKm)
+            LIKE CONCAT('%', LOWER(:search), '%')
+      OR LOWER(COALESCE(m.fullNameEn, ''))
+            LIKE CONCAT('%', LOWER(:search), '%')
+      OR COALESCE(m.phone, '')
+            LIKE CONCAT('%', :search, '%')
+  )
+
+  AND (
+      :gender IS NULL
+      OR m.gender = :gender
+  )
+
+  AND (
+      :statusId IS NULL
+      OR m.status.id = :statusId
+  )
+
+ORDER BY
+    m.createdAt DESC,
+    m.id DESC
 """)
-    Page<Member> findBranchMembersExcludingRole(
+    Page<BranchManagementProjection>
+    findBranchMembersExcludingRole(
             @Param("branchId")
             Long branchId,
 

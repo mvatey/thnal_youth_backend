@@ -1323,8 +1323,44 @@ public class BranchServiceImpl implements BranchService {
             Gender gender,
             Short statusId
     ) {
-        getAccessibleBranchById(branchId);
+        /*
+         * Validate that the current user may access
+         * the requested branch.
+         */
+        getAccessibleBranchById(
+                branchId
+        );
 
+        /*
+         * Basic pagination validation.
+         */
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        if (
+                statusId != null
+                        && statusId <= 0
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Status ID must be greater than zero"
+            );
+        }
+
+        /*
+         * Normalize search so JPQL never receives null.
+         */
         String normalizedSearch =
                 search == null
                         ? ""
@@ -1337,10 +1373,23 @@ public class BranchServiceImpl implements BranchService {
                         Sort.by(
                                 Sort.Direction.DESC,
                                 "createdAt"
+                        ).and(
+                                Sort.by(
+                                        Sort.Direction.DESC,
+                                        "id"
+                                )
                         )
                 );
 
-        Page<Member> result =
+        /*
+         * The repository now returns both:
+         *
+         * - Member
+         * - UserRole
+         *
+         * through BranchManagementProjection.
+         */
+        Page<BranchManagementProjection> result =
                 memberRepository
                         .findBranchMembersExcludingRole(
                                 branchId,
@@ -1352,11 +1401,15 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         List<BranchMemberTableItemResponse> content =
-                result.getContent()
+                result
+                        .getContent()
                         .stream()
-                        .map(
+                        .map(item ->
                                 branchMapper
-                                        ::toBranchMemberTableItemResponse
+                                        .toBranchMemberTableItemResponse(
+                                                item.getMember(),
+                                                item.getRole()
+                                        )
                         )
                         .toList();
 

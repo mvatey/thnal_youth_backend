@@ -1,57 +1,76 @@
 package org.example.tnal_youth_backend.member.member.service.impl;
 
 import lombok.RequiredArgsConstructor;
+
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
+
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
+
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+
 import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
+
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
+
 import org.example.tnal_youth_backend.member.member.dto.request.CreateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberProfilePhotoRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberRequest;
 import org.example.tnal_youth_backend.member.member.dto.request.UpdateMemberStatusRequest;
+
 import org.example.tnal_youth_backend.member.member.dto.response.*;
+
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
+
 import org.example.tnal_youth_backend.member.member.mapper.MemberMapper;
 import org.example.tnal_youth_backend.member.member.repository.MemberDetailSummaryRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
+
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
+
 import org.example.tnal_youth_backend.member.religion.entity.Religion;
 import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
+
 import org.example.tnal_youth_backend.member.status.entity.MemberStatus;
 import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepository;
+
 import org.springframework.dao.DataIntegrityViolationException;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
 import org.springframework.http.HttpStatus;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -62,10 +81,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MemberServiceImpl implements MemberService {
 
-    private static final String BUDDHISM_CODE = "BUDDHISM";
-    private static final String ISLAM_CODE = "ISLAM";
+    private static final String BUDDHISM_CODE =
+            "BUDDHISM";
 
-    private static final Set<String> ALLOWED_TSHIRT_SIZES =
+    private static final String ISLAM_CODE =
+            "ISLAM";
+
+    private static final Set<String>
+            ALLOWED_TSHIRT_SIZES =
             Set.of(
                     "XS",
                     "S",
@@ -76,33 +99,58 @@ public class MemberServiceImpl implements MemberService {
                     "3XL"
             );
 
-    private final MemberRepository memberRepository;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final MemberRepository
+            memberRepository;
 
-    private final FileRepository fileRepository;
-    private final FileService fileService;
+    private final UserRepository
+            userRepository;
 
-    private final MemberStatusRepository memberStatusRepository;
-    private final MemberLevelRepository memberLevelRepository;
-    private final ReligionRepository religionRepository;
-    private final EthnicityRepository ethnicityRepository;
-    private final NationalityService nationalityService;
+    private final PasswordEncoder
+            passwordEncoder;
 
-    private final MemberMapper memberMapper;
+    private final FileRepository
+            fileRepository;
 
-    private final BranchRepository branchRepository;
-    private final BranchStaffRepository branchStaffRepository;
+    private final FileService
+            fileService;
+
+    private final MemberStatusRepository
+            memberStatusRepository;
+
+    private final MemberLevelRepository
+            memberLevelRepository;
+
+    private final ReligionRepository
+            religionRepository;
+
+    private final EthnicityRepository
+            ethnicityRepository;
+
+    private final NationalityService
+            nationalityService;
+
+    private final MemberMapper
+            memberMapper;
+
+    private final BranchRepository
+            branchRepository;
+
+    private final BranchStaffRepository
+            branchStaffRepository;
 
     private final ActivityParticipantRepository
             activityParticipantRepository;
+
     private final MemberDetailSummaryRepository
             memberDetailSummaryRepository;
 
-    private final ActivityRepository activityRepository;
+    private final ActivityRepository
+            activityRepository;
 
     private final MemberAccessValidator
             memberAccessValidator;
+
+
     /*
      * ==========================================================
      * GET MEMBER SUMMARY
@@ -114,51 +162,63 @@ public class MemberServiceImpl implements MemberService {
     public MemberSummaryResponse getMemberSummary() {
 
         Long effectiveBranchId =
-                resolveMemberListBranchId(null);
+                resolveMemberListBranchId(
+                        null
+                );
 
         long totalMembers =
                 effectiveBranchId == null
-                        ? memberRepository.count()
-                        : memberRepository.countByBranchId(
+                        ? memberRepository
+                        .count()
+                        : memberRepository
+                        .countByBranchId(
                                 effectiveBranchId
                         );
 
         long femaleMembers =
                 effectiveBranchId == null
-                        ? memberRepository.countByGender(
+                        ? memberRepository
+                        .countByGender(
                                 Gender.FEMALE
                         )
-                        : memberRepository.countByGenderAndBranchId(
+                        : memberRepository
+                        .countByGenderAndBranchId(
                                 Gender.FEMALE,
                                 effectiveBranchId
                         );
 
         long monkMembers =
                 effectiveBranchId == null
-                        ? memberRepository.countByGender(
+                        ? memberRepository
+                        .countByGender(
                                 Gender.MONK
                         )
-                        : memberRepository.countByGenderAndBranchId(
+                        : memberRepository
+                        .countByGenderAndBranchId(
                                 Gender.MONK,
                                 effectiveBranchId
                         );
 
         long buddhistMembers =
                 effectiveBranchId == null
-                        ? memberRepository.countByReligionCode(
+                        ? memberRepository
+                        .countByReligionCode(
                                 BUDDHISM_CODE
                         )
-                        : memberRepository.countByReligionCodeAndBranchId(
+                        : memberRepository
+                        .countByReligionCodeAndBranchId(
                                 BUDDHISM_CODE,
                                 effectiveBranchId
                         );
 
         long islamMembers =
                 effectiveBranchId == null
-                        ? memberRepository.countByReligionCode(
+                        ? memberRepository
+                        .countByReligionCode(
                                 ISLAM_CODE
                         )
-                        : memberRepository.countByReligionCodeAndBranchId(
+                        : memberRepository
+                        .countByReligionCodeAndBranchId(
                                 ISLAM_CODE,
                                 effectiveBranchId
                         );
@@ -171,6 +231,7 @@ public class MemberServiceImpl implements MemberService {
                 islamMembers
         );
     }
+
 
     /*
      * ==========================================================
@@ -188,6 +249,7 @@ public class MemberServiceImpl implements MemberService {
             Short statusId,
             Gender gender
     ) {
+
         if (page < 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -195,14 +257,20 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (size < 1 || size > 100) {
+        if (
+                size < 1
+                        || size > 100
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Size must be between 1 and 100"
             );
         }
 
-        if (branchId != null && branchId <= 0) {
+        if (
+                branchId != null
+                        && branchId <= 0
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Branch ID must be greater than zero"
@@ -210,14 +278,20 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (statusId != null) {
-            findStatus(statusId);
+            findStatus(
+                    statusId
+            );
         }
 
         String normalizedSearch =
-                trimToNull(search);
+                trimToNull(
+                        search
+                );
 
         Long effectiveBranchId =
-                resolveMemberListBranchId(branchId);
+                resolveMemberListBranchId(
+                        branchId
+                );
 
         Pageable pageable =
                 PageRequest.of(
@@ -225,33 +299,26 @@ public class MemberServiceImpl implements MemberService {
                         size
                 );
 
-        /*
-         * Admin receives an empty set.
-         * Secretary and branch leader receive their allowed branch IDs.
-         */
         Set<Long> accessibleBranchIds =
                 getAccessibleBranchIds();
 
         boolean unrestrictedScope =
-                accessibleBranchIds.isEmpty();
+                accessibleBranchIds
+                        .isEmpty();
 
-        /*
-         * Do not send an empty collection into a native SQL IN clause.
-         * Admin bypasses the scope condition through unrestrictedScope,
-         * so this fallback value does not restrict admin results.
-         */
         Set<Long> queryBranchScope =
                 unrestrictedScope
                         ? Set.of(-1L)
                         : accessibleBranchIds;
 
-        /*
-         * A secretary or branch leader cannot manually request
-         * a branch outside their permitted scope.
-         */
-        if (branchId != null
-                && !unrestrictedScope
-                && !accessibleBranchIds.contains(branchId)) {
+        if (
+                branchId != null
+                        && !unrestrictedScope
+                        && !accessibleBranchIds
+                        .contains(
+                                branchId
+                        )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You do not have permission to access this branch"
@@ -259,42 +326,61 @@ public class MemberServiceImpl implements MemberService {
         }
 
         Page<Object[]> memberPage =
-                memberRepository.findMemberPage(
-                        normalizedSearch,
-                        branchId,
-                        queryBranchScope,
-                        unrestrictedScope,
-                        statusId,
-                        gender == null
-                                ? null
-                                : gender.name(),
-                        pageable
-                );
+                memberRepository
+                        .findMemberPage(
+                                normalizedSearch,
+                                branchId,
+                                queryBranchScope,
+                                unrestrictedScope,
+                                statusId,
+                                gender == null
+                                        ? null
+                                        : gender.name(),
+                                pageable
+                        );
 
         List<MemberListResponse> content =
-                memberPage.getContent()
+                memberPage
+                        .getContent()
                         .stream()
-                        .map(memberMapper::toListResponse)
+                        .map(
+                                memberMapper
+                                        ::toListResponse
+                        )
                         .toList();
 
-        return MemberPageResponse.builder()
-                .content(content)
-                .page(memberPage.getNumber())
-                .size(memberPage.getSize())
+        return MemberPageResponse
+                .builder()
+                .content(
+                        content
+                )
+                .page(
+                        memberPage
+                                .getNumber()
+                )
+                .size(
+                        memberPage
+                                .getSize()
+                )
                 .totalElements(
-                        memberPage.getTotalElements()
+                        memberPage
+                                .getTotalElements()
                 )
                 .totalPages(
-                        memberPage.getTotalPages()
+                        memberPage
+                                .getTotalPages()
                 )
                 .first(
-                        memberPage.isFirst()
+                        memberPage
+                                .isFirst()
                 )
                 .last(
-                        memberPage.isLast()
+                        memberPage
+                                .isLast()
                 )
                 .build();
     }
+
 
     /*
      * ==========================================================
@@ -307,16 +393,28 @@ public class MemberServiceImpl implements MemberService {
     public MemberDetailResponse getMemberById(
             Long id
     ) {
+
         memberAccessValidator
-                .validateAccessibleMember(id);
+                .validateAccessibleMember(
+                        id
+                );
 
         Member member =
-                findDetailedMember(id);
+                findDetailedMember(
+                        id
+                );
 
-        return memberMapper.toDetailResponse(
+        return toMemberDetailResponse(
                 member
         );
     }
+
+
+    /*
+     * ==========================================================
+     * UPDATE PROFILE PHOTO
+     * ==========================================================
+     */
 
     @Override
     @Transactional
@@ -324,32 +422,56 @@ public class MemberServiceImpl implements MemberService {
             Long id,
             MultipartFile file
     ) {
-        Member member = findDetailedMember(id);
+
+        Member member =
+                findDetailedMember(
+                        id
+                );
 
         validateMemberBranchAccess(
                 member.getBranchId()
         );
 
-        FileEntity uploadedPhoto = fileService.uploadImage(
-                file,
-                getCurrentUserId()
+        FileEntity uploadedPhoto =
+                fileService
+                        .uploadImage(
+                                file,
+                                getCurrentUserId()
+                        );
+
+        member.setProfilePhoto(
+                uploadedPhoto
         );
 
-        member.setProfilePhoto(uploadedPhoto);
-        Member savedMember = memberRepository.save(member);
+        Member savedMember =
+                memberRepository
+                        .save(
+                                member
+                        );
 
-        userRepository.findByMemberId(id)
-                .ifPresent(user -> {
-                    user.setProfileImage(
-                            uploadedPhoto.getFilePath()
-                    );
-                    userRepository.save(user);
-                });
+        userRepository
+                .findByMemberId(
+                        id
+                )
+                .ifPresent(
+                        user -> {
+                            user.setProfileImage(
+                                    uploadedPhoto
+                                            .getFilePath()
+                            );
 
-        return memberMapper.toDetailResponse(
+                            userRepository
+                                    .save(
+                                            user
+                                    );
+                        }
+                );
+
+        return toMemberDetailResponse(
                 savedMember
         );
     }
+
 
     /*
      * ==========================================================
@@ -362,9 +484,11 @@ public class MemberServiceImpl implements MemberService {
     public MemberDetailResponse createMember(
             CreateMemberRequest request
     ) {
+
         Branch branch =
                 findBranch(
-                        request.branchId()
+                        request
+                                .branchId()
                 );
 
         validateMemberBranchAccess(
@@ -421,63 +545,81 @@ public class MemberServiceImpl implements MemberService {
 
         Member member =
                 Member.builder()
+
                         .branchId(
                                 branch.getId()
                         )
+
                         .memberNo(
                                 memberNo
                         )
+
                         .fullNameKm(
                                 normalizeRequired(
                                         request.fullNameKm(),
                                         "Khmer full name"
                                 )
                         )
+
                         .fullNameEn(
                                 trimToNull(
                                         request.fullNameEn()
                                 )
                         )
+
                         .status(
                                 status
                         )
+
                         .level(
                                 level
                         )
+
                         .nationality(
                                 nationality
                         )
+
                         .gender(
                                 request.gender()
                         )
+
                         .dateOfBirth(
                                 request.dateOfBirth()
                         )
+
                         .phone(
                                 phone
                         )
+
                         .email(
                                 email
                         )
+
                         .joinedOn(
                                 request.joinedOn()
                         )
+
                         .profilePhoto(
                                 findFile(
-                                        request.profilePhotoId(),
+                                        request
+                                                .profilePhotoId(),
                                         "Profile photo"
                                 )
                         )
+
                         .createdById(
                                 currentUser.getId()
                         )
+
                         .build();
 
         try {
+
             Member savedMember =
-                    memberRepository.saveAndFlush(
-                            member
-                    );
+                    memberRepository
+                            .saveAndFlush(
+                                    member
+                            );
 
             createPendingUserAccount(
                     savedMember,
@@ -486,22 +628,25 @@ public class MemberServiceImpl implements MemberService {
 
             Member detailedMember =
                     findDetailedMember(
-                            savedMember.getId()
+                            savedMember
+                                    .getId()
                     );
 
-            return memberMapper.toDetailResponse(
+            return toMemberDetailResponse(
                     detailedMember
             );
 
         } catch (
                 DataIntegrityViolationException exception
         ) {
+
             throw createDatabaseException(
                     "Member could not be created",
                     exception
             );
         }
     }
+
 
     /*
      * ==========================================================
@@ -515,12 +660,12 @@ public class MemberServiceImpl implements MemberService {
             Long id,
             UpdateMemberRequest request
     ) {
-        Member member =
-                findDetailedMember(id);
 
-        /*
-         * User must have access to the member's current branch.
-         */
+        Member member =
+                findDetailedMember(
+                        id
+                );
+
         validateMemberBranchAccess(
                 member.getBranchId()
         );
@@ -530,9 +675,6 @@ public class MemberServiceImpl implements MemberService {
                         request.branchId()
                 );
 
-        /*
-         * User must also have access to the destination branch.
-         */
         validateMemberBranchAccess(
                 targetBranch.getId()
         );
@@ -666,10 +808,12 @@ public class MemberServiceImpl implements MemberService {
         );
 
         try {
+
             Member savedMember =
-                    memberRepository.saveAndFlush(
-                            member
-                    );
+                    memberRepository
+                            .saveAndFlush(
+                                    member
+                            );
 
             synchronizeLinkedUserAccount(
                     savedMember
@@ -677,22 +821,25 @@ public class MemberServiceImpl implements MemberService {
 
             Member detailedMember =
                     findDetailedMember(
-                            savedMember.getId()
+                            savedMember
+                                    .getId()
                     );
 
-            return memberMapper.toDetailResponse(
+            return toMemberDetailResponse(
                     detailedMember
             );
 
         } catch (
                 DataIntegrityViolationException exception
         ) {
+
             throw createDatabaseException(
                     "Member could not be updated",
                     exception
             );
         }
     }
+
 
     /*
      * ==========================================================
@@ -706,8 +853,11 @@ public class MemberServiceImpl implements MemberService {
             Long id,
             UpdateMemberStatusRequest request
     ) {
+
         Member member =
-                findDetailedMember(id);
+                findDetailedMember(
+                        id
+                );
 
         validateMemberBranchAccess(
                 member.getBranchId()
@@ -723,26 +873,32 @@ public class MemberServiceImpl implements MemberService {
         );
 
         try {
-            memberRepository.saveAndFlush(
-                    member
-            );
+
+            memberRepository
+                    .saveAndFlush(
+                            member
+                    );
 
             Member detailedMember =
-                    findDetailedMember(id);
+                    findDetailedMember(
+                            id
+                    );
 
-            return memberMapper.toDetailResponse(
+            return toMemberDetailResponse(
                     detailedMember
             );
 
         } catch (
                 DataIntegrityViolationException exception
         ) {
+
             throw createDatabaseException(
                     "Member status could not be updated",
                     exception
             );
         }
     }
+
 
     /*
      * ==========================================================
@@ -755,25 +911,33 @@ public class MemberServiceImpl implements MemberService {
     public void deleteMember(
             Long id
     ) {
+
         Member member =
-                findDetailedMember(id);
+                findDetailedMember(
+                        id
+                );
 
         validateMemberBranchAccess(
                 member.getBranchId()
         );
 
         try {
-            memberRepository.delete(
-                    member
-            );
 
-            memberRepository.flush();
+            memberRepository
+                    .delete(
+                            member
+                    );
+
+            memberRepository
+                    .flush();
 
         } catch (
                 DataIntegrityViolationException exception
         ) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
+
                     getDatabaseErrorMessage(
                             """
                             This member cannot be deleted because related \
@@ -782,10 +946,12 @@ public class MemberServiceImpl implements MemberService {
                             """,
                             exception
                     ),
+
                     exception
             );
         }
     }
+
 
     /*
      * ==========================================================
@@ -799,6 +965,7 @@ public class MemberServiceImpl implements MemberService {
     getMemberDetailSummary(
             Long memberId
     ) {
+
         Member member =
                 findDetailedMember(
                         memberId
@@ -828,15 +995,19 @@ public class MemberServiceImpl implements MemberService {
 
         BigDecimal totalDonationKhr =
                 donationTotal == null
-                        || donationTotal.getTotalKhr() == null
+                        || donationTotal
+                        .getTotalKhr() == null
                         ? BigDecimal.ZERO
-                        : donationTotal.getTotalKhr();
+                        : donationTotal
+                        .getTotalKhr();
 
         BigDecimal totalDonationUsd =
                 donationTotal == null
-                        || donationTotal.getTotalUsd() == null
+                        || donationTotal
+                        .getTotalUsd() == null
                         ? BigDecimal.ZERO
-                        : donationTotal.getTotalUsd();
+                        : donationTotal
+                        .getTotalUsd();
 
         return new MemberDetailSummaryResponse(
                 joinedActivityCount,
@@ -846,12 +1017,14 @@ public class MemberServiceImpl implements MemberService {
         );
     }
 
+
     @Override
     @Transactional(readOnly = true)
     public MemberMonthlyDonationSummaryResponse
     getMemberMonthlyDonationSummary(
             Long memberId
     ) {
+
         Member member =
                 findDetailedMember(
                         memberId
@@ -868,23 +1041,40 @@ public class MemberServiceImpl implements MemberService {
                         );
 
         if (summary == null) {
+
             return MemberMonthlyDonationSummaryResponse
                     .builder()
-                    .donationCount(0)
-                    .totalDonationKhr(BigDecimal.ZERO)
-                    .totalDonationUsd(BigDecimal.ZERO)
-                    .cashPaymentCount(0)
-                    .bankPaymentCount(0)
+                    .donationCount(
+                            0
+                    )
+                    .totalDonationKhr(
+                            BigDecimal.ZERO
+                    )
+                    .totalDonationUsd(
+                            BigDecimal.ZERO
+                    )
+                    .cashPaymentCount(
+                            0
+                    )
+                    .bankPaymentCount(
+                            0
+                    )
                     .build();
         }
 
-        if (summary.getTotalDonationKhr() == null) {
+        if (
+                summary
+                        .getTotalDonationKhr() == null
+        ) {
             summary.setTotalDonationKhr(
                     BigDecimal.ZERO
             );
         }
 
-        if (summary.getTotalDonationUsd() == null) {
+        if (
+                summary
+                        .getTotalDonationUsd() == null
+        ) {
             summary.setTotalDonationUsd(
                     BigDecimal.ZERO
             );
@@ -893,15 +1083,26 @@ public class MemberServiceImpl implements MemberService {
         return summary;
     }
 
+
+    /*
+     * ==========================================================
+     * UPDATE MEMBER PROFILE PHOTO BY FILE ID
+     * ==========================================================
+     */
+
     @Override
     @Transactional
-    public MemberDetailResponse updateMemberProfilePhoto(
+    public MemberDetailResponse
+    updateMemberProfilePhoto(
             Long memberId,
             UpdateMemberProfilePhotoRequest request
     ) {
+
         Member member =
                 memberRepository
-                        .findDetailedById(memberId)
+                        .findDetailedById(
+                                memberId
+                        )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Member not found"
@@ -915,7 +1116,8 @@ public class MemberServiceImpl implements MemberService {
         FileEntity profilePhoto =
                 fileRepository
                         .findById(
-                                request.profilePhotoId()
+                                request
+                                        .profilePhotoId()
                         )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -924,13 +1126,16 @@ public class MemberServiceImpl implements MemberService {
                         );
 
         String mimeType =
-                profilePhoto.getMimeType();
+                profilePhoto
+                        .getMimeType();
 
         if (
                 mimeType == null
                         || !mimeType
                         .toLowerCase()
-                        .startsWith("image/")
+                        .startsWith(
+                                "image/"
+                        )
         ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -943,21 +1148,31 @@ public class MemberServiceImpl implements MemberService {
         );
 
         Member savedMember =
-                memberRepository.save(
-                        member
-                );
+                memberRepository
+                        .save(
+                                member
+                        );
 
-        return memberMapper.toDetailResponse(
+        return toMemberDetailResponse(
                 savedMember
         );
     }
 
+
+    /*
+     * ==========================================================
+     * UPLOAD MEMBER PROFILE PHOTO
+     * ==========================================================
+     */
+
     @Override
     @Transactional
-    public MemberDetailResponse uploadMemberProfilePhoto(
+    public MemberDetailResponse
+    uploadMemberProfilePhoto(
             Long memberId,
             MultipartFile file
     ) {
+
         memberAccessValidator
                 .validateAccessibleMember(
                         memberId
@@ -969,9 +1184,10 @@ public class MemberServiceImpl implements MemberService {
                 );
 
         FileEntity uploadedFile =
-                fileService.uploadFileEntity(
-                        file
-                );
+                fileService
+                        .uploadFileEntity(
+                                file
+                        );
 
         member.setProfilePhoto(
                 uploadedFile
@@ -983,10 +1199,11 @@ public class MemberServiceImpl implements MemberService {
                                 member
                         );
 
-        return memberMapper.toDetailResponse(
+        return toMemberDetailResponse(
                 savedMember
         );
     }
+
 
     /*
      * ==========================================================
@@ -998,8 +1215,11 @@ public class MemberServiceImpl implements MemberService {
             Member member,
             UserRole requestedRole
     ) {
-        if (member == null
-                || member.getId() == null) {
+
+        if (
+                member == null
+                        || member.getId() == null
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Saved member could not be resolved"
@@ -1037,20 +1257,26 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (userRepository
-                .findByMemberId(
-                        member.getId()
-                )
-                .isPresent()) {
+        if (
+                userRepository
+                        .findByMemberId(
+                                member.getId()
+                        )
+                        .isPresent()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This member already has a user account"
             );
         }
 
-        if (userRepository
-                .findByPhone(phone)
-                .isPresent()) {
+        if (
+                userRepository
+                        .findByPhone(
+                                phone
+                        )
+                        .isPresent()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "A user account already exists with phone: "
@@ -1058,9 +1284,13 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (userRepository
-                .findByEmail(email)
-                .isPresent()) {
+        if (
+                userRepository
+                        .findByEmail(
+                                email
+                        )
+                        .isPresent()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "A user account already exists with email: "
@@ -1068,52 +1298,61 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        /*
-         * This satisfies the current password_hash NOT NULL
-         * database constraint. The member must activate the
-         * account and create their real password later.
-         */
         String unusablePasswordHash =
-                passwordEncoder.encode(
-                        UUID.randomUUID()
-                                .toString()
-                );
+                passwordEncoder
+                        .encode(
+                                UUID.randomUUID()
+                                        .toString()
+                        );
 
         User pendingUser =
                 User.builder()
+
                         .memberId(
                                 member.getId()
                         )
+
                         .phone(
                                 phone
                         )
+
                         .email(
                                 email
                         )
+
                         .passwordHash(
                                 unusablePasswordHash
                         )
+
                         .role(
                                 requestedRole
                         )
+
                         .status(
-                                UserStatus.PENDING_ACTIVATION
+                                UserStatus
+                                        .PENDING_ACTIVATION
                         )
+
                         .fullNameKm(
                                 member.getFullNameKm()
                         )
+
                         .fullNameEn(
                                 member.getFullNameEn()
                         )
+
                         .failedLoginCount(
                                 0
                         )
+
                         .build();
 
-        userRepository.saveAndFlush(
-                pendingUser
-        );
+        userRepository
+                .saveAndFlush(
+                        pendingUser
+                );
     }
+
 
     /*
      * ==========================================================
@@ -1124,37 +1363,38 @@ public class MemberServiceImpl implements MemberService {
     private void synchronizeLinkedUserAccount(
             Member member
     ) {
+
         userRepository
                 .findByMemberId(
                         member.getId()
                 )
-                .ifPresent(user -> {
-                    user.setPhone(
-                            member.getPhone()
-                    );
+                .ifPresent(
+                        user -> {
 
-                    user.setEmail(
-                            member.getEmail()
-                    );
+                            user.setPhone(
+                                    member.getPhone()
+                            );
 
-                    user.setFullNameKm(
-                            member.getFullNameKm()
-                    );
+                            user.setEmail(
+                                    member.getEmail()
+                            );
 
-                    user.setFullNameEn(
-                            member.getFullNameEn()
-                    );
+                            user.setFullNameKm(
+                                    member.getFullNameKm()
+                            );
 
-                    /*
-                     * Do not modify user.role here.
-                     * Role changes must use a separate,
-                     * protected account-management endpoint.
-                     */
-                    userRepository.saveAndFlush(
-                            user
-                    );
-                });
+                            user.setFullNameEn(
+                                    member.getFullNameEn()
+                            );
+
+                            userRepository
+                                    .saveAndFlush(
+                                            user
+                                    );
+                        }
+                );
     }
+
 
     /*
      * ==========================================================
@@ -1166,6 +1406,7 @@ public class MemberServiceImpl implements MemberService {
             UserRole actorRole,
             UserRole requestedRole
     ) {
+
         if (actorRole == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -1182,6 +1423,7 @@ public class MemberServiceImpl implements MemberService {
 
         boolean allowed =
                 switch (actorRole) {
+
                     case SECRETARY ->
                             requestedRole
                                     == UserRole.MEMBER;
@@ -1200,7 +1442,8 @@ public class MemberServiceImpl implements MemberService {
                                     || requestedRole
                                     == UserRole.BRANCH_LEADER;
 
-                    default -> false;
+                    default ->
+                            false;
                 };
 
         if (!allowed) {
@@ -1212,6 +1455,7 @@ public class MemberServiceImpl implements MemberService {
         }
     }
 
+
     /*
      * ==========================================================
      * CURRENT USER
@@ -1219,11 +1463,16 @@ public class MemberServiceImpl implements MemberService {
      */
 
     private User getCurrentUser() {
-        User principalUser =
-                SecurityUtil.getCurrentUser();
 
-        if (principalUser == null
-                || principalUser.getId() == null) {
+        User principalUser =
+                SecurityUtil
+                        .getCurrentUser();
+
+        if (
+                principalUser == null
+                        || principalUser
+                        .getId() == null
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Authenticated user could not be resolved"
@@ -1232,7 +1481,8 @@ public class MemberServiceImpl implements MemberService {
 
         return userRepository
                 .findById(
-                        principalUser.getId()
+                        principalUser
+                                .getId()
                 )
                 .orElseThrow(() ->
                         new ResponseStatusException(
@@ -1242,10 +1492,13 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private Long getCurrentUserId() {
+
         return getCurrentUser()
                 .getId();
     }
+
 
     /*
      * ==========================================================
@@ -1256,6 +1509,7 @@ public class MemberServiceImpl implements MemberService {
     private void validateMemberBranchAccess(
             Long requestedBranchId
     ) {
+
         if (requestedBranchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -1267,7 +1521,8 @@ public class MemberServiceImpl implements MemberService {
                 getCurrentUser();
 
         UserRole role =
-                currentUser.getRole();
+                currentUser
+                        .getRole();
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1276,15 +1531,16 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        /*
-         * Admin may access members in any existing branch.
-         */
-        if (role == UserRole.ADMIN) {
+        if (
+                role == UserRole.ADMIN
+        ) {
             return;
         }
 
-        if (role != UserRole.SECRETARY
-                && role != UserRole.BRANCH_LEADER) {
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to manage members"
@@ -1292,7 +1548,8 @@ public class MemberServiceImpl implements MemberService {
         }
 
         Long currentMemberId =
-                currentUser.getMemberId();
+                currentUser
+                        .getMemberId();
 
         if (currentMemberId == null) {
             throw new ResponseStatusException(
@@ -1309,11 +1566,11 @@ public class MemberServiceImpl implements MemberService {
                                 )
                 );
 
-        /*
-         * Fallback when branch_staff does not contain an
-         * assignment for this member.
-         */
-        if (accessibleBranchIds.isEmpty()) {
+        if (
+                accessibleBranchIds
+                        .isEmpty()
+        ) {
+
             Member currentMember =
                     memberRepository
                             .findById(
@@ -1326,17 +1583,24 @@ public class MemberServiceImpl implements MemberService {
                                     )
                             );
 
-            if (currentMember.getBranchId()
-                    != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
-                );
+            if (
+                    currentMember
+                            .getBranchId() != null
+            ) {
+                accessibleBranchIds
+                        .add(
+                                currentMember
+                                        .getBranchId()
+                        );
             }
         }
 
-        if (!accessibleBranchIds.contains(
-                requestedBranchId
-        )) {
+        if (
+                !accessibleBranchIds
+                        .contains(
+                                requestedBranchId
+                        )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You do not have permission to access this branch"
@@ -1344,39 +1608,61 @@ public class MemberServiceImpl implements MemberService {
         }
     }
 
+
     private Long resolveMemberListBranchId(
             Long requestedBranchId
     ) {
-        User currentUser = getCurrentUser();
-        UserRole role = currentUser.getRole();
 
-        if (role == UserRole.ADMIN) {
+        User currentUser =
+                getCurrentUser();
+
+        UserRole role =
+                currentUser
+                        .getRole();
+
+        if (
+                role == UserRole.ADMIN
+        ) {
             return requestedBranchId;
         }
 
-        if (role != UserRole.SECRETARY
-                && role != UserRole.BRANCH_LEADER) {
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to list members"
             );
         }
 
-        if (currentUser.getMemberId() == null) {
+        if (
+                currentUser
+                        .getMemberId() == null
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Your account is not linked to a member record"
             );
         }
 
-        Member currentMember = memberRepository
-                .findById(currentUser.getMemberId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Linked member record was not found"
-                ));
+        Member currentMember =
+                memberRepository
+                        .findById(
+                                currentUser
+                                        .getMemberId()
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "Linked member record was not found"
+                                )
+                        );
 
-        Long assignedBranchId = currentMember.getBranchId();
+        Long assignedBranchId =
+                currentMember
+                        .getBranchId();
+
         if (assignedBranchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -1384,8 +1670,13 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (requestedBranchId != null
-                && !assignedBranchId.equals(requestedBranchId)) {
+        if (
+                requestedBranchId != null
+                        && !assignedBranchId
+                        .equals(
+                                requestedBranchId
+                        )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You cannot access members from another branch"
@@ -1394,6 +1685,62 @@ public class MemberServiceImpl implements MemberService {
 
         return assignedBranchId;
     }
+
+
+    /*
+     * ==========================================================
+     * MEMBER DETAIL RESPONSE
+     * ==========================================================
+     *
+     * Member stores branchId only.
+     *
+     * Load the actual Branch here and give both
+     * Member + Branch to MemberMapper so the API
+     * can return:
+     *
+     * branch_id
+     * branch_code
+     * branch_name_km
+     * branch_name_en
+     */
+
+    private MemberDetailResponse
+    toMemberDetailResponse(
+            Member member
+    ) {
+        if (member == null) {
+            return null;
+        }
+
+        Branch branch = null;
+
+        if (member.getBranchId() != null) {
+            branch =
+                    branchRepository
+                            .findById(
+                                    member.getBranchId()
+                            )
+                            .orElse(null);
+        }
+
+        UserRole role =
+                userRepository
+                        .findByMemberId(
+                                member.getId()
+                        )
+                        .map(
+                                User::getRole
+                        )
+                        .orElse(null);
+
+        return memberMapper
+                .toDetailResponse(
+                        member,
+                        branch,
+                        role
+                );
+    }
+
 
     /*
      * ==========================================================
@@ -1404,6 +1751,7 @@ public class MemberServiceImpl implements MemberService {
     private Member findDetailedMember(
             Long id
     ) {
+
         if (id == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -1412,7 +1760,9 @@ public class MemberServiceImpl implements MemberService {
         }
 
         return memberRepository
-                .findDetailedById(id)
+                .findDetailedById(
+                        id
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -1422,9 +1772,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private Branch findBranch(
             Long branchId
     ) {
+
         if (branchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -1445,9 +1797,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private MemberStatus findStatus(
             Short id
     ) {
+
         if (id == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -1468,9 +1822,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private MemberLevel findLevel(
             Short id
     ) {
+
         if (id == null) {
             return null;
         }
@@ -1488,9 +1844,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private Religion findReligion(
             Short id
     ) {
+
         if (id == null) {
             return null;
         }
@@ -1508,9 +1866,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private Ethnicity findEthnicity(
             Short id
     ) {
+
         if (id == null) {
             return null;
         }
@@ -1528,9 +1888,11 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private Nationality resolveNationality(
             Short nationalityId
     ) {
+
         if (nationalityId == null) {
             return null;
         }
@@ -1541,10 +1903,12 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     private FileEntity findFile(
             Long id,
             String fieldName
     ) {
+
         if (id == null) {
             return null;
         }
@@ -1563,6 +1927,7 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
     /*
      * ==========================================================
      * SERVER-CONTROLLED MEMBER FIELDS
@@ -1570,28 +1935,41 @@ public class MemberServiceImpl implements MemberService {
      */
 
     private String generateMemberNo() {
+
         String latestMemberNo =
                 memberRepository
                         .findLatestGeneratedMemberNo()
-                        .orElse(null);
-
-        int nextSequence = 1;
-
-        if (latestMemberNo != null) {
-            int separatorIndex =
-                    latestMemberNo.lastIndexOf(
-                            '-'
-                    );
-
-            if (separatorIndex >= 0
-                    && separatorIndex
-                    < latestMemberNo.length() - 1) {
-                String sequenceText =
-                        latestMemberNo.substring(
-                                separatorIndex + 1
+                        .orElse(
+                                null
                         );
 
+        int nextSequence =
+                1;
+
+        if (latestMemberNo != null) {
+
+            int separatorIndex =
+                    latestMemberNo
+                            .lastIndexOf(
+                                    '-'
+                            );
+
+            if (
+                    separatorIndex >= 0
+                            && separatorIndex
+                            < latestMemberNo
+                            .length() - 1
+            ) {
+
+                String sequenceText =
+                        latestMemberNo
+                                .substring(
+                                        separatorIndex
+                                                + 1
+                                );
+
                 try {
+
                     nextSequence =
                             Integer.parseInt(
                                     sequenceText
@@ -1600,7 +1978,9 @@ public class MemberServiceImpl implements MemberService {
                 } catch (
                         NumberFormatException ignored
                 ) {
-                    nextSequence = 1;
+
+                    nextSequence =
+                            1;
                 }
             }
         }
@@ -1612,6 +1992,7 @@ public class MemberServiceImpl implements MemberService {
                 nextSequence
         );
     }
+
 
     /*
      * ==========================================================
@@ -1625,15 +2006,19 @@ public class MemberServiceImpl implements MemberService {
             String email,
             Long currentId
     ) {
+
         boolean duplicateMemberNo;
 
         if (currentId == null) {
+
             duplicateMemberNo =
                     memberRepository
                             .existsByMemberNoIgnoreCase(
                                     memberNo
                             );
+
         } else {
+
             duplicateMemberNo =
                     memberRepository
                             .existsByMemberNoIgnoreCaseAndIdNot(
@@ -1643,6 +2028,7 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (duplicateMemberNo) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Member number already exists: "
@@ -1651,15 +2037,19 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (phone != null) {
+
             boolean duplicatePhone;
 
             if (currentId == null) {
+
                 duplicatePhone =
                         memberRepository
                                 .existsByPhone(
                                         phone
                                 );
+
             } else {
+
                 duplicatePhone =
                         memberRepository
                                 .existsByPhoneAndIdNot(
@@ -1669,6 +2059,7 @@ public class MemberServiceImpl implements MemberService {
             }
 
             if (duplicatePhone) {
+
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
                         "Phone number already exists: "
@@ -1678,15 +2069,19 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (email != null) {
+
             boolean duplicateEmail;
 
             if (currentId == null) {
+
                 duplicateEmail =
                         memberRepository
                                 .existsByEmailIgnoreCase(
                                         email
                                 );
+
             } else {
+
                 duplicateEmail =
                         memberRepository
                                 .existsByEmailIgnoreCaseAndIdNot(
@@ -1696,6 +2091,7 @@ public class MemberServiceImpl implements MemberService {
             }
 
             if (duplicateEmail) {
+
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
                         "Email already exists: "
@@ -1704,6 +2100,7 @@ public class MemberServiceImpl implements MemberService {
             }
         }
     }
+
 
     /*
      * ==========================================================
@@ -1715,20 +2112,27 @@ public class MemberServiceImpl implements MemberService {
             String value,
             String fieldName
     ) {
-        if (value == null
-                || value.isBlank()) {
+
+        if (
+                value == null
+                        || value.isBlank()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    fieldName + " is required"
+                    fieldName
+                            + " is required"
             );
         }
 
-        return value.trim();
+        return value
+                .trim();
     }
+
 
     private String normalizeEmail(
             String email
     ) {
+
         String normalizedEmail =
                 trimToNull(
                         email
@@ -1738,29 +2142,36 @@ public class MemberServiceImpl implements MemberService {
             return null;
         }
 
-        return normalizedEmail.toLowerCase(
-                Locale.ROOT
-        );
+        return normalizedEmail
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
+
 
     private String trimToNull(
             String value
     ) {
+
         if (value == null) {
             return null;
         }
 
         String trimmedValue =
-                value.trim();
+                value
+                        .trim();
 
-        return trimmedValue.isEmpty()
+        return trimmedValue
+                .isEmpty()
                 ? null
                 : trimmedValue;
     }
 
+
     private String normalizeTshirtSize(
             String value
     ) {
+
         String normalized =
                 trimToNull(
                         value
@@ -1771,13 +2182,17 @@ public class MemberServiceImpl implements MemberService {
         }
 
         normalized =
-                normalized.toUpperCase(
-                        Locale.ROOT
-                );
-
-        if (!ALLOWED_TSHIRT_SIZES.contains(
                 normalized
-        )) {
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                !ALLOWED_TSHIRT_SIZES
+                        .contains(
+                                normalized
+                        )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     """
@@ -1790,6 +2205,7 @@ public class MemberServiceImpl implements MemberService {
         return normalized;
     }
 
+
     /*
      * ==========================================================
      * DATABASE ERRORS
@@ -1801,6 +2217,7 @@ public class MemberServiceImpl implements MemberService {
             String defaultMessage,
             DataIntegrityViolationException exception
     ) {
+
         String message =
                 getDatabaseErrorMessage(
                         defaultMessage,
@@ -1819,51 +2236,81 @@ public class MemberServiceImpl implements MemberService {
         );
     }
 
+
     private String getDatabaseErrorMessage(
             String defaultMessage,
             DataIntegrityViolationException exception
     ) {
-        Throwable mostSpecificCause =
-                exception.getMostSpecificCause();
 
-        if (mostSpecificCause == null
-                || mostSpecificCause.getMessage()
-                == null
-                || mostSpecificCause.getMessage()
-                .isBlank()) {
+        Throwable mostSpecificCause =
+                exception
+                        .getMostSpecificCause();
+
+        if (
+                mostSpecificCause == null
+                        || mostSpecificCause
+                        .getMessage() == null
+                        || mostSpecificCause
+                        .getMessage()
+                        .isBlank()
+        ) {
             return defaultMessage;
         }
 
-        return mostSpecificCause.getMessage();
+        return mostSpecificCause
+                .getMessage();
     }
+
 
     private HttpStatus determineDatabaseErrorStatus(
             String message
     ) {
+
         if (message == null) {
-            return HttpStatus.BAD_REQUEST;
+            return HttpStatus
+                    .BAD_REQUEST;
         }
 
         String normalizedMessage =
-                message.toLowerCase(
-                        Locale.ROOT
-                );
+                message
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
-        if (normalizedMessage.contains(
-                "duplicate key"
-        )
-                || normalizedMessage.contains(
-                "unique constraint"
-        )) {
-            return HttpStatus.CONFLICT;
+        if (
+                normalizedMessage
+                        .contains(
+                                "duplicate key"
+                        )
+                        || normalizedMessage
+                        .contains(
+                                "unique constraint"
+                        )
+        ) {
+            return HttpStatus
+                    .CONFLICT;
         }
 
-        return HttpStatus.BAD_REQUEST;
+        return HttpStatus
+                .BAD_REQUEST;
     }
-    private Set<Long> getAccessibleBranchIds() {
-        User currentUser = getCurrentUser();
 
-        UserRole role = currentUser.getRole();
+
+    /*
+     * ==========================================================
+     * ACCESSIBLE BRANCH IDS
+     * ==========================================================
+     */
+
+    private Set<Long>
+    getAccessibleBranchIds() {
+
+        User currentUser =
+                getCurrentUser();
+
+        UserRole role =
+                currentUser
+                        .getRole();
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1873,23 +2320,27 @@ public class MemberServiceImpl implements MemberService {
         }
 
         /*
-         * Admin can access every branch.
-         * An empty set here will mean:
-         * do not apply branch restriction.
+         * Empty set means unrestricted for ADMIN.
          */
-        if (role == UserRole.ADMIN) {
+        if (
+                role == UserRole.ADMIN
+        ) {
             return Set.of();
         }
 
-        if (role != UserRole.SECRETARY
-                && role != UserRole.BRANCH_LEADER) {
+        if (
+                role != UserRole.SECRETARY
+                        && role != UserRole.BRANCH_LEADER
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to view members"
             );
         }
 
-        Long currentMemberId = currentUser.getMemberId();
+        Long currentMemberId =
+                currentUser
+                        .getMemberId();
 
         if (currentMemberId == null) {
             throw new ResponseStatusException(
@@ -1906,13 +2357,16 @@ public class MemberServiceImpl implements MemberService {
                                 )
                 );
 
-        /*
-         * Fallback to the linked member's own branch.
-         */
-        if (accessibleBranchIds.isEmpty()) {
+        if (
+                accessibleBranchIds
+                        .isEmpty()
+        ) {
+
             Member currentMember =
                     memberRepository
-                            .findById(currentMemberId)
+                            .findById(
+                                    currentMemberId
+                            )
                             .orElseThrow(() ->
                                     new ResponseStatusException(
                                             HttpStatus.FORBIDDEN,
@@ -1920,10 +2374,15 @@ public class MemberServiceImpl implements MemberService {
                                     )
                             );
 
-            if (currentMember.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
-                );
+            if (
+                    currentMember
+                            .getBranchId() != null
+            ) {
+                accessibleBranchIds
+                        .add(
+                                currentMember
+                                        .getBranchId()
+                        );
             }
         }
 

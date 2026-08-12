@@ -1,7 +1,9 @@
 package org.example.tnal_youth_backend.member.member.mapper;
 
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.file.dto.response.FileResponse;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.ethnicity.dto.response.EthnicityResponse;
 import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
@@ -65,7 +67,9 @@ public class MemberMapper {
     }
 
     public MemberDetailResponse toDetailResponse(
-            Member member
+            Member member,
+            Branch branch,
+            UserRole role
     ) {
         if (member == null) {
             return null;
@@ -76,7 +80,22 @@ public class MemberMapper {
                 member.getMemberNo(),
                 member.getFullNameKm(),
                 member.getFullNameEn(),
+
                 member.getBranchId(),
+
+                branch != null
+                        ? branch.getBranchCode()
+                        : null,
+
+                branch != null
+                        ? branch.getNameKm()
+                        : null,
+
+                branch != null
+                        ? branch.getNameEn()
+                        : null,
+
+                role,
 
                 toDetailLookup(
                         member.getStatus()
@@ -101,9 +120,11 @@ public class MemberMapper {
                 member.getGender(),
                 member.getDateOfBirth(),
                 member.getPlaceOfBirth(),
+
                 member.getTshirtSize() != null
                         ? member.getTshirtSize().getValue()
                         : null,
+
                 member.getPhone(),
                 member.getEmail(),
                 member.getCurrentAddress(),
