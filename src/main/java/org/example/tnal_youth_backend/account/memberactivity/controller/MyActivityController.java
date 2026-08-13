@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.account.memberactivity.dto.response.MyActi
 import org.example.tnal_youth_backend.account.memberactivity.dto.response.MyActivitySummaryResponse;
 import org.example.tnal_youth_backend.account.memberactivity.service.MyActivityService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.List;
         name = "A. My Account - activities",
         description = " កម្មវិធី (my - account ) "
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyActivityController {
 
     private final MyActivityService myActivityService;

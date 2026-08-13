@@ -70,6 +70,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -981,11 +982,22 @@ public class MemberServiceImpl implements MemberService {
                                 memberId
                         );
 
-        long notJoinedActivityCount =
+        long absentActivityCount =
                 activityParticipantRepository
                         .countAbsentActivitiesByMemberId(
                                 memberId
                         );
+
+        long unregisteredCompletedActivityCount =
+                activityRepository
+                        .countCompletedRelevantActivitiesNotJoined(
+                                memberId,
+                                OffsetDateTime.now()
+                        );
+
+        long notJoinedActivityCount =
+                absentActivityCount
+                        + unregisteredCompletedActivityCount;
 
         MemberMonthlyDonationTotalResponse donationTotal =
                 memberDetailSummaryRepository
@@ -1075,6 +1087,51 @@ public class MemberServiceImpl implements MemberService {
                 summary
                         .getTotalDonationUsd() == null
         ) {
+            summary.setTotalDonationUsd(
+                    BigDecimal.ZERO
+            );
+        }
+
+        return summary;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberActivityDonationSummaryResponse
+    getMemberActivityDonationSummary(
+            Long memberId
+    ) {
+        Member member =
+                findDetailedMember(memberId);
+
+        validateMemberBranchAccess(
+                member.getBranchId()
+        );
+
+        MemberActivityDonationSummaryResponse summary =
+                memberDetailSummaryRepository
+                        .summarizeMemberActivityDonations(
+                                memberId
+                        );
+
+        if (summary == null) {
+            return MemberActivityDonationSummaryResponse
+                    .builder()
+                    .donationCount(0)
+                    .totalDonationKhr(BigDecimal.ZERO)
+                    .totalDonationUsd(BigDecimal.ZERO)
+                    .materialDonationCount(0)
+                    .bankPaymentCount(0)
+                    .build();
+        }
+
+        if (summary.getTotalDonationKhr() == null) {
+            summary.setTotalDonationKhr(
+                    BigDecimal.ZERO
+            );
+        }
+
+        if (summary.getTotalDonationUsd() == null) {
             summary.setTotalDonationUsd(
                     BigDecimal.ZERO
             );

@@ -10,6 +10,7 @@ import org.example.tnal_youth_backend.account.myaccount.dto.response.MyAccountSu
 import org.example.tnal_youth_backend.account.myaccount.service.MyAccountService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
         name = "A. My Account - my-account",
         description = "My-Account ( My-Account )"
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyAccountController {
 
     private final MyAccountService myAccountService;

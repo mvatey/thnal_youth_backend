@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequ
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.List;
         name = "A. My Account - Credentials",
         description = "លិខិតបញ្ជាក់សមត្ថភាព (my - account )"
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyCredentialController {
 
     private final MyCredentialService myCredentialService;

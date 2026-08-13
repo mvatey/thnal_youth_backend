@@ -39,6 +39,7 @@ import java.util.List;
         description =
                 "Access information belonging to the authenticated account"
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyAccountController {
 
     private final MyAccountService

@@ -40,6 +40,11 @@ public interface MemberService {
             Long memberId
     );
 
+    MemberActivityDonationSummaryResponse
+    getMemberActivityDonationSummary(
+            Long memberId
+    );
+
 
 
     MemberDetailResponse getMemberById(

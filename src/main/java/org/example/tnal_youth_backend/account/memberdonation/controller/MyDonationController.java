@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationResponse;
 import org.example.tnal_youth_backend.account.memberdonation.service.MyDonationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
         name = "A. My Account - Donations",
         description = "View the logged-in member's monthly and sponsor donations"
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyDonationController {
 
     private final MyDonationService myDonationService;

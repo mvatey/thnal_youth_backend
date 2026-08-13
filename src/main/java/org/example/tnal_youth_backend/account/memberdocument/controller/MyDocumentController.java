@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.account.memberdocument.dto.response.MyDocu
 import org.example.tnal_youth_backend.account.memberdocument.dto.response.MyDocumentSummaryResponse;
 import org.example.tnal_youth_backend.account.memberdocument.service.MyDocumentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.List;
         name = "A. My Account - Documents",
         description = " ឯកសារ (my - account ) "
 )
+@PreAuthorize("isAuthenticated() and !hasRole('ADMIN')")
 public class MyDocumentController {
 
     private final MyDocumentService myDocumentService;

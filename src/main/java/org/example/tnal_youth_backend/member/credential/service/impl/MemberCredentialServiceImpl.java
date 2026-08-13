@@ -14,6 +14,7 @@ import org.example.tnal_youth_backend.member.credential.mapper.MemberCredentialM
 import org.example.tnal_youth_backend.member.credential.repository.MemberCredentialRepository;
 import org.example.tnal_youth_backend.member.credential.service.MemberCredentialService;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -57,6 +58,9 @@ public class MemberCredentialServiceImpl
     private final MemberCredentialMapper
             memberCredentialMapper;
 
+    private final MemberAccessValidator
+            memberAccessValidator;
+
     /*
      * Replace this dependency with the authenticated-user
      * helper already used elsewhere in your project.
@@ -71,7 +75,7 @@ public class MemberCredentialServiceImpl
     public List<MemberCredentialResponse> getAllByMemberId(
             Long memberId
     ) {
-        validateMemberExists(memberId);
+        memberAccessValidator.validateAccessibleMember(memberId);
 
         return memberCredentialRepository
                 .findAllByMemberIdOrderByCreatedAtDesc(
@@ -105,7 +109,7 @@ public class MemberCredentialServiceImpl
             Long memberId,
             MemberCredentialRequest request
     ) {
-        validateMemberExists(memberId);
+        memberAccessValidator.validateAccessibleMember(memberId);
 
         String credentialKind =
                 normalizeCredentialKind(
@@ -668,9 +672,7 @@ public class MemberCredentialServiceImpl
     public MemberCredentialTabResponse getCredentialTab(
             Long memberId
     ) {
-        validateMemberExists(
-                memberId
-        );
+        memberAccessValidator.validateAccessibleMember(memberId);
 
         List<MemberCredentialResponse> credentials =
                 memberCredentialRepository
@@ -773,22 +775,10 @@ public class MemberCredentialServiceImpl
             );
         }
 
-        boolean isAdmin =
-                hasAuthority(
-                        authentication,
-                        "ROLE_ADMIN"
-                );
-
         boolean isSecretary =
                 hasAuthority(
                         authentication,
                         "ROLE_SECRETARY"
-                );
-
-        boolean isBranchLeader =
-                hasAuthority(
-                        authentication,
-                        "ROLE_BRANCH_LEADER"
                 );
 
         switch (credentialKind) {
@@ -808,14 +798,10 @@ public class MemberCredentialServiceImpl
             }
 
             case APPOINTMENT_LETTER_KIND -> {
-                if (
-                        !isAdmin
-                                && !isSecretary
-                                && !isBranchLeader
-                ) {
+                if (!isSecretary) {
                     throw new ResponseStatusException(
                             HttpStatus.FORBIDDEN,
-                            "You do not have permission to manage appointment letters"
+                            "Only a secretary can issue an appointment letter"
                     );
                 }
             }

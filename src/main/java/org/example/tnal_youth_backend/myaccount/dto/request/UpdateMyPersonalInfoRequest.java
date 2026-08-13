@@ -56,6 +56,9 @@ public record UpdateMyPersonalInfoRequest(
         @JsonProperty("member_level_id")
         Short memberLevelId,
 
+        @JsonProperty("joined_on")
+        LocalDate joinedOn,
+
         @JsonProperty("tshirt_size")
         TshirtSize tshirtSize,
 

@@ -237,4 +237,17 @@ public class MemberController {
                         )
         );
     }
+
+    @GetMapping("/{memberId}/activity-donations/summary")
+    public ResponseEntity<MemberActivityDonationSummaryResponse>
+    getMemberActivityDonationSummary(
+            @PathVariable Long memberId
+    ) {
+        return ResponseEntity.ok(
+                memberService
+                        .getMemberActivityDonationSummary(
+                                memberId
+                        )
+        );
+    }
 }

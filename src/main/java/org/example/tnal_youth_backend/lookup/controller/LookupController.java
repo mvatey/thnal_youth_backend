@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.lookup.dto.*;
 import org.example.tnal_youth_backend.lookup.service.LookupService;
+import org.example.tnal_youth_backend.donation.paymentmethod.dto.PaymentMethodResponse;
+import org.example.tnal_youth_backend.donation.paymentmethod.service.PaymentMethodService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +22,23 @@ import java.util.List;
 public class LookupController {
 
     private final LookupService lookupService;
+
+    private final PaymentMethodService paymentMethodService;
+
+    @GetMapping("/payment-methods")
+    public ResponseEntity<List<PaymentMethodResponse>> getPaymentMethods(
+            @RequestParam(defaultValue = "true") Boolean activeOnly,
+            @RequestParam(defaultValue = "true") Boolean includeMaterial
+    ) {
+        List<PaymentMethodResponse> methods = paymentMethodService
+                .getAllPaymentMethods(activeOnly)
+                .stream()
+                .filter(method -> Boolean.TRUE.equals(includeMaterial)
+                        || !"MATERIAL".equalsIgnoreCase(method.code()))
+                .toList();
+
+        return ResponseEntity.ok(methods);
+    }
 
     @GetMapping("/branches")
     public ResponseEntity<

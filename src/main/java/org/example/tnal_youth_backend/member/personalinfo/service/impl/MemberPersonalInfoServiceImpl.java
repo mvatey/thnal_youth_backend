@@ -982,9 +982,11 @@ public class MemberPersonalInfoServiceImpl
         );
 
         updateMemberLevel(
-                member,
-                request.memberLevelId()
-        );
+                  member,
+                  request.memberLevelId()
+          );
+
+          member.setJoinedOn(request.joinedOn());
 
         Member savedMember =
                 memberRepository

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,13 @@ public class CurrentMemberResolver {
     public Long getCurrentMemberId() {
         User currentUser =
                 getCurrentUser();
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "My Account is not available to administrator accounts"
+            );
+        }
 
         Long memberId =
                 currentUser.getMemberId();
