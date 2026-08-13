@@ -1,12 +1,15 @@
 package org.example.tnal_youth_backend.member.nationality.service.impl;
 
 import lombok.RequiredArgsConstructor;
+
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
+
 import org.example.tnal_youth_backend.member.nationality.dto.response.NationalityResponse;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.mapper.NationalityMapper;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,8 +20,18 @@ import java.util.List;
 public class NationalityServiceImpl
         implements NationalityService {
 
-    private final NationalityRepository nationalityRepository;
-    private final NationalityMapper nationalityMapper;
+    private final NationalityRepository
+            nationalityRepository;
+
+    private final NationalityMapper
+            nationalityMapper;
+
+
+    /*
+     * ==========================================================
+     * ACTIVE NATIONALITIES
+     * ==========================================================
+     */
 
     @Override
     @Transactional(readOnly = true)
@@ -26,32 +39,58 @@ public class NationalityServiceImpl
     getActiveNationalities() {
 
         return nationalityRepository
-                .findAllByIsActiveTrueOrderByDisplayOrderAsc()
+                .findAllByIsActiveTrueOrderByDisplayOrderAscIdAsc()
                 .stream()
-                .map(nationalityMapper::toResponse)
+                .map(
+                        nationalityMapper
+                                ::toResponse
+                )
                 .toList();
     }
 
+
+    /*
+     * ==========================================================
+     * GET NATIONALITY BY ID
+     * ==========================================================
+     */
+
     @Override
     @Transactional(readOnly = true)
-    public NationalityResponse getNationalityById(
+    public NationalityResponse
+    getNationalityById(
             Short id
     ) {
-        Nationality nationality =
-                getActiveNationalityEntityById(id);
 
-        return nationalityMapper.toResponse(
-                nationality
-        );
+        Nationality nationality =
+                getActiveNationalityEntityById(
+                        id
+                );
+
+        return nationalityMapper
+                .toResponse(
+                        nationality
+                );
     }
 
+
+    /*
+     * ==========================================================
+     * GET ACTIVE NATIONALITY ENTITY
+     * ==========================================================
+     */
+
     @Override
     @Transactional(readOnly = true)
-    public Nationality getActiveNationalityEntityById(
+    public Nationality
+    getActiveNationalityEntityById(
             Short id
     ) {
+
         return nationalityRepository
-                .findByIdAndIsActiveTrue(id)
+                .findByIdAndIsActiveTrue(
+                        id
+                )
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Active nationality not found with ID: "

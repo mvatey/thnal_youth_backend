@@ -10,6 +10,14 @@ import java.util.List;
 public interface SkillRepository
         extends JpaRepository<Skill, Short> {
 
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
+
+    List<Skill>
+    findAllByOrderBySortOrderAscIdAsc();
+
     List<Skill>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 }

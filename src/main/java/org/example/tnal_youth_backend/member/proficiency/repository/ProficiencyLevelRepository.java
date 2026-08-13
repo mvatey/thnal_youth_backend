@@ -8,6 +8,14 @@ import java.util.List;
 public interface ProficiencyLevelRepository
         extends JpaRepository<ProficiencyLevel, Short> {
 
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
+
+    List<ProficiencyLevel>
+    findAllByOrderBySortOrderAscIdAsc();
+
     List<ProficiencyLevel>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 }

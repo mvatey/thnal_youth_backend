@@ -10,6 +10,14 @@ import java.util.List;
 public interface EducationLevelRepository
         extends JpaRepository<EducationLevel, Short> {
 
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
+
+    List<EducationLevel>
+    findAllByOrderBySortOrderAscIdAsc();
+
     List<EducationLevel>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 }

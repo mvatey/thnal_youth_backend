@@ -11,8 +11,19 @@ import java.util.Optional;
 public interface ActivityTypeRepository
         extends JpaRepository<ActivityType, Short> {
 
-    Optional<ActivityType> findByCodeIgnoreCase(String code);
+    Optional<ActivityType>
+    findByCodeIgnoreCase(
+            String code
+    );
+
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
 
     List<ActivityType>
-    findAllByActiveTrueOrderBySortOrderAsc();
+    findAllByOrderBySortOrderAscIdAsc();
+
+    List<ActivityType>
+    findAllByActiveTrueOrderBySortOrderAscIdAsc();
 }

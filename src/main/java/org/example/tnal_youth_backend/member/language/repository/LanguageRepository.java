@@ -10,6 +10,14 @@ import java.util.List;
 public interface LanguageRepository
         extends JpaRepository<Language, Short> {
 
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
+
+    List<Language>
+    findAllByOrderBySortOrderAscIdAsc();
+
     List<Language>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 }

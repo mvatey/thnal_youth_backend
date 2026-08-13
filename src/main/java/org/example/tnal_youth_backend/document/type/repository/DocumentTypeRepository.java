@@ -8,6 +8,14 @@ import java.util.List;
 public interface DocumentTypeRepository
         extends JpaRepository<DocumentType, Short> {
 
+    boolean
+    existsByCodeIgnoreCase(
+            String code
+    );
+
+    List<DocumentType>
+    findAllByOrderBySortOrderAscIdAsc();
+
     List<DocumentType>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 }
