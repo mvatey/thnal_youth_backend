@@ -225,9 +225,17 @@ public class ActivityAttendanceServiceImpl
         switch (statusCode) {
             case PRESENT -> {
                 if (participant.getCheckedInAt() == null) {
-                    participant.setCheckedInAt(
-                            OffsetDateTime.now()
-                    );
+                    OffsetDateTime checkedInAt = OffsetDateTime.now();
+
+                    // Keep the database invariant checked_in_at >= registered_at.
+                    // Imported/seeded participants can have a future registration
+                    // timestamp relative to the server clock.
+                    if (participant.getRegisteredAt() != null
+                            && checkedInAt.isBefore(participant.getRegisteredAt())) {
+                        checkedInAt = participant.getRegisteredAt();
+                    }
+
+                    participant.setCheckedInAt(checkedInAt);
                 }
 
                 participant.setCheckedOutAt(null);
