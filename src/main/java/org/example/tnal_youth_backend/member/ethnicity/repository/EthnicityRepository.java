@@ -12,6 +12,15 @@ public interface EthnicityRepository
     List<Ethnicity>
     findAllByIsActiveTrueOrderByLabelKmAsc();
 
+    /*
+     * Admin management needs every row (active and inactive), unlike
+     * the public-facing endpoint above which only returns active ones.
+     */
+    List<Ethnicity>
+    findAllByOrderByLabelKmAsc();
+
     Optional<Ethnicity>
     findByCodeIgnoreCase(String code);
+
+    boolean existsByCodeIgnoreCase(String code);
 }

@@ -151,6 +151,47 @@ public class BranchStaffRepository {
     }
 
     /**
+     * The user IDs of a branch's active leadership (branch leader/
+     * secretary) — either via an explicit active branch_staff assignment,
+     * or (for staff who never got one) via their member record's home
+     * branch. Symmetric with the fallback used in
+     * {@code resolveStaffBranchIds} elsewhere in the codebase. Used to
+     * notify a branch's leadership of things like a new co-hosting
+     * invitation to an activity.
+     */
+    public Set<Long> findActiveStaffUserIds(Long branchId) {
+        if (branchId == null) {
+            return Set.of();
+        }
+
+        String sql = """
+                SELECT DISTINCT u.id
+                FROM users u
+                JOIN members m ON m.id = u.member_id
+                WHERE u.role IN ('BRANCH_LEADER', 'SECRETARY')
+                  AND (
+                        m.branch_id = :branchId
+                        OR EXISTS (
+                            SELECT 1
+                            FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id = :branchId
+                              AND bs.ended_on IS NULL
+                        )
+                  )
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId);
+
+        List<Long> userIds =
+                jdbcTemplate.queryForList(sql, parameters, Long.class);
+
+        return new LinkedHashSet<>(userIds);
+    }
+
+    /**
      * Checks whether a member currently has access
      * to a specific branch.
      */

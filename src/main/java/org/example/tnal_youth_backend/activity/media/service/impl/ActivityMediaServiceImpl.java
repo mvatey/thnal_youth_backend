@@ -11,8 +11,14 @@ import org.example.tnal_youth_backend.activity.media.repository.ActivityPhotoRep
 import org.example.tnal_youth_backend.activity.media.service.ActivityMediaService;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +26,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +38,9 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     private final ActivityPhotoRepository activityPhotoRepository;
     private final ActivityAttachmentRepository activityAttachmentRepository;
     private final FileService fileService;
+    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
+    private final BranchStaffRepository branchStaffRepository;
 
     // ============================================================
     // COVER IMAGE
@@ -43,7 +54,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        validateManagePermission(activity, currentUserId);
 
         Long previousCoverImageId = activity.getCoverImageId();
 
@@ -110,7 +121,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        validateManagePermission(activity, currentUserId);
 
         Long coverImageId = activity.getCoverImageId();
 
@@ -147,13 +158,21 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        validateManagePermission(activity, currentUserId);
         validateGalleryFiles(files);
 
         int nextSortOrder = activityPhotoRepository
                 .findTopByActivityIdOrderBySortOrderDesc(activityId)
                 .map(ActivityPhoto::getSortOrder)
                 .orElse(-1) + 1;
+
+        /*
+         * The activity gallery has no photos yet and the activity does not
+         * already have a cover image, so the first photo uploaded in this
+         * batch becomes the activity's cover ("main picture").
+         */
+        boolean shouldAssignCover = nextSortOrder == 0
+                && activity.getCoverImageId() == null;
 
         List<ActivityPhotoResponse> responses = new ArrayList<>();
         List<Long> uploadedFileIds = new ArrayList<>();
@@ -177,6 +196,11 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                             HttpStatus.CONFLICT,
                             "This file is already linked to the activity gallery"
                     );
+                }
+
+                if (shouldAssignCover && index == 0) {
+                    activity.setCoverImageId(uploadedFile.getId());
+                    activityRepository.saveAndFlush(activity);
                 }
 
                 String caption = getCaption(captions, index);
@@ -236,8 +260,8 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long photoId,
             Long currentUserId
     ) {
-        findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        Activity activity = findActivity(activityId);
+        validateManagePermission(activity, currentUserId);
 
         if (photoId == null) {
             throw new ResponseStatusException(
@@ -292,7 +316,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long currentUserId
     ) {
         Activity activity = findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        validateManagePermission(activity, currentUserId);
         validateAttachmentFile(file);
 
         int resolvedSortOrder = sortOrder == null
@@ -370,8 +394,8 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             Long attachmentId,
             Long currentUserId
     ) {
-        findActivity(activityId);
-        validateCurrentUser(currentUserId);
+        Activity activity = findActivity(activityId);
+        validateManagePermission(activity, currentUserId);
 
         if (attachmentId == null) {
             throw new ResponseStatusException(
@@ -416,13 +440,67 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                 ));
     }
 
-    private void validateCurrentUser(Long currentUserId) {
+    /**
+     * Only a branch leader or secretary who is staff of this activity's own
+     * host branch may upload/delete the activity's cover image, gallery
+     * photos, or attachments.
+     */
+    private void validateManagePermission(
+            Activity activity,
+            Long currentUserId
+    ) {
         if (currentUserId == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Authenticated user ID is required"
             );
         }
+
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Authenticated user was not found"
+                ));
+
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can manage "
+                            + "activity files"
+            );
+        }
+
+        Set<Long> staffBranchIds = resolveStaffBranchIds(currentUser);
+
+        if (activity.getBranchId() == null
+                || !staffBranchIds.contains(activity.getBranchId())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You can only manage files for activities hosted "
+                            + "by your own branch"
+            );
+        }
+    }
+
+    private Set<Long> resolveStaffBranchIds(User user) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
     }
 
     private void validateGalleryFiles(List<MultipartFile> files) {

@@ -11,6 +11,9 @@ import org.example.tnal_youth_backend.activity.model.request.UpdateActivityReque
 import org.example.tnal_youth_backend.activity.model.response.ActivityListItemResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityPageResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
+import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
+import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivitySectorRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityStatusRepository;
@@ -49,6 +52,8 @@ public class ActivityServiceImpl implements ActivityService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final ActivityParticipantRepository activityParticipantRepository;
+    private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
 
     @Override
     @Transactional
@@ -100,11 +105,55 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional(readOnly = true)
     public ActivityResponse getActivityById(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     ) {
         Activity activity = getActivity(activityId);
 
-        return activityMapper.toResponse(activity);
+        User currentUser = requireUser(currentUserId);
+
+        /*
+         * A member may only view the detail of an activity they were
+         * personally invited to (i.e. they are already a participant).
+         * Staff roles (admin, secretary, branch leader) can view any
+         * activity.
+         */
+        if (currentUser.getRole() == UserRole.MEMBER) {
+            boolean invited =
+                    currentUser.getMemberId() != null
+                            && activityParticipantRepository
+                            .existsByActivity_IdAndMember_Id(
+                                    activityId,
+                                    currentUser.getMemberId()
+                            );
+
+            if (!invited) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not invited to this activity"
+                );
+            }
+        }
+
+        ActivityResponse response =
+                activityMapper.toResponse(activity);
+
+        boolean canManage = computeCanManage(currentUser, activity);
+        response.setCanManage(canManage);
+
+        if (!canManage) {
+            Long invitedBranchId =
+                    resolveManagedInvitedBranchId(currentUser, activity);
+
+            response.setCanManageAsInvitedBranch(
+                    invitedBranchId != null
+            );
+            response.setManagedInvitedBranchId(invitedBranchId);
+        } else {
+            response.setCanManageAsInvitedBranch(false);
+        }
+
+        return response;
     }
 
     @Override
@@ -158,6 +207,25 @@ public class ActivityServiceImpl implements ActivityService {
                     branchIds,
                     pageable
             );
+        } else if (currentUser.getRole() == UserRole.MEMBER) {
+            /*
+             * A member only sees activities they were personally invited
+             * to — never the full activity catalog.
+             */
+            List<Long> invitedActivityIds =
+                    currentUser.getMemberId() == null
+                            ? List.of()
+                            : activityParticipantRepository
+                            .findDistinctActivityIdsByMemberId(
+                                    currentUser.getMemberId()
+                            );
+
+            activityPage = invitedActivityIds.isEmpty()
+                    ? Page.empty(pageable)
+                    : activityRepository.findAllByIdIn(
+                            invitedActivityIds,
+                            pageable
+                    );
         } else {
             activityPage = activityRepository.findAll(pageable);
         }
@@ -545,26 +613,126 @@ public class ActivityServiceImpl implements ActivityService {
         }
     }
 
+    /**
+     * Only a branch leader or secretary who is staff of THIS activity's own
+     * branch may modify it — not the original creator per se, not an admin,
+     * and not staff of a different branch. Replaces the previous
+     * creator-only check, which allowed anyone who happened to be
+     * {@code activity.createdBy} to edit regardless of role or branch.
+     */
     private void validateUpdatePermission(
             Activity activity,
             Long currentUserId
     ) {
-        if (currentUserId == null) {
+        User currentUser = requireUser(currentUserId);
+
+        if (!computeCanManage(currentUser, activity)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary of this "
+                            + "activity's own branch can modify it"
+            );
+        }
+    }
+
+    /**
+     * True only for a branch leader or secretary who is staff of this
+     * activity's own branch. Admins and members always get {@code false} —
+     * admins are limited to viewing the activity module, and members never
+     * manage activities at all.
+     */
+    private boolean computeCanManage(
+            User user,
+            Activity activity
+    ) {
+        if (user.getRole() != UserRole.BRANCH_LEADER
+                && user.getRole() != UserRole.SECRETARY) {
+            return false;
+        }
+
+        if (activity.getBranchId() == null) {
+            return false;
+        }
+
+        return resolveStaffBranchIds(user)
+                .contains(activity.getBranchId());
+    }
+
+    /**
+     * If this user is a branch leader/secretary of a branch that has an
+     * ACCEPTED invitation to co-host this activity, returns that branch's
+     * id — otherwise {@code null}. Only meaningful when the caller is NOT
+     * already {@link #computeCanManage}; the host branch never needs this.
+     */
+    private Long resolveManagedInvitedBranchId(
+            User user,
+            Activity activity
+    ) {
+        if (user.getRole() != UserRole.BRANCH_LEADER
+                && user.getRole() != UserRole.SECRETARY) {
+            return null;
+        }
+
+        for (Long staffBranchId : resolveStaffBranchIds(user)) {
+            boolean accepted = activityInvitedBranchRepository
+                    .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                            activity.getId(),
+                            staffBranchId,
+                            ActivityInvitationStatus.ACCEPTED
+                    )
+                    .isPresent();
+
+            if (accepted) {
+                return staffBranchId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Branch(es) a branch-leader/secretary user is staff of — via an active
+     * branch_staff assignment, or their own member record's home branch.
+     * Deliberately role-agnostic (unlike {@link #resolveSecretaryBranchIds},
+     * which is kept as-is for the existing SECRETARY-only list scoping).
+     */
+    private Set<Long> resolveStaffBranchIds(
+            User user
+    ) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
+    }
+
+    private User requireUser(
+            Long userId
+    ) {
+        if (userId == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Authentication is required"
             );
         }
 
-        if (activity.getCreatedBy() == null
-                || !activity.getCreatedBy()
-                .equals(currentUserId)) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Only the activity creator can update this activity"
-            );
-        }
+        return userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Authenticated user could not be found"
+                        )
+                );
     }
 
     private void validateCreateRequest(

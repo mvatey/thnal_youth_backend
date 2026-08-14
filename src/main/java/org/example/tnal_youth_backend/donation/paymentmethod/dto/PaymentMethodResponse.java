@@ -18,6 +18,8 @@ public record PaymentMethodResponse(
 
         String description,
 
+        String category,
+
         @JsonProperty("is_active")
         Boolean isActive,
 

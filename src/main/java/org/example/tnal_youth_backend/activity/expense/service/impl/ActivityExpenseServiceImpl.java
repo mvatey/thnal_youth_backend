@@ -10,13 +10,19 @@ import org.example.tnal_youth_backend.activity.expense.mapper.ActivityExpenseMap
 import org.example.tnal_youth_backend.activity.expense.repository.ActivityExpenseRepository;
 import org.example.tnal_youth_backend.activity.expense.service.ActivityExpenseService;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
+import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.exchangerate.entity.ExchangeRate;
 import org.example.tnal_youth_backend.exchangerate.repository.ExchangeRateRepository;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,8 +31,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +56,9 @@ public class ActivityExpenseServiceImpl
     private final UserRepository userRepository;
     private final FileRepository fileRepository;
     private final ActivityExpenseMapper expenseMapper;
+    private final MemberRepository memberRepository;
+    private final BranchStaffRepository branchStaffRepository;
+    private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
 
     @Override
     @Transactional
@@ -58,9 +69,11 @@ public class ActivityExpenseServiceImpl
     ) {
         Activity activity = findActivity(activityId);
 
-        validateActivityCanBeModified(activity);
-
         User recordedBy = findUser(currentUserId);
+
+        validateManagePermission(activity, recordedBy);
+
+        validateActivityCanBeModified(activity);
 
         BigDecimal amountKhr =
                 normaliseAmount(request.getAmountKhr());
@@ -157,8 +170,8 @@ public class ActivityExpenseServiceImpl
     ) {
         Activity activity = findActivity(activityId);
 
+        validateManagePermission(activity, findUser(currentUserId));
         validateActivityCanBeModified(activity);
-        findUser(currentUserId);
 
         ActivityExpense expense =
                 findExpense(activityId, expenseId);
@@ -235,8 +248,8 @@ public class ActivityExpenseServiceImpl
     ) {
         Activity activity = findActivity(activityId);
 
+        validateManagePermission(activity, findUser(currentUserId));
         validateActivityCanBeModified(activity);
-        findUser(currentUserId);
 
         ActivityExpense expense =
                 findExpense(activityId, expenseId);
@@ -363,6 +376,75 @@ public class ActivityExpenseServiceImpl
                                 "Authenticated user was not found"
                         )
                 );
+    }
+
+    /**
+     * Only a branch leader or secretary who is staff of this activity's own
+     * host branch, OR staff of a branch with an ACCEPTED invitation to it,
+     * may record/correct/delete the activity's expenses. Expenses are a
+     * shared ledger for the whole activity — unlike participants, there is
+     * no further per-branch restriction on which expense rows they can
+     * touch once they clear this check.
+     */
+    private void validateManagePermission(
+            Activity activity,
+            User currentUser
+    ) {
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can manage "
+                            + "activity expenses"
+            );
+        }
+
+        Set<Long> staffBranchIds = resolveStaffBranchIds(currentUser);
+
+        if (activity.getBranchId() != null
+                && staffBranchIds.contains(activity.getBranchId())) {
+            return;
+        }
+
+        for (Long staffBranchId : staffBranchIds) {
+            boolean accepted = activityInvitedBranchRepository
+                    .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                            activity.getId(),
+                            staffBranchId,
+                            ActivityInvitationStatus.ACCEPTED
+                    )
+                    .isPresent();
+
+            if (accepted) {
+                return;
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You can only manage expenses for activities hosted by "
+                        + "your own branch, or that your branch has "
+                        + "accepted an invitation to"
+        );
+    }
+
+    private Set<Long> resolveStaffBranchIds(User user) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
     }
 
     private FileEntity findReceiptFile(

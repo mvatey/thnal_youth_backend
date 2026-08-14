@@ -13,8 +13,12 @@ import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +26,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +47,10 @@ public class ActivityAttendanceServiceImpl
     private final AttendanceStatusRepository attendanceStatusRepository;
 
     private final UserRepository userRepository;
+
+    private final MemberRepository memberRepository;
+
+    private final BranchStaffRepository branchStaffRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -193,7 +203,7 @@ public class ActivityAttendanceServiceImpl
         Activity activity = findActivity(activityId);
 
         validateManualAttendanceCanBeModified(activity);
-        validateCurrentUser(currentUserId);
+        validateManualAttendancePermission(activity, currentUserId);
 
         ActivityParticipant participant =
                 findParticipant(
@@ -369,31 +379,106 @@ public class ActivityAttendanceServiceImpl
     }
 
     /**
-     * Manual attendance correction is part of the completed-activity flow.
-     * A completed activity may therefore still be marked present/absent, while
-     * a cancelled activity remains locked. Check-in and check-out continue to
-     * use the stricter validation above.
+     * Manual attendance correction (marking present/absent by hand) is
+     * reserved for the completed-activity flow: while an activity is still
+     * DRAFT/UPCOMING/ONGOING there is nothing to "correct" yet, and a
+     * cancelled activity is locked entirely. Check-in and check-out continue
+     * to use the stricter validation above (blocked once COMPLETED or
+     * CANCELLED).
      */
     private void validateManualAttendanceCanBeModified(
             Activity activity
     ) {
-        if (activity.getStatus() == null
-                || activity.getStatus().getCode() == null) {
-            return;
-        }
-
         String statusCode =
-                activity.getStatus()
-                        .getCode()
-                        .trim()
-                        .toUpperCase(Locale.ROOT);
+                activity.getStatus() != null
+                        && activity.getStatus().getCode() != null
+                        ? activity.getStatus()
+                                .getCode()
+                                .trim()
+                                .toUpperCase(Locale.ROOT)
+                        : null;
 
-        if ("CANCELLED".equals(statusCode)) {
+        if (!"COMPLETED".equals(statusCode)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Attendance cannot be modified for a cancelled activity"
+                    "Attendance can only be manually updated after "
+                            + "the activity is completed"
             );
         }
+    }
+
+    /**
+     * Only a branch leader or secretary who is staff of THIS activity's own
+     * branch may manually correct attendance — never an admin (view-only in
+     * the activity module) and never staff of a different branch.
+     */
+    private void validateManualAttendancePermission(
+            Activity activity,
+            Long currentUserId
+    ) {
+        User currentUser = requireUser(currentUserId);
+
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can "
+                            + "manually update attendance"
+            );
+        }
+
+        Set<Long> staffBranchIds =
+                resolveStaffBranchIds(currentUser);
+
+        if (activity.getBranchId() == null
+                || !staffBranchIds.contains(activity.getBranchId())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You can only update attendance for activities "
+                            + "hosted by your own branch"
+            );
+        }
+    }
+
+    private Set<Long> resolveStaffBranchIds(
+            User user
+    ) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
+    }
+
+    private User requireUser(
+            Long userId
+    ) {
+        if (userId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required"
+            );
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Authenticated user could not be found"
+                        )
+                );
     }
 
     private String normalizeStatusCode(

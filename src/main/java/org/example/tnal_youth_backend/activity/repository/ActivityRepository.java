@@ -55,4 +55,23 @@ public interface ActivityRepository
             @Param("memberId") Long memberId,
             @Param("now") OffsetDateTime now
     );
+
+    /*
+     * Used by the "1 day before" reminder scheduler to find every activity
+     * starting within a given window (typically "tomorrow", midnight to
+     * midnight).
+     */
+    List<Activity> findAllByStartsAtGreaterThanEqualAndStartsAtLessThan(
+            OffsetDateTime from,
+            OffsetDateTime to
+    );
+
+    /*
+     * Used to page through a specific, already-known set of activity ids —
+     * e.g. the activities a member was personally invited to.
+     */
+    Page<Activity> findAllByIdIn(
+            Collection<Long> ids,
+            Pageable pageable
+    );
 }

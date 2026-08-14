@@ -91,6 +91,15 @@ public class ActivityParticipant {
     @Column(name = "checked_out_at")
     private OffsetDateTime checkedOutAt;
 
+    /**
+     * When the "1 day before the event" reminder notification was sent to
+     * this participant, or {@code null} if it has not been sent yet.
+     * {@link org.example.tnal_youth_backend.activity.service.ActivityReminderScheduler}
+     * uses this to avoid reminding the same participant twice.
+     */
+    @Column(name = "reminder_sent_at")
+    private OffsetDateTime reminderSentAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by")
     private User invitedBy;

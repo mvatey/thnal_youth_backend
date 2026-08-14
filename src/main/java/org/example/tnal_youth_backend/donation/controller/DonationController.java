@@ -28,9 +28,13 @@ import java.time.OffsetDateTime;
  * Donation recording + reporting endpoints.
  *
  * <p>Authorization (method-level, same approach as NotificationController):
- * recording/correcting/reporting is for organisational staff
+ * reporting (list/get/summary) is for organisational staff
  * (ADMIN / SECRETARY / BRANCH_LEADER); plain MEMBERs cannot touch financial
- * records. DELETE is ADMIN-only — a booked donation is not casually removable.
+ * records here (see the self-service {@code account.memberdonation} module
+ * for a member's own donations). Recording/correcting a donation
+ * (create/update) is entry-staff-only (SECRETARY / BRANCH_LEADER) — ADMIN is
+ * intentionally excluded, matching the frontend's admin-is-view-only rule.
+ * DELETE is ADMIN-only — a booked donation is not casually removable.
  */
 @RestController
 @RequestMapping("/api/donations")
@@ -92,7 +96,7 @@ public class DonationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<DonationResponse>> update(
             @PathVariable Long id,
             @Valid @RequestBody DonationUpdateRequest req) {

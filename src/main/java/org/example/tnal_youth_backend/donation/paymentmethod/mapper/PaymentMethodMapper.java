@@ -21,6 +21,7 @@ public class PaymentMethodMapper {
                 paymentMethod.getLabelKm(),
                 paymentMethod.getLabelEn(),
                 paymentMethod.getDescription(),
+                paymentMethod.getCategory(),
                 paymentMethod.getIsActive(),
                 paymentMethod.getSortOrder(),
                 paymentMethod.getCreatedAt(),

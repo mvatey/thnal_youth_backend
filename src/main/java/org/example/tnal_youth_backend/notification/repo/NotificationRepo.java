@@ -31,6 +31,19 @@ public interface NotificationRepo {
         """)
     int countActiveType(@Param("typeId") Short typeId);
 
+    /**
+     * Resolves a notification_types.code (e.g. "ACTIVITY_INVITATION",
+     * "ACTIVITY_REMINDER") to its active id, or {@code null} if the code does
+     * not exist or is inactive. Used by callers that only know the type by its
+     * stable code rather than its numeric id.
+     */
+    @Select("""
+        SELECT id
+        FROM notification_types
+        WHERE code = #{code} AND is_active = TRUE
+        """)
+    Short findActiveTypeIdByCode(@Param("code") String code);
+
     // ---------- idempotency ----------
 
     /**

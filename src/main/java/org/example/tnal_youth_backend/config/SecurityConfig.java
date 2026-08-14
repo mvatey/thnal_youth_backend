@@ -82,6 +82,9 @@ public class SecurityConfig {
 
                         /*
                          * Dashboard.
+                         *
+                         * VIEWER has the same read access ADMIN has here —
+                         * it is never added to any mutating rule below.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -90,7 +93,8 @@ public class SecurityConfig {
                         .hasAnyRole(
                                 "ADMIN",
                                 "SECRETARY",
-                                "BRANCH_LEADER"
+                                "BRANCH_LEADER",
+                                "VIEWER"
                         )
 
                         /*
@@ -109,6 +113,9 @@ public class SecurityConfig {
 
                         /*
                          * View activity lists and details.
+                         *
+                         * VIEWER has the same read access ADMIN has here —
+                         * it is never added to any mutating rule below.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -119,7 +126,8 @@ public class SecurityConfig {
                                 "ADMIN",
                                 "SECRETARY",
                                 "BRANCH_LEADER",
-                                "MEMBER"
+                                "MEMBER",
+                                "VIEWER"
                         )
 
                         /*
@@ -185,6 +193,15 @@ public class SecurityConfig {
 
                         /*
                          * Everything else requires a valid JWT.
+                         *
+                         * Most GET (view) endpoints in this app rely solely
+                         * on this catch-all rather than a role-specific rule
+                         * above, so VIEWER already reaches them for free.
+                         * Write endpoints (POST/PUT/PATCH/DELETE) still fall
+                         * through to here too where no rule above already
+                         * restricts them — those are protected by
+                         * method-level @PreAuthorize on the controller
+                         * instead, none of which lists VIEWER.
                          */
                         .anyRequest()
                         .authenticated()

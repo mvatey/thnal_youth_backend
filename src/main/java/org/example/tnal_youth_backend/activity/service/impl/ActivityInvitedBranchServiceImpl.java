@@ -12,9 +12,16 @@ import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchR
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
+import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,7 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,8 +48,19 @@ public class ActivityInvitedBranchServiceImpl
 
     private final UserRepository userRepository;
 
+    private final MemberRepository memberRepository;
+
+    private final BranchStaffRepository branchStaffRepository;
+
+    private final NotificationRepo notificationRepo;
+
+    private final NotificationService notificationService;
+
     private final ActivityInvitedBranchMapper
             invitedBranchMapper;
+
+    private static final String BRANCH_INVITATION_TYPE_CODE =
+            "ACTIVITY_BRANCH_INVITATION";
 
     @Override
     @Transactional
@@ -70,6 +91,12 @@ public class ActivityInvitedBranchServiceImpl
         );
 
         User invitedBy = findUser(currentUserId);
+
+        /*
+         * Only the activity's own host branch leadership may invite
+         * another branch to co-host it.
+         */
+        validateHostManagePermission(activity, invitedBy);
 
         /*
          * The activity host branch must not invite itself.
@@ -117,6 +144,8 @@ public class ActivityInvitedBranchServiceImpl
                             existingInvitation
                     );
 
+            notifyBranchInvited(activity, branch);
+
             return invitedBranchMapper.toResponse(
                     savedInvitation
             );
@@ -155,6 +184,8 @@ public class ActivityInvitedBranchServiceImpl
                     invitedBranchRepository.saveAndFlush(
                             invitation
                     );
+
+            notifyBranchInvited(activity, branch);
 
             return invitedBranchMapper.toResponse(
                     savedInvitation
@@ -234,6 +265,13 @@ public class ActivityInvitedBranchServiceImpl
 
         User respondedBy = findUser(currentUserId);
 
+        /*
+         * Only a branch leader/secretary of the INVITED branch itself may
+         * accept or decline on its behalf — not the host, and not some
+         * other branch's staff.
+         */
+        validateInvitedBranchPermission(invitation, respondedBy);
+
         invitation.setInvitationStatus(
                 responseStatus
         );
@@ -283,9 +321,13 @@ public class ActivityInvitedBranchServiceImpl
         }
 
         /*
-         * Confirm that the current authenticated user exists.
+         * Only the host branch's own leadership may withdraw an invitation
+         * they sent.
          */
-        findUser(currentUserId);
+        validateHostManagePermission(
+                invitation.getActivity(),
+                findUser(currentUserId)
+        );
 
         invitation.setInvitationStatus(
                 ActivityInvitationStatus.CANCELLED
@@ -399,6 +441,151 @@ public class ActivityInvitedBranchServiceImpl
                                 "Activity branch invitation not found"
                         )
                 );
+    }
+
+    /**
+     * Only a branch leader or secretary who is staff of the activity's own
+     * host branch may invite/cancel a co-hosting branch invitation.
+     */
+    private void validateHostManagePermission(
+            Activity activity,
+            User currentUser
+    ) {
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can manage "
+                            + "branch invitations for this activity"
+            );
+        }
+
+        Set<Long> staffBranchIds = resolveStaffBranchIds(currentUser);
+
+        if (activity.getBranchId() == null
+                || !staffBranchIds.contains(activity.getBranchId())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only the activity's own host branch can manage its "
+                            + "branch invitations"
+            );
+        }
+    }
+
+    /**
+     * Only a branch leader or secretary who is staff of the INVITED branch
+     * itself may accept/decline on its behalf.
+     */
+    private void validateInvitedBranchPermission(
+            ActivityInvitedBranch invitation,
+            User currentUser
+    ) {
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can respond to a "
+                            + "branch invitation"
+            );
+        }
+
+        Long invitedBranchId =
+                invitation.getBranch() != null
+                        ? invitation.getBranch().getId()
+                        : null;
+
+        Set<Long> staffBranchIds = resolveStaffBranchIds(currentUser);
+
+        if (invitedBranchId == null
+                || !staffBranchIds.contains(invitedBranchId)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only the invited branch's own staff can respond to "
+                            + "this invitation"
+            );
+        }
+    }
+
+    private Set<Long> resolveStaffBranchIds(User user) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
+    }
+
+    /**
+     * Sends an in-app "your branch was invited" notification to the invited
+     * branch's leader/secretary user accounts. Mirrors
+     * {@code ActivityParticipantServiceImpl.notifyInvitedMembers} — a
+     * notification failure must never roll back the invitation itself, so
+     * any error here is swallowed rather than propagated.
+     */
+    private void notifyBranchInvited(
+            Activity activity,
+            Branch branch
+    ) {
+        Set<Long> userIds =
+                branchStaffRepository.findActiveStaffUserIds(
+                        branch.getId()
+                );
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        Short typeId = notificationRepo.findActiveTypeIdByCode(
+                BRANCH_INVITATION_TYPE_CODE
+        );
+
+        if (typeId == null) {
+            return;
+        }
+
+        try {
+            NotificationCreateDTO notification =
+                    new NotificationCreateDTO();
+            notification.setTypeId(typeId);
+            notification.setTitle(
+                    "សាខារបស់អ្នកត្រូវបានអញ្ជើញចូលរួមកម្មវិធី"
+            );
+            notification.setBody(
+                    "សាខារបស់អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួមរៀបចំកម្មវិធី \""
+                            + activity.getTitleKm()
+                            + "\""
+            );
+            notification.setActionUrl(
+                    "/activity/" + activity.getId()
+            );
+            notification.setActivityId(activity.getId());
+            notification.setTarget(
+                    NotificationCreateDTO.TargetMode.USERS
+            );
+            notification.setTargetUserIds(
+                    new ArrayList<>(userIds)
+            );
+
+            notificationService.create(notification);
+        } catch (RuntimeException ignored) {
+            /*
+             * A notification failure must not fail the branch invitation
+             * that already succeeded and was flushed to the database.
+             */
+        }
     }
 
     private void validateBranchIsNotHostBranch(

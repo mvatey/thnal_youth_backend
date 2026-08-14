@@ -49,6 +49,13 @@ public class PaymentMethod {
     private String description;
 
     @Column(
+            name = "category",
+            nullable = false,
+            length = 20
+    )
+    private String category;
+
+    @Column(
             name = "is_active",
             nullable = false
     )

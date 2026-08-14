@@ -10,6 +10,9 @@ import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository
 import org.example.tnal_youth_backend.document.type.entity.DocumentType;
 import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepository;
 
+import org.example.tnal_youth_backend.donation.paymentmethod.model.entity.PaymentMethod;
+import org.example.tnal_youth_backend.donation.paymentmethod.repository.PaymentMethodRepository;
+
 import org.example.tnal_youth_backend.lookup.dto.variable.AdminLookupResponse;
 import org.example.tnal_youth_backend.lookup.dto.variable.CreateLookupRequest;
 import org.example.tnal_youth_backend.lookup.dto.variable.LookupCategoryResponse;
@@ -21,6 +24,9 @@ import org.example.tnal_youth_backend.lookup.service.AdminLookupService;
 
 import org.example.tnal_youth_backend.member.education.entity.EducationLevel;
 import org.example.tnal_youth_backend.member.education.repository.EducationLevelRepository;
+
+import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
+import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
 
 import org.example.tnal_youth_backend.member.language.entity.Language;
 import org.example.tnal_youth_backend.member.language.repository.LanguageRepository;
@@ -84,6 +90,15 @@ public class AdminLookupServiceImpl
     private final DocumentTypeRepository
             documentTypeRepository;
 
+    private final EthnicityRepository
+            ethnicityRepository;
+
+    private final PaymentMethodRepository
+            paymentMethodRepository;
+
+    private static final java.util.Set<String> PAYMENT_METHOD_CATEGORIES =
+            java.util.Set.of("CASH", "BANK", "OTHER");
+
 
     /*
      * ==========================================================
@@ -145,6 +160,16 @@ public class AdminLookupServiceImpl
                 categoryResponse(
                         LookupCategory.DOCUMENT_TYPE,
                         documentTypeRepository.count()
+                ),
+
+                categoryResponse(
+                        LookupCategory.ETHNICITY,
+                        ethnicityRepository.count()
+                ),
+
+                categoryResponse(
+                        LookupCategory.PAYMENT_METHOD,
+                        paymentMethodRepository.count()
                 )
         );
     }
@@ -250,6 +275,20 @@ public class AdminLookupServiceImpl
 
                     case DOCUMENT_TYPE ->
                             documentTypeRepository
+                                    .findAllByOrderBySortOrderAscIdAsc()
+                                    .stream()
+                                    .map(this::toResponse)
+                                    .toList();
+
+                    case ETHNICITY ->
+                            ethnicityRepository
+                                    .findAllByOrderByLabelKmAsc()
+                                    .stream()
+                                    .map(this::toResponse)
+                                    .toList();
+
+                    case PAYMENT_METHOD ->
+                            paymentMethodRepository
                                     .findAllByOrderBySortOrderAscIdAsc()
                                     .stream()
                                     .map(this::toResponse)
@@ -576,6 +615,53 @@ public class AdminLookupServiceImpl
 
                 yield toResponse(
                         documentTypeRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case ETHNICITY -> {
+
+                Ethnicity entity =
+                        Ethnicity.builder()
+                                .code(code)
+                                .labelKm(labelKm)
+                                .labelEn(labelEn)
+                                .isActive(active)
+                                .build();
+
+                yield toResponse(
+                        ethnicityRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case PAYMENT_METHOD -> {
+
+                PaymentMethod entity =
+                        PaymentMethod.builder()
+                                .code(code)
+                                .labelKm(labelKm)
+                                .labelEn(labelEn)
+                                .description(description)
+                                .category(
+                                        normalizePaymentCategory(
+                                                request.category()
+                                        )
+                                )
+                                .isActive(active)
+                                .sortOrder(
+                                        nextSortOrder(
+                                                resolvedCategory
+                                        )
+                                )
+                                .build();
+
+                yield toResponse(
+                        paymentMethodRepository
                                 .saveAndFlush(
                                         entity
                                 )
@@ -944,6 +1030,77 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case ETHNICITY -> {
+                Ethnicity entity =
+                        ethnicityRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setLabelKm(
+                        labelKm
+                );
+
+                entity.setLabelEn(
+                        labelEn
+                );
+
+                yield toResponse(
+                        ethnicityRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case PAYMENT_METHOD -> {
+                PaymentMethod entity =
+                        paymentMethodRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setLabelKm(
+                        labelKm
+                );
+
+                entity.setLabelEn(
+                        labelEn
+                );
+
+                entity.setDescription(
+                        description
+                );
+
+                if (
+                        request.category() != null
+                ) {
+
+                    entity.setCategory(
+                            normalizePaymentCategory(
+                                    request.category()
+                            )
+                    );
+                }
+
+                yield toResponse(
+                        paymentMethodRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1216,6 +1373,54 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case ETHNICITY -> {
+                Ethnicity entity =
+                        ethnicityRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setIsActive(
+                        active
+                );
+
+                yield toResponse(
+                        ethnicityRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case PAYMENT_METHOD -> {
+                PaymentMethod entity =
+                        paymentMethodRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setIsActive(
+                        active
+                );
+
+                yield toResponse(
+                        paymentMethodRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1261,6 +1466,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1279,6 +1485,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1297,6 +1504,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1315,6 +1523,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getDisplayOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1333,6 +1542,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1351,6 +1561,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1369,6 +1580,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1387,6 +1599,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1405,6 +1618,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1423,6 +1637,45 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+    }
+
+    private AdminLookupResponse
+    toResponse(
+            Ethnicity entity
+    ) {
+
+        return new AdminLookupResponse(
+                entity.getId(),
+                entity.getCode(),
+                entity.getLabelKm(),
+                entity.getLabelEn(),
+                null,
+                entity.getIsActive(),
+                null,
+                null,
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+    }
+
+    private AdminLookupResponse
+    toResponse(
+            PaymentMethod entity
+    ) {
+
+        return new AdminLookupResponse(
+                entity.getId(),
+                entity.getCode(),
+                entity.getLabelKm(),
+                entity.getLabelEn(),
+                entity.getDescription(),
+                entity.getIsActive(),
+                entity.getSortOrder(),
+                entity.getCategory(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1638,6 +1891,18 @@ public class AdminLookupServiceImpl
                             .existsByCodeIgnoreCase(
                                     code
                             );
+
+            case ETHNICITY ->
+                    ethnicityRepository
+                            .existsByCodeIgnoreCase(
+                                    code
+                            );
+
+            case PAYMENT_METHOD ->
+                    paymentMethodRepository
+                            .existsByCodeIgnoreCase(
+                                    code
+                            );
         };
     }
 
@@ -1780,6 +2045,52 @@ public class AdminLookupServiceImpl
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Status must be ALL, ACTIVE, or INACTIVE"
+            );
+        }
+
+        return normalized;
+    }
+
+
+    /*
+     * ==========================================================
+     * PAYMENT METHOD CATEGORY
+     * ==========================================================
+     */
+
+    private String normalizePaymentCategory(
+            String category
+    ) {
+
+        String normalized =
+                trimToNull(
+                        category
+                );
+
+        if (normalized == null) {
+
+            return "OTHER";
+        }
+
+        normalized =
+                normalized
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                !PAYMENT_METHOD_CATEGORIES.contains(
+                        normalized
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Category must be one of: "
+                            + String.join(
+                                    ", ",
+                                    PAYMENT_METHOD_CATEGORIES
+                            )
             );
         }
 

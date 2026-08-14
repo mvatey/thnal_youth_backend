@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
 import org.example.tnal_youth_backend.activity.service.ActivityService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,6 +25,7 @@ public class ActivityController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ActivityResponse createActivity(
             @Valid @RequestBody CreateActivityRequest request,
             Authentication authentication
@@ -38,6 +40,7 @@ public class ActivityController {
     }
 
     @PutMapping("/{activityId}")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ActivityResponse updateActivity(
             @PathVariable Long activityId,
             @Valid @RequestBody UpdateActivityRequest request,
@@ -54,6 +57,7 @@ public class ActivityController {
     }
 
     @PatchMapping("/{activityId}/complete")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ActivityResponse completeActivity(
             @PathVariable Long activityId,
             Authentication authentication
@@ -66,9 +70,13 @@ public class ActivityController {
 
     @GetMapping("/{activityId}")
     public ActivityResponse getActivityById(
-            @PathVariable Long activityId
+            @PathVariable Long activityId,
+            Authentication authentication
     ) {
-        return activityService.getActivityById(activityId);
+        return activityService.getActivityById(
+                activityId,
+                extractCurrentUserId(authentication)
+        );
     }
 
     @GetMapping

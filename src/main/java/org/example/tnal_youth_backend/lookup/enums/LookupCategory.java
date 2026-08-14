@@ -63,6 +63,18 @@ public enum LookupCategory {
             "document-types",
             "ប្រភេទឯកសារ",
             "Document Type"
+    ),
+
+    ETHNICITY(
+            "ethnicities",
+            "ជនជាតិ",
+            "Ethnicity"
+    ),
+
+    PAYMENT_METHOD(
+            "payment-methods",
+            "វិធីបង់ប្រាក់",
+            "Payment Method"
     );
 
     private final String path;

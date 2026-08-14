@@ -14,7 +14,8 @@ public interface ActivityParticipantService {
     );
 
     List<ActivityParticipantResponse> getParticipants(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     );
 
     void removeParticipant(

@@ -29,7 +29,7 @@ public class ActivityExpenseController {
 
     @PostMapping
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<ActivityExpenseResponse>
     createExpense(
@@ -86,7 +86,7 @@ public class ActivityExpenseController {
 
     @PutMapping("/{expenseId}")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<ActivityExpenseResponse>
     updateExpense(
@@ -108,7 +108,7 @@ public class ActivityExpenseController {
 
     @DeleteMapping("/{expenseId}")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<Void> deleteExpense(
             @PathVariable Long activityId,

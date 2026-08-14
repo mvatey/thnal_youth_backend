@@ -15,7 +15,8 @@ public interface ActivityService {
     );
 
     ActivityResponse getActivityById(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     );
 
     ActivityPageResponse getActivities(

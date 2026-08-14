@@ -16,7 +16,14 @@ public record CreateLookupRequest(
         String description,
 
         @NotNull
-        Boolean active
+        Boolean active,
+
+        /*
+         * Only used for PAYMENT_METHOD. Must be CASH, BANK, or OTHER
+         * (defaults to OTHER when blank). Ignored for every other
+         * category.
+         */
+        String category
 
 ) {
 }

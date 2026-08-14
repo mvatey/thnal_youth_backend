@@ -17,4 +17,6 @@ public interface PaymentMethodRepository
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
 
     Optional<PaymentMethod> findByCodeIgnoreCase(String code);
+
+    boolean existsByCodeIgnoreCase(String code);
 }

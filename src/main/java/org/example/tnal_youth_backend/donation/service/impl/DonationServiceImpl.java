@@ -1,6 +1,10 @@
 package org.example.tnal_youth_backend.donation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
+import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
+import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
 import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest;
 import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
@@ -81,6 +85,8 @@ public class DonationServiceImpl implements DonationService {
 
     private final DonationRepository repo;
     private final Clock clock; // utcClock bean from TimeConfig
+    private final ActivityRepository activityRepository;
+    private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
 
     // ===================================================================
     // create
@@ -369,6 +375,10 @@ public class DonationServiceImpl implements DonationService {
             throw new BusinessException("DONATION_ACTIVITY_REQUIRED",
                     "activityId is required for ACTIVITY_DONATION");
         }
+        if (TYPE_ACTIVITY_DONATION.equals(typeCode)) {
+            // activityId is guaranteed non-null by the check just above.
+            validateActivityDonationBranchEligibility(activityId, branchId);
+        }
         if (TYPE_MONTHLY_DONATION.equals(typeCode) && donationPeriod == null) {
             throw new BusinessException("DONATION_PERIOD_REQUIRED",
                     "donationPeriod is required for MONTHLY_DONATION");
@@ -413,6 +423,36 @@ public class DonationServiceImpl implements DonationService {
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
         }
         return new DonationCreateResultResponse(d.getId(), d.getDonationNo(), d.getTotalAmountUsd(), d.getCreatedAt());
+    }
+
+    /**
+     * An ACTIVITY_DONATION's branch must be the activity's own host branch,
+     * or a branch that has an ACCEPTED invitation to co-host it. This does
+     * not change the pre-existing branch scoping above (a BRANCH_LEADER is
+     * still confined to their own branch, SECRETARY is still org-wide) — it
+     * adds one further, narrower rule: an activity-tied donation may never
+     * be attached to a branch that has no relationship to that activity at
+     * all, regardless of who is recording it.
+     */
+    private void validateActivityDonationBranchEligibility(Long activityId, Long branchId) {
+        Long hostBranchId = activityRepository.findById(activityId)
+                .map(Activity::getBranchId)
+                .orElse(null);
+
+        if (hostBranchId != null && hostBranchId.equals(branchId)) {
+            return;
+        }
+
+        boolean accepted = activityInvitedBranchRepository
+                .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                        activityId, branchId, ActivityInvitationStatus.ACCEPTED)
+                .isPresent();
+
+        if (!accepted) {
+            throw new BusinessException("DONATION_BRANCH_NOT_ELIGIBLE",
+                    "Branch " + branchId + " is not this activity's host branch and has not "
+                            + "accepted an invitation to it");
+        }
     }
 
     /**

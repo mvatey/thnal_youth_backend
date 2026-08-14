@@ -91,7 +91,7 @@ public class SponsorDonationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ApiResponse<SponsorDonationRowResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody SponsorDonationUpsertRequest request

@@ -77,6 +77,24 @@ public class MyDonationController {
 
     /*
      * ==========================================================
+     * EVENT (ACTIVITY) DONATIONS
+     * ==========================================================
+     */
+
+    /*
+     * GET /api/my-account/donations/events
+     */
+    @GetMapping("/events")
+    public ResponseEntity<List<MyDonationResponse>>
+    getMyEventDonations() {
+
+        return ResponseEntity.ok(
+                myDonationService.getMyEventDonations()
+        );
+    }
+
+    /*
+     * ==========================================================
      * SPONSOR DONATIONS
      * ==========================================================
      */

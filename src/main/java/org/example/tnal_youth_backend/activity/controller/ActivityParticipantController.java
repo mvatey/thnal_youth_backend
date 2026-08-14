@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.activity.service.ActivityParticipantServic
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +26,7 @@ public class ActivityParticipantController {
             participantService;
 
     @PostMapping("/invite")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<
             List<ActivityParticipantResponse>
             >
@@ -56,17 +58,20 @@ public class ActivityParticipantController {
             List<ActivityParticipantResponse>
             >
     getParticipants(
-            @PathVariable Long activityId
+            @PathVariable Long activityId,
+            Authentication authentication
     ) {
         return ResponseEntity.ok(
                 participantService
                         .getParticipants(
-                                activityId
+                                activityId,
+                                getCurrentUserId(authentication)
                         )
         );
     }
 
     @DeleteMapping("/{memberId}")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<Void> removeParticipant(
             @PathVariable Long activityId,
             @PathVariable Long memberId,

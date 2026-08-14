@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchServ
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,6 +27,7 @@ public class ActivityInvitedBranchController {
             invitedBranchService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<ActivityInvitedBranchResponse>
     inviteBranch(
             @PathVariable Long activityId,
@@ -64,6 +66,7 @@ public class ActivityInvitedBranchController {
     }
 
     @PatchMapping("/{invitationId}/respond")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<ActivityInvitedBranchResponse>
     respondToInvitation(
             @PathVariable Long activityId,
@@ -88,6 +91,7 @@ public class ActivityInvitedBranchController {
     }
 
     @DeleteMapping("/{invitationId}")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<Void> cancelInvitation(
             @PathVariable Long activityId,
             @PathVariable Long invitationId,

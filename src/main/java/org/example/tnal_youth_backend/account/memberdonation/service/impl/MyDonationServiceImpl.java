@@ -213,6 +213,174 @@ public class MyDonationServiceImpl
             """;
 
     /*
+     * Event (activity) donations are identified by having a linked
+     * activity, regardless of donation_type — mirrors the frontend's
+     * own grouping rule (eventdonation/page.js: rows where activityId
+     * is present are treated as event/program donations).
+     */
+    private static final String EVENT_BASE_SQL = """
+            SELECT
+                donation.id
+                    AS donation_id,
+
+                donation.donation_no
+                    AS donation_no,
+
+                donation_type.id
+                    AS donation_type_id,
+
+                donation_type.code
+                    AS donation_type_code,
+
+                donation_type.label_km
+                    AS donation_type_label_km,
+
+                donation_type.label_en
+                    AS donation_type_label_en,
+
+                sponsor.id
+                    AS sponsor_id,
+
+                sponsor.sponsor_type_id
+                    AS sponsor_type_id,
+
+                sponsor_type.code
+                    AS sponsor_type_code,
+
+                sponsor_type.label_km
+                    AS sponsor_type_label_km,
+
+                sponsor_type.label_en
+                    AS sponsor_type_label_en,
+
+                sponsor.name
+                    AS sponsor_name,
+
+                sponsor.phone
+                    AS sponsor_phone,
+
+                CAST(sponsor.email AS TEXT)
+                    AS sponsor_email,
+
+                donation.donor_name
+                    AS donor_name,
+
+                activity.id
+                    AS activity_id,
+
+                activity.title_km
+                    AS activity_title_km,
+
+                activity.title_en
+                    AS activity_title_en,
+
+                branch.id
+                    AS branch_id,
+
+                branch.name_km
+                    AS branch_name_km,
+
+                branch.name_en
+                    AS branch_name_en,
+
+                donation.donation_period
+                    AS donation_period,
+
+                donation.amount_khr
+                    AS amount_khr,
+
+                donation.amount_usd
+                    AS amount_usd,
+
+                donation.total_amount_usd
+                    AS total_amount_usd,
+
+                payment_method.id
+                    AS payment_method_id,
+
+                payment_method.code
+                    AS payment_method_code,
+
+                payment_method.label_km
+                    AS payment_method_label_km,
+
+                payment_method.label_en
+                    AS payment_method_label_en,
+
+                donation.paid_at
+                    AS paid_at,
+
+                donation.payment_reference
+                    AS payment_reference,
+
+                recorded_by.id
+                    AS recorded_by_id,
+
+                recorded_by.full_name_km
+                    AS recorded_by_full_name_km,
+
+                recorded_by.full_name_en
+                    AS recorded_by_full_name_en,
+
+                receipt.id
+                    AS receipt_id,
+
+                receipt.file_path
+                    AS receipt_url,
+
+                receipt.original_name
+                    AS receipt_original_name,
+
+                receipt.mime_type
+                    AS receipt_mime_type,
+
+                receipt.size_bytes
+                    AS receipt_size_bytes,
+
+                donation.note
+                    AS note
+
+            FROM donations donation
+
+            INNER JOIN donation_types donation_type
+                    ON donation_type.id =
+                       donation.donation_type_id
+
+            LEFT JOIN sponsors sponsor
+                   ON sponsor.id =
+                      donation.sponsor_id
+
+            LEFT JOIN sponsor_types sponsor_type
+                   ON sponsor_type.id =
+                      sponsor.sponsor_type_id
+
+            LEFT JOIN activities activity
+                   ON activity.id =
+                      donation.activity_id
+
+            INNER JOIN branches branch
+                    ON branch.id =
+                       donation.branch_id
+
+            INNER JOIN payment_methods payment_method
+                    ON payment_method.id =
+                       donation.payment_method_id
+
+            INNER JOIN users recorded_by
+                    ON recorded_by.id =
+                       donation.recorded_by
+
+            LEFT JOIN files receipt
+                   ON receipt.id =
+                      donation.receipt_file_id
+
+            WHERE donation.member_id =
+                  :memberId
+
+              AND donation.activity_id IS NOT NULL
+            """;
+
+    /*
      * ==========================================================
      * MONTHLY DONATIONS
      * ==========================================================
@@ -328,6 +496,34 @@ public class MyDonationServiceImpl
         return jdbcTemplate.query(
                 sql,
                 parameters,
+                this::mapDonation
+        );
+    }
+
+    /*
+     * ==========================================================
+     * EVENT (ACTIVITY) DONATIONS
+     * ==========================================================
+     */
+
+    @Override
+    public List<MyDonationResponse> getMyEventDonations() {
+
+        Long memberId =
+                getCurrentMemberId();
+
+        String sql = EVENT_BASE_SQL + """
+
+                ORDER BY
+                    donation.paid_at DESC,
+                    donation.id DESC
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                eventParameters(
+                        memberId
+                ),
                 this::mapDonation
         );
     }
@@ -827,6 +1023,17 @@ public class MyDonationServiceImpl
      * VALIDATION AND HELPERS
      * ==========================================================
      */
+
+    private MapSqlParameterSource eventParameters(
+            Long memberId
+    ) {
+
+        return new MapSqlParameterSource()
+                .addValue(
+                        "memberId",
+                        memberId
+                );
+    }
 
     private MapSqlParameterSource baseParameters(
             Long memberId,

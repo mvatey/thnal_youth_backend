@@ -18,6 +18,12 @@ public record AdminLookupResponse(
 
         Integer sortOrder,
 
+        /*
+         * Only meaningful for PAYMENT_METHOD (CASH / BANK / OTHER).
+         * Null for every other category.
+         */
+        String category,
+
         OffsetDateTime createdAt,
 
         OffsetDateTime updatedAt

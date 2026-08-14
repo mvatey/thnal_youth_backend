@@ -14,9 +14,14 @@ import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRep
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityParticipantService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
+import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,8 +50,16 @@ public class ActivityParticipantServiceImpl
 
     private final UserRepository userRepository;
 
+    private final BranchStaffRepository branchStaffRepository;
+
     private final ActivityParticipantMapper
             participantMapper;
+
+    private final NotificationRepo notificationRepo;
+
+    private final NotificationService notificationService;
+
+    private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
 
     @Override
     @Transactional
@@ -58,6 +71,9 @@ public class ActivityParticipantServiceImpl
         Activity activity = findActivity(activityId);
 
         User invitedBy = findUser(currentUserId);
+
+        ManagePermission managePermission =
+                resolveManagePermission(activity, invitedBy);
 
         validateActivityCanBeModified(activity);
 
@@ -126,6 +142,24 @@ public class ActivityParticipantServiceImpl
                     HttpStatus.NOT_FOUND,
                     "Members not found: " + missingIds
             );
+        }
+
+        /*
+         * A co-hosting (invited) branch's staff may only invite members of
+         * their OWN branch — never the host branch's members or another
+         * invited branch's members.
+         */
+        if (!managePermission.fullAccess()) {
+            for (Member member : members) {
+                if (!managePermission.restrictedToBranchId()
+                        .equals(member.getBranchId())) {
+
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "You can only invite members of your own branch"
+                    );
+                }
+            }
         }
 
         /*
@@ -200,18 +234,106 @@ public class ActivityParticipantServiceImpl
 
         participantRepository.flush();
 
+        notifyInvitedMembers(
+                activity,
+                savedParticipants
+        );
+
         return savedParticipants
                 .stream()
                 .map(participantMapper::toResponse)
                 .toList();
     }
 
+    /**
+     * Sends an in-app "you were invited" notification to every newly-invited
+     * participant that has a linked user account (users.member_id). Members
+     * without a user account (e.g. not yet activated) are silently skipped —
+     * there is nowhere to deliver an in-app notification for them.
+     *
+     * <p>Failure to notify must never roll back the invitation itself, so any
+     * notification error is swallowed here rather than propagated.
+     */
+    private void notifyInvitedMembers(
+            Activity activity,
+            List<ActivityParticipant> savedParticipants
+    ) {
+        if (savedParticipants == null
+                || savedParticipants.isEmpty()) {
+            return;
+        }
+
+        List<Long> userIds = new ArrayList<>();
+
+        for (ActivityParticipant participant : savedParticipants) {
+            Member member = participant.getMember();
+
+            if (member == null || member.getId() == null) {
+                continue;
+            }
+
+            userRepository
+                    .findByMemberId(member.getId())
+                    .ifPresent(user -> userIds.add(user.getId()));
+        }
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        Short typeId =
+                notificationRepo.findActiveTypeIdByCode(
+                        ACTIVITY_INVITATION_TYPE_CODE
+                );
+
+        if (typeId == null) {
+            return;
+        }
+
+        try {
+            NotificationCreateDTO notification = new NotificationCreateDTO();
+            notification.setTypeId(typeId);
+            notification.setTitle("អ្នកត្រូវបានអញ្ជើញចូលរួមកម្មវិធី");
+            notification.setBody(
+                    "អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួមក្នុងកម្មវិធី \""
+                            + activity.getTitleKm()
+                            + "\""
+            );
+            notification.setActionUrl("/activity/" + activity.getId());
+            notification.setActivityId(activity.getId());
+            notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
+            notification.setTargetUserIds(userIds);
+
+            notificationService.create(notification);
+        } catch (RuntimeException ignored) {
+            /*
+             * A notification failure must not fail the invitation that
+             * already succeeded and was flushed to the database.
+             */
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<ActivityParticipantResponse> getParticipants(
-            Long activityId
+            Long activityId,
+            Long currentUserId
     ) {
         findActivity(activityId);
+
+        User currentUser = findUser(currentUserId);
+
+        /*
+         * Members only get the activity's basic detail and its documents —
+         * the participant/attendance roster is management information they
+         * do not need, regardless of whether they were invited themselves.
+         */
+        if (currentUser.getRole() == UserRole.MEMBER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Members cannot view the activity participant list"
+            );
+        }
 
         return participantRepository
                 .findAllByActivity_IdOrderByRegisteredAtDesc(
@@ -233,11 +355,14 @@ public class ActivityParticipantServiceImpl
                 activityId
         );
 
+        User currentUser = findUser(currentUserId);
+
+        ManagePermission managePermission =
+                resolveManagePermission(activity, currentUser);
+
         validateActivityCanBeModified(
                 activity
         );
-
-        findUser(currentUserId);
 
         if (memberId == null) {
             throw new ResponseStatusException(
@@ -258,6 +383,24 @@ public class ActivityParticipantServiceImpl
                                         "Activity participant not found"
                                 )
                         );
+
+        /*
+         * A co-hosting (invited) branch's staff may only remove members of
+         * their OWN branch from the activity.
+         */
+        if (!managePermission.fullAccess()) {
+            Member participantMember = participant.getMember();
+
+            if (participantMember == null
+                    || !managePermission.restrictedToBranchId()
+                    .equals(participantMember.getBranchId())) {
+
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You can only remove members of your own branch"
+                );
+            }
+        }
 
         /*
          * A participant who has already checked in must remain
@@ -430,6 +573,89 @@ public class ActivityParticipantServiceImpl
                                 "Authenticated user was not found"
                         )
                 );
+    }
+
+    /**
+     * Who may invite/remove participants on this activity, and how far that
+     * reaches:
+     *
+     * <ul>
+     *   <li>the host branch's own branch leader/secretary — full access,
+     *       {@code restrictedToBranchId} is {@code null};</li>
+     *   <li>a branch leader/secretary of a branch with an ACCEPTED
+     *       invitation to this activity — restricted access, may only
+     *       touch participants from {@code restrictedToBranchId} (their
+     *       own branch);</li>
+     *   <li>anyone else — denied (throws).</li>
+     * </ul>
+     */
+    private record ManagePermission(
+            boolean fullAccess,
+            Long restrictedToBranchId
+    ) {
+    }
+
+    private ManagePermission resolveManagePermission(
+            Activity activity,
+            User currentUser
+    ) {
+        if (currentUser.getRole() != UserRole.BRANCH_LEADER
+                && currentUser.getRole() != UserRole.SECRETARY) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only a branch leader or secretary can manage "
+                            + "activity participants"
+            );
+        }
+
+        Set<Long> staffBranchIds =
+                resolveStaffBranchIds(currentUser);
+
+        if (activity.getBranchId() != null
+                && staffBranchIds.contains(activity.getBranchId())) {
+
+            return new ManagePermission(true, null);
+        }
+
+        for (Long staffBranchId : staffBranchIds) {
+            boolean accepted = invitedBranchRepository
+                    .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                            activity.getId(),
+                            staffBranchId,
+                            ActivityInvitationStatus.ACCEPTED
+                    )
+                    .isPresent();
+
+            if (accepted) {
+                return new ManagePermission(false, staffBranchId);
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You can only manage participants for activities hosted "
+                        + "by your own branch, or that your branch has "
+                        + "accepted an invitation to"
+        );
+    }
+
+    private Set<Long> resolveStaffBranchIds(User user) {
+        if (user.getMemberId() == null) {
+            return Set.of();
+        }
+
+        Set<Long> branchIds = new LinkedHashSet<>(
+                branchStaffRepository.findActiveBranchIdsByMemberId(
+                        user.getMemberId()
+                )
+        );
+
+        memberRepository.findById(user.getMemberId())
+                .map(Member::getBranchId)
+                .ifPresent(branchIds::add);
+
+        return branchIds;
     }
 
     private void validateActivityCanBeModified(

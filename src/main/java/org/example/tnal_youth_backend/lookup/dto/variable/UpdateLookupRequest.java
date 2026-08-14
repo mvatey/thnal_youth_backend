@@ -14,7 +14,13 @@ public record UpdateLookupRequest(
 
         String description,
 
-        Integer sortOrder
+        Integer sortOrder,
+
+        /*
+         * Only used for PAYMENT_METHOD. Must be CASH, BANK, or OTHER
+         * when provided. Ignored for every other category.
+         */
+        String category
 
 ) {
 }

@@ -240,4 +240,25 @@ public interface ActivityParticipantRepository
             @Param("activityId")
             Long activityId
     );
+
+    /*
+     * Used by the "1 day before" reminder scheduler to find participants of
+     * a given activity who have not yet been reminded.
+     */
+    List<ActivityParticipant> findAllByActivity_IdAndReminderSentAtIsNull(
+            Long activityId
+    );
+
+    /*
+     * Used to scope a member's own activity list/detail access to only the
+     * activities they were personally invited to.
+     */
+    @Query("""
+            SELECT DISTINCT participant.activity.id
+            FROM ActivityParticipant participant
+            WHERE participant.member.id = :memberId
+            """)
+    List<Long> findDistinctActivityIdsByMemberId(
+            @Param("memberId") Long memberId
+    );
 }

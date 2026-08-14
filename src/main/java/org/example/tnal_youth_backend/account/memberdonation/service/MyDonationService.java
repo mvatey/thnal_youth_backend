@@ -33,4 +33,11 @@ public interface MyDonationService {
     filterMySponsorDonationsByPaymentMethod(
             Short paymentMethodId
     );
+
+    /*
+     * Event (activity) donations — donations linked to an
+     * activity, regardless of donation_type. Mirrors the
+     * frontend's own grouping rule for the event donation tab.
+     */
+    List<MyDonationResponse> getMyEventDonations();
 }
