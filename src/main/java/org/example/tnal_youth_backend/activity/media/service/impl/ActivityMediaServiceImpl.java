@@ -14,6 +14,8 @@ import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.document.document.entity.Document;
+import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -41,6 +43,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final DocumentRepository documentRepository;
 
     // ============================================================
     // COVER IMAGE
@@ -167,12 +170,18 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                 .orElse(-1) + 1;
 
         /*
-         * The activity gallery has no photos yet and the activity does not
-         * already have a cover image, so the first photo uploaded in this
-         * batch becomes the activity's cover ("main picture").
+         * The activity does not already have a cover image, so the first
+         * photo uploaded in this batch becomes the activity's cover ("main
+         * picture"). Deliberately NOT restricted to "gallery is currently
+         * empty" (nextSortOrder == 0): the frontend has no dedicated
+         * "set cover image" control, so this auto-assign is the only way a
+         * cover ever gets set, and it must keep working on every upload
+         * attempt — not just the very first one ever made — otherwise a
+         * failed/empty first attempt permanently locks the activity out of
+         * ever getting a cover image, even though coverImageId is still
+         * null and later uploads keep succeeding as plain gallery photos.
          */
-        boolean shouldAssignCover = nextSortOrder == 0
-                && activity.getCoverImageId() == null;
+        boolean shouldAssignCover = activity.getCoverImageId() == null;
 
         List<ActivityPhotoResponse> responses = new ArrayList<>();
         List<Long> uploadedFileIds = new ArrayList<>();
@@ -284,18 +293,46 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
         Long fileId = activityPhoto.getFile().getId();
 
         /*
+         * activities.cover_image_id has a FOREIGN KEY REFERENCES files(id)
+         * with no ON DELETE clause (i.e. RESTRICT). If this photo is
+         * currently the activity's cover image, deleting its file below
+         * would otherwise fail with a database constraint violation
+         * ("The request conflicts with existing data"). Re-point the
+         * cover to another remaining gallery photo (earliest by sort
+         * order) instead, or clear it if this was the last photo — this
+         * mirrors the self-healing auto-assign behavior in
+         * uploadGalleryImages, so a later upload still picks up a cover
+         * automatically.
+         */
+        boolean wasCover = fileId.equals(activity.getCoverImageId());
+
+        /*
          * Remove the gallery record first so its foreign-key reference
          * no longer blocks deletion from the files table.
          */
         activityPhotoRepository.delete(activityPhoto);
         activityPhotoRepository.flush();
 
+        if (wasCover) {
+            Long replacementCoverFileId =
+                    activityPhotoRepository
+                            .findByActivityIdOrderBySortOrderAscIdAsc(activityId)
+                            .stream()
+                            .findFirst()
+                            .map(photo -> photo.getFile().getId())
+                            .orElse(null);
+
+            activity.setCoverImageId(replacementCoverFileId);
+            activityRepository.saveAndFlush(activity);
+        }
+
         try {
             fileService.deleteFile(fileId);
         } catch (RuntimeException exception) {
             /*
              * The surrounding transaction will roll back the gallery
-             * deletion if deleting the stored file fails.
+             * deletion (and any cover reassignment above) if deleting
+             * the stored file fails.
              */
             throw exception;
         }
@@ -361,6 +398,13 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             ActivityAttachment savedAttachment =
                     activityAttachmentRepository.saveAndFlush(attachment);
 
+            mirrorAttachmentAsDocument(
+                    activity,
+                    uploadedFile,
+                    savedAttachment,
+                    currentUserId
+            );
+
             return toAttachmentResponse(savedAttachment);
         } catch (RuntimeException exception) {
             try {
@@ -416,7 +460,66 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
         activityAttachmentRepository.delete(attachment);
         activityAttachmentRepository.flush();
 
+        removeMirroredDocument(fileId);
+
         fileService.deleteFile(fileId);
+    }
+
+    /*
+     * Mirrors an activity attachment into the Document module
+     * (documents.activity_id / documents.branch_id) so it shows up in
+     * "My Account -> Documents" for any member who has joined this
+     * activity (see DocumentServiceImpl.getDocuments +
+     * DocumentRepository.findVisibleToMemberPage), without a second
+     * copy of the file itself — the mirrored row points at the same
+     * file_id the attachment already uploaded.
+     *
+     * Best-effort: this must never fail the attachment upload the
+     * user is waiting on, so all exceptions are swallowed here.
+     */
+    private void mirrorAttachmentAsDocument(
+            Activity activity,
+            FileEntity uploadedFile,
+            ActivityAttachment savedAttachment,
+            Long currentUserId
+    ) {
+        try {
+            Document document = Document.builder()
+                    .fileId(uploadedFile.getId())
+                    .title(
+                            savedAttachment.getTitle() != null
+                                    ? savedAttachment.getTitle()
+                                    : uploadedFile.getOriginalName()
+                    )
+                    .description(savedAttachment.getDescription())
+                    .branchId(activity.getBranchId())
+                    .activityId(activity.getId())
+                    .uploadedById(currentUserId)
+                    .build();
+
+            documentRepository.saveAndFlush(document);
+        } catch (RuntimeException ignored) {
+            /*
+             * The attachment itself already saved successfully; a
+             * failure to also index it in the Document module is a
+             * secondary concern, not a reason to fail this request.
+             */
+        }
+    }
+
+    /*
+     * Companion to mirrorAttachmentAsDocument — removes the mirrored
+     * Document row (if any) when the underlying attachment is
+     * deleted, so it doesn't linger as a pointer to a deleted file.
+     * Best-effort for the same reason as above.
+     */
+    private void removeMirroredDocument(Long fileId) {
+        try {
+            documentRepository.findByFileId(fileId)
+                    .ifPresent(documentRepository::delete);
+        } catch (RuntimeException ignored) {
+            // Best-effort cleanup; the attachment deletion already succeeded.
+        }
     }
 
     // ============================================================

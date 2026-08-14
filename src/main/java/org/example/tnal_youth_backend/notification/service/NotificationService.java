@@ -133,6 +133,18 @@ public class NotificationService {
         return repo.countUnread(SecurityUtils.getCurrentUserId());
     }
 
+    /**
+     * Lets other backend services create a notification by the type's
+     * stable code instead of a hardcoded id (which is a DB-generated
+     * SERIAL value that can differ between environments). Returns null
+     * if the code is unknown/inactive; callers should treat that as
+     * "skip the notification" rather than fail their primary operation.
+     */
+    @Transactional(readOnly = true)
+    public Short findActiveTypeIdByCode(String code) {
+        return repo.findActiveTypeIdByCode(code);
+    }
+
     @Transactional(readOnly = true)
     public NotificationPageDTO listMine(boolean onlyUnread, int page, int size) {
         int safeSize = Math.clamp(size, 1, 100);

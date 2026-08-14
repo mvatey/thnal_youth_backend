@@ -46,6 +46,10 @@ public interface DocumentRepository
             Long fileId
     );
 
+    java.util.Optional<Document> findByFileId(
+            Long fileId
+    );
+
 
     /*
      * ==========================================================
@@ -301,6 +305,79 @@ public interface DocumentRepository
 
             @Param("accessibleBranchIds")
             Set<Long> accessibleBranchIds,
+
+            Pageable pageable
+    );
+
+
+    /*
+     * ==========================================================
+     * DOCUMENTS VISIBLE TO A MEMBER (self-service "My Account" tab)
+     * ==========================================================
+     *
+     * Includes:
+     * - documents owned directly by this member (d.memberId = :memberId)
+     * - documents owned by an activity this member has actually
+     *   joined (an ActivityParticipant row exists for that activity +
+     *   member) — e.g. an attachment uploaded to an activity the
+     *   member participated in
+     *
+     * Deliberately does NOT include plain branch-owned documents
+     * (d.branchId set, d.memberId/d.activityId null) — those stay
+     * restricted to the staff-only organizational tab above.
+     */
+    @Query("""
+    SELECT d
+    FROM Document d
+
+    WHERE (
+        :search = ''
+
+        OR LOWER(d.title)
+            LIKE CONCAT('%', LOWER(:search), '%')
+
+        OR LOWER(COALESCE(d.description, ''))
+            LIKE CONCAT('%', LOWER(:search), '%')
+    )
+
+    AND (
+        :typeId IS NULL
+        OR d.typeId = :typeId
+    )
+
+    AND d.createdAt >= :startDateTime
+    AND d.createdAt < :endDateTime
+
+    AND (
+        d.memberId = :memberId
+
+        OR (
+            d.activityId IS NOT NULL
+
+            AND d.activityId IN (
+                SELECT ap.activity.id
+                FROM ActivityParticipant ap
+                WHERE ap.member.id = :memberId
+            )
+        )
+    )
+    """)
+    Page<Document> findVisibleToMemberPage(
+
+            @Param("memberId")
+            Long memberId,
+
+            @Param("search")
+            String search,
+
+            @Param("typeId")
+            Short typeId,
+
+            @Param("startDateTime")
+            OffsetDateTime startDateTime,
+
+            @Param("endDateTime")
+            OffsetDateTime endDateTime,
 
             Pageable pageable
     );

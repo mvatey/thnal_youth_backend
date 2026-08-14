@@ -40,11 +40,15 @@ public class DocumentController {
      * - view documents in accessible branch scope
      *
      * MEMBER:
-     * - no access to organizational document tab
+     * - no access to the branch-wide organizational list, but the
+     *   service layer still serves this same endpoint scoped to just
+     *   their own documents plus documents from activities they
+     *   joined (see DocumentServiceImpl.getDocuments) — this is what
+     *   "My Account -> Documents" calls for any authenticated role.
      */
     @GetMapping
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')"
     )
     public ResponseEntity<DocumentPageResponse>
     getDocuments(

@@ -580,14 +580,79 @@ public class DocumentServiceImpl
         boolean isAdmin =
                 currentRole == UserRole.ADMIN;
 
+        boolean isMember =
+                currentRole == UserRole.MEMBER;
+
         if (
                 !isAdmin
+                        && !isMember
                         && currentRole != UserRole.SECRETARY
                         && currentRole != UserRole.BRANCH_LEADER
         ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to view organizational documents"
+            );
+        }
+
+        /*
+         * A plain MEMBER never sees the branch-wide organizational
+         * list below (that stays staff-only) — only documents that
+         * belong to them personally, plus documents attached to an
+         * activity they actually joined (e.g. an activity's uploaded
+         * attachment). This lets "My Account -> Documents" reach an
+         * activity's documents without exposing the rest of the
+         * branch's organizational documents.
+         */
+        if (isMember) {
+            Long selfMemberId = currentUser.getMemberId();
+
+            if (selfMemberId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account is not linked to a member record"
+                );
+            }
+
+            Pageable memberPageable =
+                    PageRequest.of(
+                            page,
+                            size,
+                            Sort.by(
+                                    Sort.Direction.DESC,
+                                    "createdAt"
+                            ).and(
+                                    Sort.by(
+                                            Sort.Direction.DESC,
+                                            "id"
+                                    )
+                            )
+                    );
+
+            Page<Document> memberVisible =
+                    documentRepository.findVisibleToMemberPage(
+                            selfMemberId,
+                            normalizedSearch,
+                            typeId,
+                            startDateTime,
+                            endDateTime,
+                            memberPageable
+                    );
+
+            List<DocumentResponse> memberContent =
+                    memberVisible.getContent()
+                            .stream()
+                            .map(documentMapper::toResponse)
+                            .toList();
+
+            return new DocumentPageResponse(
+                    memberContent,
+                    memberVisible.getNumber(),
+                    memberVisible.getSize(),
+                    memberVisible.getTotalElements(),
+                    memberVisible.getTotalPages(),
+                    memberVisible.isFirst(),
+                    memberVisible.isLast()
             );
         }
 

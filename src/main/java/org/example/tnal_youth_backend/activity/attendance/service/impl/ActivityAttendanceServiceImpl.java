@@ -10,7 +10,11 @@ import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatu
 import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
 import org.example.tnal_youth_backend.activity.attendance.service.ActivityAttendanceService;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
+import org.example.tnal_youth_backend.activity.model.enums.ParticipantRegistrationSource;
+import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
@@ -51,6 +55,8 @@ public class ActivityAttendanceServiceImpl
     private final MemberRepository memberRepository;
 
     private final BranchStaffRepository branchStaffRepository;
+
+    private final ActivityInvitedBranchRepository invitedBranchRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -203,12 +209,43 @@ public class ActivityAttendanceServiceImpl
         Activity activity = findActivity(activityId);
 
         validateManualAttendanceCanBeModified(activity);
-        validateManualAttendancePermission(activity, currentUserId);
 
+        Long memberId = request.getMemberId();
+
+        if (memberId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member ID is required"
+            );
+        }
+
+        Member member =
+                memberRepository.findById(memberId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Member not found with ID: "
+                                                + memberId
+                                )
+                        );
+
+        validateManualAttendancePermission(
+                activity,
+                member.getBranchId(),
+                currentUserId
+        );
+
+        /*
+         * A member may not have a participant row yet — e.g. they were
+         * never formally invited/divided, but staff is now recording
+         * their real-world attendance by hand ("walk-in"). Create the
+         * row on the fly instead of requiring prior registration.
+         */
         ActivityParticipant participant =
-                findParticipant(
-                        activityId,
-                        request.getMemberId()
+                findOrCreateParticipant(
+                        activity,
+                        member,
+                        currentUserId
                 );
 
         String statusCode =
@@ -321,6 +358,108 @@ public class ActivityAttendanceServiceImpl
                 );
     }
 
+    /**
+     * Like {@link #findParticipant}, but for the manual-attendance flow: if
+     * the member has no participant row yet, one is created on the fly
+     * ("walk-in") instead of failing with 404 — see
+     * {@link #createWalkInParticipant}.
+     */
+    private ActivityParticipant findOrCreateParticipant(
+            Activity activity,
+            Member member,
+            Long currentUserId
+    ) {
+        return participantRepository
+                .findByActivity_IdAndMember_Id(
+                        activity.getId(),
+                        member.getId()
+                )
+                .orElseGet(() ->
+                        createWalkInParticipant(
+                                activity,
+                                member,
+                                currentUserId
+                        )
+                );
+    }
+
+    /**
+     * Creates a participant record for a member who was never formally
+     * invited/divided but is being marked present/absent by hand. A
+     * host-branch member is recorded as {@code WALK_IN}. A member of a
+     * different branch may only be recorded this way if that branch has an
+     * ACCEPTED invitation to co-host the activity (enforced again here,
+     * defense-in-depth alongside {@link #validateManualAttendancePermission}).
+     */
+    private ActivityParticipant createWalkInParticipant(
+            Activity activity,
+            Member member,
+            Long currentUserId
+    ) {
+        User actingUser =
+                userRepository.findById(currentUserId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user could not be found"
+                                )
+                        );
+
+        Long memberBranchId = member.getBranchId();
+
+        if (memberBranchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member " + member.getId()
+                            + " does not belong to a branch"
+            );
+        }
+
+        Long hostBranchId = activity.getBranchId();
+
+        ParticipantRegistrationSource source;
+        ActivityInvitedBranch invitedBranch = null;
+
+        if (hostBranchId != null
+                && hostBranchId.equals(memberBranchId)) {
+
+            source = ParticipantRegistrationSource.WALK_IN;
+
+        } else {
+            invitedBranch =
+                    invitedBranchRepository
+                            .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                                    activity.getId(),
+                                    memberBranchId,
+                                    ActivityInvitationStatus.ACCEPTED
+                            )
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "The member's branch has not "
+                                                    + "accepted an invitation "
+                                                    + "for this activity"
+                                    )
+                            );
+
+            source = ParticipantRegistrationSource.INVITED_BRANCH;
+        }
+
+        ActivityParticipant participant =
+                ActivityParticipant.builder()
+                        .activity(activity)
+                        .member(member)
+                        .invitedBy(actingUser)
+                        .invitedBranch(invitedBranch)
+                        .registrationSource(source)
+                        .registeredAt(OffsetDateTime.now())
+                        .build();
+
+        return participantRepository.saveAndFlush(
+                participant
+        );
+    }
+
     private AttendanceStatus findAttendanceStatus(
             String code
     ) {
@@ -408,12 +547,20 @@ public class ActivityAttendanceServiceImpl
     }
 
     /**
-     * Only a branch leader or secretary who is staff of THIS activity's own
-     * branch may manually correct attendance — never an admin (view-only in
-     * the activity module) and never staff of a different branch.
+     * Only a branch leader or secretary may manually correct attendance —
+     * never an admin (view-only in the activity module). Two branches of
+     * staff qualify:
+     * <ul>
+     *   <li>Staff of THIS activity's own host branch — may correct any
+     *       participant's attendance.</li>
+     *   <li>Staff of a branch with an ACCEPTED invitation to co-host this
+     *       activity — may correct attendance only for members of their
+     *       OWN branch (never the host's or another invited branch's).</li>
+     * </ul>
      */
     private void validateManualAttendancePermission(
             Activity activity,
+            Long memberBranchId,
             Long currentUserId
     ) {
         User currentUser = requireUser(currentUserId);
@@ -431,15 +578,35 @@ public class ActivityAttendanceServiceImpl
         Set<Long> staffBranchIds =
                 resolveStaffBranchIds(currentUser);
 
-        if (activity.getBranchId() == null
-                || !staffBranchIds.contains(activity.getBranchId())) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You can only update attendance for activities "
-                            + "hosted by your own branch"
-            );
+        if (activity.getBranchId() != null
+                && staffBranchIds.contains(activity.getBranchId())) {
+            return;
         }
+
+        if (memberBranchId != null
+                && staffBranchIds.contains(memberBranchId)) {
+
+            boolean branchAccepted =
+                    invitedBranchRepository
+                            .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                                    activity.getId(),
+                                    memberBranchId,
+                                    ActivityInvitationStatus.ACCEPTED
+                            )
+                            .isPresent();
+
+            if (branchAccepted) {
+                return;
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You can only update attendance for activities hosted "
+                        + "by your own branch, or for your own branch's "
+                        + "members when your branch has accepted an "
+                        + "invitation to this activity"
+        );
     }
 
     private Set<Long> resolveStaffBranchIds(
