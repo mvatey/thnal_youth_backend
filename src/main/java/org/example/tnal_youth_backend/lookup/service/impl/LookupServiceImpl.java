@@ -335,7 +335,7 @@ public class LookupServiceImpl
             case VIEWER ->
                     new RoleOptionResponse(
                             "VIEWER",
-                            "អ្នកមើលប៉ុណ្ណោះ",
+                            "អ្នកមើល",
                             "Viewer"
                     );
         };

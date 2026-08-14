@@ -54,6 +54,29 @@ public class MyAccountController {
         );
     }
 
+    /*
+     * Upload and assign the authenticated member's profile photo.
+     *
+     * POST /api/my-account/profile-photo
+     */
+    @PostMapping(
+            value = "/profile-photo",
+            consumes =
+                    MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<MemberDetailResponse>
+    uploadMyProfilePhoto(
+            @RequestPart("file")
+            MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                myAccountService
+                        .uploadMyProfilePhoto(
+                                file
+                        )
+        );
+    }
+
     @GetMapping("/personal-info")
     public ResponseEntity<MemberPersonalInfoResponse>
     getMyPersonalInfo() {

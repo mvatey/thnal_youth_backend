@@ -86,6 +86,29 @@ public class MyAccountServiceImpl
                 .getMemberById(memberId);
     }
 
+    /*
+     * Reuses MemberService.uploadMemberProfilePhoto(), the same
+     * upload/storage path staff use to change a member's photo.
+     * MemberAccessValidator already allows a MEMBER-role user to
+     * access only their own member record, so this call is safely
+     * scoped to the authenticated member without any extra checks.
+     */
+    @Override
+    @Transactional
+    public MemberDetailResponse uploadMyProfilePhoto(
+            MultipartFile file
+    ) {
+        Long memberId =
+                currentMemberResolver
+                        .getCurrentMemberId();
+
+        return memberService
+                .uploadMemberProfilePhoto(
+                        memberId,
+                        file
+                );
+    }
+
 
     @Override
     @Transactional(readOnly = true)

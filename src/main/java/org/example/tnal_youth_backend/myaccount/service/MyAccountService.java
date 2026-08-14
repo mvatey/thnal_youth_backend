@@ -26,6 +26,15 @@ public interface MyAccountService {
 
     MemberDetailResponse getMyProfile();
 
+    /*
+     * Uploads and assigns the authenticated member's profile photo.
+     * Delegates to MemberService so the same upload/storage logic used
+     * by staff editing a member's photo is reused here.
+     */
+    MemberDetailResponse uploadMyProfilePhoto(
+            MultipartFile file
+    );
+
 
 
     MemberPersonalInfoResponse getMyPersonalInfo();
