@@ -2,17 +2,22 @@ package org.example.tnal_youth_backend.donation.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityBranchRole;
 import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
+import org.example.tnal_youth_backend.activity.model.response.ActivityBranchResponse;
 import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
 import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest;
+import org.example.tnal_youth_backend.donation.dto.response.DonationBranchTotalResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationPageResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationSummaryResponse;
 import org.example.tnal_youth_backend.donation.dto.request.DonationUpdateRequest;
 import org.example.tnal_youth_backend.donation.entity.Donation;
+import org.example.tnal_youth_backend.donation.repository.BranchDonationTotalRow;
 import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
@@ -27,7 +32,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Donation recording + reporting service.
@@ -87,6 +94,7 @@ public class DonationServiceImpl implements DonationService {
     private final Clock clock; // utcClock bean from TimeConfig
     private final ActivityRepository activityRepository;
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
+    private final ActivityInvitedBranchService activityInvitedBranchService;
 
     // ===================================================================
     // create
@@ -280,6 +288,67 @@ public class DonationServiceImpl implements DonationService {
     }
 
     // ===================================================================
+    // activity donation branch totals
+    // ===================================================================
+
+    /**
+     * See {@link DonationService#activityBranchTotals}. No new table: the
+     * per-branch sums are a plain GROUP BY over the existing {@code donations}
+     * rows (repo.sumByActivityGroupedByBranch), merged against the activity's
+     * full eligible-branch list (organizer + ACCEPTED co-hosts, from {@link
+     * ActivityInvitedBranchService#getActivityBranches}) so a branch that
+     * hasn't recorded anything yet still shows up with a zero total instead
+     * of being silently missing from the table.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public List<DonationBranchTotalResponse> activityBranchTotals(Long activityId) {
+        Long actorId = SecurityUtils.getCurrentUserId();
+
+        // Object-level authz: ADMIN/SECRETARY are org-wide (same as every
+        // other read here); a BRANCH_LEADER may only view this if their own
+        // branch actually has a stake in the activity — i.e. is the host or
+        // has an ACCEPTED co-hosting invitation. Same eligibility rule as
+        // recording a donation (validateActivityDonationBranchEligibility),
+        // just checked against the viewer's own branch instead of a
+        // request's branchId.
+        Long scopeBranchId = scopedBranchIdOrNull(actorId);
+        if (scopeBranchId != null && !isBranchEligibleForActivity(activityId, scopeBranchId)) {
+            throw new AccessDeniedException(
+                    "Your branch has no relationship to this activity");
+        }
+
+        List<ActivityBranchResponse> eligibleBranches = activityInvitedBranchService
+                .getActivityBranches(activityId)
+                .stream()
+                .filter(branch -> branch.getRole() == ActivityBranchRole.ORGANIZER
+                        || branch.getInvitationStatus() == ActivityInvitationStatus.ACCEPTED)
+                .toList();
+
+        Map<Long, BranchDonationTotalRow> totalsByBranchId = new HashMap<>();
+        for (BranchDonationTotalRow row : repo.sumByActivityGroupedByBranch(activityId)) {
+            totalsByBranchId.put(row.getBranchId(), row);
+        }
+
+        return eligibleBranches.stream()
+                .map(branch -> {
+                    BranchDonationTotalRow row = totalsByBranchId.get(branch.getBranchId());
+                    return DonationBranchTotalResponse.builder()
+                            .branchId(branch.getBranchId())
+                            .branchCode(branch.getBranchCode())
+                            .branchNameKm(branch.getBranchNameKm())
+                            .branchNameEn(branch.getBranchNameEn())
+                            .role(branch.getRole())
+                            .donationCount(row != null && row.getDonationCount() != null ? row.getDonationCount() : 0L)
+                            .amountKhr(row != null && row.getAmountKhr() != null ? row.getAmountKhr() : BigDecimal.ZERO)
+                            .amountUsd(row != null && row.getAmountUsd() != null ? row.getAmountUsd() : BigDecimal.ZERO)
+                            .totalAmountUsd(row != null && row.getTotalAmountUsd() != null ? row.getTotalAmountUsd() : BigDecimal.ZERO)
+                            .build();
+                })
+                .toList();
+    }
+
+    // ===================================================================
     // internals
     // ===================================================================
 
@@ -435,24 +504,35 @@ public class DonationServiceImpl implements DonationService {
      * all, regardless of who is recording it.
      */
     private void validateActivityDonationBranchEligibility(Long activityId, Long branchId) {
+        if (!isBranchEligibleForActivity(activityId, branchId)) {
+            throw new BusinessException("DONATION_BRANCH_NOT_ELIGIBLE",
+                    "Branch " + branchId + " is not this activity's host branch and has not "
+                            + "accepted an invitation to it");
+        }
+    }
+
+    /**
+     * True when {@code branchId} is this activity's own host branch, or has
+     * an ACCEPTED invitation to co-host it. Shared by the donation-record
+     * eligibility check above and {@link #activityBranchTotals}'s
+     * view-access check below — both boil down to the same "does this
+     * branch actually have a stake in this activity" question, just applied
+     * to a request's branchId in one case and the viewer's own branch in
+     * the other.
+     */
+    private boolean isBranchEligibleForActivity(Long activityId, Long branchId) {
         Long hostBranchId = activityRepository.findById(activityId)
                 .map(Activity::getBranchId)
                 .orElse(null);
 
         if (hostBranchId != null && hostBranchId.equals(branchId)) {
-            return;
+            return true;
         }
 
-        boolean accepted = activityInvitedBranchRepository
+        return activityInvitedBranchRepository
                 .findByActivity_IdAndBranch_IdAndInvitationStatus(
                         activityId, branchId, ActivityInvitationStatus.ACCEPTED)
                 .isPresent();
-
-        if (!accepted) {
-            throw new BusinessException("DONATION_BRANCH_NOT_ELIGIBLE",
-                    "Branch " + branchId + " is not this activity's host branch and has not "
-                            + "accepted an invitation to it");
-        }
     }
 
     /**

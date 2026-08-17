@@ -410,4 +410,27 @@ public interface DonationRepository {
                                @Param("paidFrom") OffsetDateTime paidFrom,
                                @Param("paidTo") OffsetDateTime paidTo,
                                @Param("search") String search);
+
+    /**
+     * One row per branch_id that has recorded at least one donation for this
+     * activity — the "activity donation branches" summary (see
+     * DonationServiceImpl#activityBranchTotals). No new table: donations
+     * already carries both activity_id and branch_id (V8), so this is a
+     * plain GROUP BY. A branch with zero donations recorded so far has no
+     * row here at all — the service fills that in against the activity's
+     * full eligible-branch list, so the API response still lists it with a
+     * zero total.
+     */
+    @Select("""
+        SELECT
+            n.branch_id                          AS branchId,
+            COUNT(*)                             AS donationCount,
+            COALESCE(SUM(n.amount_khr), 0)       AS amountKhr,
+            COALESCE(SUM(n.amount_usd), 0)       AS amountUsd,
+            COALESCE(SUM(n.total_amount_usd), 0) AS totalAmountUsd
+        FROM donations n
+        WHERE n.activity_id = #{activityId}
+        GROUP BY n.branch_id
+        """)
+    List<BranchDonationTotalRow> sumByActivityGroupedByBranch(@Param("activityId") Long activityId);
 }

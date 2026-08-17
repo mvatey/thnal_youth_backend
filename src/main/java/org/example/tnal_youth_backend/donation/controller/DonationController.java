@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest;
+import org.example.tnal_youth_backend.donation.dto.response.DonationBranchTotalResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationPageResponse;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Donation recording + reporting endpoints.
@@ -93,6 +95,25 @@ public class DonationController {
         return ResponseEntity.ok(ApiResponse.ok(service.summary(
                 branchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
                 paidFrom, paidTo, search)));
+    }
+
+    /**
+     * Every branch eligible to record a donation for this activity (the
+     * organizer plus every ACCEPTED co-hosting branch), each with its
+     * running total for this activity only — used by the activity-donation
+     * "សាខា" (branches) tab so an organizer (or any accepted co-host) can
+     * see how much every OTHER participating branch has raised, without
+     * exposing their individual donation rows. STAFF-gated at the
+     * controller like every other read here; the narrower "does this
+     * viewer's branch actually have a stake in this activity" check is
+     * object-level and lives in the service (see
+     * DonationServiceImpl#activityBranchTotals).
+     */
+    @GetMapping("/activity/{activityId}/branch-totals")
+    @PreAuthorize(STAFF)
+    public ResponseEntity<ApiResponse<List<DonationBranchTotalResponse>>> activityBranchTotals(
+            @PathVariable Long activityId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.activityBranchTotals(activityId)));
     }
 
     @PutMapping("/{id}")
