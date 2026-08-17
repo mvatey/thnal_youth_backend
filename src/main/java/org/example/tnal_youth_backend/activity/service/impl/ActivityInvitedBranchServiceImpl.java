@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.mapper.ActivityInvitedBranchMapper;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
+import org.example.tnal_youth_backend.activity.model.enums.ActivityBranchRole;
 import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
 import org.example.tnal_youth_backend.activity.model.request.InviteBranchRequest;
 import org.example.tnal_youth_backend.activity.model.request.RespondBranchInvitationRequest;
+import org.example.tnal_youth_backend.activity.model.response.ActivityBranchResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityInvitedBranchResponse;
 import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
@@ -214,6 +216,62 @@ public class ActivityInvitedBranchServiceImpl
                 .stream()
                 .map(invitedBranchMapper::toResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityBranchResponse> getActivityBranches(
+            Long activityId
+    ) {
+        Activity activity = findActivity(activityId);
+
+        List<ActivityBranchResponse> branches = new ArrayList<>();
+
+        /*
+         * The organizer is not a row in activity_invited_branches — it is
+         * activities.branch_id, a single required FK (every activity has
+         * exactly one organizer). Synthesize it as the first entry so
+         * callers get one list covering both roles instead of having to
+         * separately read the activity's own branchId and this table.
+         */
+        branchRepository.findById(activity.getBranchId())
+                .ifPresent(organizerBranch -> branches.add(
+                        ActivityBranchResponse.builder()
+                                .activityId(activityId)
+                                .branchId(organizerBranch.getId())
+                                .branchCode(organizerBranch.getBranchCode())
+                                .branchNameKm(organizerBranch.getNameKm())
+                                .branchNameEn(organizerBranch.getNameEn())
+                                .role(ActivityBranchRole.ORGANIZER)
+                                .invitationStatus(null)
+                                .canManageAttendance(true)
+                                .canRecordDonation(true)
+                                .invitationId(null)
+                                .invitedAt(null)
+                                .respondedAt(null)
+                                .build()
+                ));
+
+        invitedBranchRepository
+                .findAllByActivity_IdOrderByInvitedAtDesc(activityId)
+                .forEach(invitation -> branches.add(
+                        ActivityBranchResponse.builder()
+                                .activityId(activityId)
+                                .branchId(invitation.getBranch().getId())
+                                .branchCode(invitation.getBranch().getBranchCode())
+                                .branchNameKm(invitation.getBranch().getNameKm())
+                                .branchNameEn(invitation.getBranch().getNameEn())
+                                .role(ActivityBranchRole.INVITED)
+                                .invitationStatus(invitation.getInvitationStatus())
+                                .canManageAttendance(invitation.getCanManageAttendance())
+                                .canRecordDonation(invitation.getCanRecordDonation())
+                                .invitationId(invitation.getId())
+                                .invitedAt(invitation.getInvitedAt())
+                                .respondedAt(invitation.getRespondedAt())
+                                .build()
+                ));
+
+        return branches;
     }
 
     @Override

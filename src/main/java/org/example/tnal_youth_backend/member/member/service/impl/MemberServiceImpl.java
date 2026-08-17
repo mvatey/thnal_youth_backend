@@ -1716,31 +1716,64 @@ public class MemberServiceImpl implements MemberService {
                                 )
                         );
 
-        Long assignedBranchId =
+        Long homeBranchId =
                 currentMember
                         .getBranchId();
 
-        if (assignedBranchId == null) {
+        /*
+         * A secretary/branch-leader can be staff of MORE than one branch
+         * (see branch_staff) — not just their own member record's home
+         * branch. This previously only ever checked the home branch here,
+         * which incorrectly forbade a multi-branch staff member from
+         * listing members of their OTHER assigned branch (e.g. from the
+         * activity-donation module's branch picker). Mirrors
+         * validateMemberBranchAccess, which already resolves branch access
+         * this same branch_staff-plus-home-fallback way.
+         */
+        Set<Long> accessibleBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        currentUser.getMemberId()
+                                )
+                );
+
+        if (homeBranchId != null) {
+            accessibleBranchIds.add(homeBranchId);
+        }
+
+        if (accessibleBranchIds.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Your member record is not assigned to a branch"
             );
         }
 
-        if (
-                requestedBranchId != null
-                        && !assignedBranchId
-                        .equals(
-                                requestedBranchId
-                        )
-        ) {
+        if (requestedBranchId != null) {
+            if (!accessibleBranchIds.contains(requestedBranchId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You cannot access members from another branch"
+                );
+            }
+
+            return requestedBranchId;
+        }
+
+        /*
+         * No explicit branchId requested — default to the home branch
+         * (a single-branch context), same as before. A caller that needs a
+         * specific non-home assigned branch's members must pass branchId
+         * explicitly.
+         */
+        if (homeBranchId == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "You cannot access members from another branch"
+                    "Your member record is not assigned to a branch"
             );
         }
 
-        return assignedBranchId;
+        return homeBranchId;
     }
 
 

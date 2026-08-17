@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -261,4 +262,28 @@ public interface ActivityParticipantRepository
     List<Long> findDistinctActivityIdsByMemberId(
             @Param("memberId") Long memberId
     );
+
+    /*
+     * One row per activity id, counting EVERY participant regardless of
+     * source (host branch, an accepted co-hosting branch, or a walk-in) —
+     * same counting rule as validateCapacity. Used to populate
+     * ActivityListItemResponse.participantCount for a page of activities in
+     * a single query instead of one count query per row.
+     */
+    @Query("""
+            SELECT participant.activity.id AS activityId,
+                   COUNT(participant) AS participantCount
+            FROM ActivityParticipant participant
+            WHERE participant.activity.id IN :activityIds
+            GROUP BY participant.activity.id
+            """)
+    List<ActivityParticipantCountProjection> countGroupedByActivityIds(
+            @Param("activityIds") Collection<Long> activityIds
+    );
+
+    interface ActivityParticipantCountProjection {
+        Long getActivityId();
+
+        Long getParticipantCount();
+    }
 }

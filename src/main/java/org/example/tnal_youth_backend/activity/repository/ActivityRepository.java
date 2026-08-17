@@ -19,6 +19,19 @@ public interface ActivityRepository
             Pageable pageable
     );
 
+    /*
+     * Same as findAllByBranchIdIn, but also folds in a second, independent
+     * set of activity ids — used to add "invited to co-host" activities
+     * (whose host branch is someone else's) alongside a staff member's own
+     * host-branch activities. Only called when that second set is
+     * non-empty; an empty IN(...) is avoided by the caller.
+     */
+    Page<Activity> findAllByBranchIdInOrIdIn(
+            Collection<Long> branchIds,
+            Collection<Long> ids,
+            Pageable pageable
+    );
+
     List<Activity> findAllByStatus_CodeIgnoreCaseAndStartsAtLessThanEqual(
             String statusCode,
             OffsetDateTime currentTime

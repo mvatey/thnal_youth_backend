@@ -26,6 +26,7 @@ public interface ActivityService {
             Short sectorId,
             Short typeId,
             LocalDate date,
+            Long branchId,
             Long currentUserId
     );
 

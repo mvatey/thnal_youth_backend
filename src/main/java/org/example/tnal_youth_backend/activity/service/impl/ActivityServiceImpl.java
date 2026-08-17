@@ -38,7 +38,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -165,6 +167,7 @@ public class ActivityServiceImpl implements ActivityService {
             Short sectorId,
             Short typeId,
             LocalDate date,
+            Long branchId,
             Long currentUserId
     ) {
         if (page < 0) {
@@ -195,18 +198,84 @@ public class ActivityServiceImpl implements ActivityService {
          * For now, this preserves the existing pagination behavior.
          */
         Page<Activity> activityPage;
+        Set<Long> ownBranchIdsForScope = null;
+        Long invitedActivityCountForResponse = null;
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
                         "Authenticated user could not be found"
                 ));
 
-        if (currentUser.getRole() == UserRole.SECRETARY) {
-            Set<Long> branchIds = resolveSecretaryBranchIds(currentUser);
-            activityPage = activityRepository.findAllByBranchIdIn(
-                    branchIds,
-                    pageable
+        if (branchId != null) {
+            /*
+             * An explicit branchId narrows the list to exactly that
+             * branch's own-hosted activities plus activities it was
+             * invited to and accepted — regardless of the caller's normal
+             * role-based scope. Used by callers (e.g. the activity-donation
+             * module) that let staff pick any ONE of their accessible
+             * branches and need that specific branch's activities, not the
+             * caller's full combined scope.
+             */
+            validateExplicitBranchAccess(currentUser, branchId);
+
+            Set<Long> branchIds = Set.of(branchId);
+            ownBranchIdsForScope = branchIds;
+
+            Set<Long> invitedActivityIds = new LinkedHashSet<>(
+                    activityInvitedBranchRepository
+                            .findActivityIdsByBranchIdInAndInvitationStatus(
+                                    branchIds,
+                                    ActivityInvitationStatus.ACCEPTED
+                            )
             );
+
+            invitedActivityCountForResponse =
+                    (long) invitedActivityIds.size();
+
+            activityPage = invitedActivityIds.isEmpty()
+                    ? activityRepository.findAllByBranchIdIn(
+                            branchIds,
+                            pageable
+                    )
+                    : activityRepository.findAllByBranchIdInOrIdIn(
+                            branchIds,
+                            invitedActivityIds,
+                            pageable
+                    );
+        } else if (currentUser.getRole() == UserRole.SECRETARY) {
+            Set<Long> branchIds = resolveSecretaryBranchIds(currentUser);
+            ownBranchIdsForScope = branchIds;
+
+            /*
+             * A secretary's activity list should also include activities
+             * hosted by a DIFFERENT branch that has invited one of this
+             * secretary's own branches to co-host — previously the list
+             * only ever queried by host branchId, so an accepted co-hosting
+             * invitation never actually surfaced the activity here (only
+             * reachable via the activity's own detail-page URL, e.g. from
+             * the invitation notification).
+             */
+            Set<Long> invitedActivityIds = new LinkedHashSet<>(
+                    activityInvitedBranchRepository
+                            .findActivityIdsByBranchIdInAndInvitationStatus(
+                                    branchIds,
+                                    ActivityInvitationStatus.ACCEPTED
+                            )
+            );
+
+            invitedActivityCountForResponse =
+                    (long) invitedActivityIds.size();
+
+            activityPage = invitedActivityIds.isEmpty()
+                    ? activityRepository.findAllByBranchIdIn(
+                            branchIds,
+                            pageable
+                    )
+                    : activityRepository.findAllByBranchIdInOrIdIn(
+                            branchIds,
+                            invitedActivityIds,
+                            pageable
+                    );
         } else if (currentUser.getRole() == UserRole.MEMBER) {
             /*
              * A member only sees activities they were personally invited
@@ -230,10 +299,61 @@ public class ActivityServiceImpl implements ActivityService {
             activityPage = activityRepository.findAll(pageable);
         }
 
+        List<Long> pageActivityIds = activityPage.getContent()
+                .stream()
+                .map(Activity::getId)
+                .toList();
+
+        /*
+         * Batched: one count-per-activity query for the whole page, instead
+         * of one query per row. Counts every participant regardless of
+         * source (host branch, an accepted co-hosting branch, or a
+         * walk-in) — see ActivityParticipantRepository
+         * .countGroupedByActivityIds.
+         */
+        Map<Long, Long> participantCountsByActivityId =
+                pageActivityIds.isEmpty()
+                        ? Map.of()
+                        : activityParticipantRepository
+                                .countGroupedByActivityIds(pageActivityIds)
+                                .stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                ActivityParticipantRepository
+                                                        .ActivityParticipantCountProjection
+                                                        ::getActivityId,
+                                                ActivityParticipantRepository
+                                                        .ActivityParticipantCountProjection
+                                                        ::getParticipantCount
+                                        )
+                                );
+
+        Set<Long> ownBranchIdsForMapping = ownBranchIdsForScope;
         List<ActivityListItemResponse> content =
                 activityPage.getContent()
                         .stream()
-                        .map(activityMapper::toListItemResponse)
+                        .map(activity -> {
+                            ActivityListItemResponse item =
+                                    activityMapper.toListItemResponse(activity);
+
+                            if (ownBranchIdsForMapping != null) {
+                                item.setOwnBranch(
+                                        ownBranchIdsForMapping.contains(
+                                                activity.getBranchId()
+                                        )
+                                );
+                            }
+
+                            item.setParticipantCount(
+                                    participantCountsByActivityId
+                                            .getOrDefault(
+                                                    activity.getId(),
+                                                    0L
+                                            )
+                            );
+
+                            return item;
+                        })
                         .toList();
 
         return ActivityPageResponse.builder()
@@ -244,7 +364,33 @@ public class ActivityServiceImpl implements ActivityService {
                 .totalPages(activityPage.getTotalPages())
                 .first(activityPage.isFirst())
                 .last(activityPage.isLast())
+                .invitedActivityCount(invitedActivityCountForResponse)
                 .build();
+    }
+
+    /**
+     * Guards the explicit {@code branchId} list filter. A branch leader or
+     * secretary may only request a branch they are staff of (same
+     * branch_staff-with-home-branch-fallback set as {@link
+     * #resolveStaffBranchIds}, matching {@code /api/lookups/branches}).
+     * Admins and other roles are not restricted here — this endpoint is
+     * read-only and callers already gate who may reach it.
+     */
+    private void validateExplicitBranchAccess(
+            User user,
+            Long branchId
+    ) {
+        if (user.getRole() != UserRole.BRANCH_LEADER
+                && user.getRole() != UserRole.SECRETARY) {
+            return;
+        }
+
+        if (!resolveStaffBranchIds(user).contains(branchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have access to this branch"
+            );
+        }
     }
 
     private Set<Long> resolveSecretaryBranchIds(User user) {

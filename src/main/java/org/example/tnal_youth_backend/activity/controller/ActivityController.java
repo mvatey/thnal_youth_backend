@@ -4,8 +4,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.model.request.CreateActivityRequest;
 import org.example.tnal_youth_backend.activity.model.request.UpdateActivityRequest;
+import org.example.tnal_youth_backend.activity.model.response.ActivityBranchResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityPageResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
+import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
 import org.example.tnal_youth_backend.activity.service.ActivityService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/activities")
@@ -22,6 +25,7 @@ import java.time.LocalDate;
 public class ActivityController {
 
     private final ActivityService activityService;
+    private final ActivityInvitedBranchService activityInvitedBranchService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -79,6 +83,22 @@ public class ActivityController {
         );
     }
 
+    /**
+     * Every branch connected to this activity — the organizer plus every
+     * invited branch — each tagged with its role (ORGANIZER / INVITED). One
+     * combined list instead of separately reading the activity's own
+     * branchId and calling {@code GET .../invited-branches}. See {@link
+     * ActivityBranchResponse}.
+     */
+    @GetMapping("/{activityId}/branches")
+    public List<ActivityBranchResponse> getActivityBranches(
+            @PathVariable Long activityId
+    ) {
+        return activityInvitedBranchService.getActivityBranches(
+                activityId
+        );
+    }
+
     @GetMapping
     public ActivityPageResponse getActivities(
             @RequestParam(defaultValue = "0") int page,
@@ -89,6 +109,15 @@ public class ActivityController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate date,
+            /*
+             * When provided, narrows the list to exactly that one branch's
+             * own-hosted activities plus activities it was invited to and
+             * accepted — regardless of the caller's normal role-based
+             * scope. Lets a caller (e.g. the activity-donation module) that
+             * lets staff pick any ONE of their accessible branches ask for
+             * that specific branch's activities.
+             */
+            @RequestParam(required = false) Long branchId,
             Authentication authentication
     ) {
         return activityService.getActivities(
@@ -98,6 +127,7 @@ public class ActivityController {
                 sectorId,
                 typeId,
                 date,
+                branchId,
                 extractCurrentUserId(authentication)
         );
     }

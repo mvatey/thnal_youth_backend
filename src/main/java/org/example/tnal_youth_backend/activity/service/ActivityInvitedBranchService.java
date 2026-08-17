@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.activity.service;
 
 import org.example.tnal_youth_backend.activity.model.request.InviteBranchRequest;
 import org.example.tnal_youth_backend.activity.model.request.RespondBranchInvitationRequest;
+import org.example.tnal_youth_backend.activity.model.response.ActivityBranchResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityInvitedBranchResponse;
 
 import java.util.List;
@@ -15,6 +16,15 @@ public interface ActivityInvitedBranchService {
     );
 
     List<ActivityInvitedBranchResponse> getInvitedBranches(
+            Long activityId
+    );
+
+    /**
+     * Every branch connected to this activity — the organizer plus every
+     * invited branch — each tagged with its role. See {@link
+     * org.example.tnal_youth_backend.activity.model.enums.ActivityBranchRole}.
+     */
+    List<ActivityBranchResponse> getActivityBranches(
             Long activityId
     );
 
