@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.activity.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.mapper.ActivityMapper;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
 import org.example.tnal_youth_backend.activity.model.entity.ActivitySector;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityStatus;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityType;
@@ -36,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -200,6 +202,7 @@ public class ActivityServiceImpl implements ActivityService {
         Page<Activity> activityPage;
         Set<Long> ownBranchIdsForScope = null;
         Long invitedActivityCountForResponse = null;
+        Map<Long, ActivityInvitedBranch> invitedBranchByActivityId = null;
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
@@ -254,14 +257,66 @@ public class ActivityServiceImpl implements ActivityService {
              * invitation never actually surfaced the activity here (only
              * reachable via the activity's own detail-page URL, e.g. from
              * the invitation notification).
+             *
+             * PENDING is included too (not just ACCEPTED) so an invitation
+             * that hasn't been responded to yet shows up here with an
+             * Accept/Decline action, instead of only being reachable via
+             * the notification link. DECLINED/CANCELLED are excluded — the
+             * frontend shows a distinct action per status (see
+             * ActivityListItemResponse.invitationStatus), so only the two
+             * "still relevant" statuses are surfaced. This is deliberately
+             * broader than the explicit-branchId path above, which stays
+             * ACCEPTED-only — recording a donation against an activity your
+             * branch hasn't actually confirmed co-hosting yet doesn't make
+             * sense, so that path is not widened here.
              */
-            Set<Long> invitedActivityIds = new LinkedHashSet<>(
+            List<ActivityInvitedBranch> invitations =
                     activityInvitedBranchRepository
-                            .findActivityIdsByBranchIdInAndInvitationStatus(
+                            .findByBranchIdInAndInvitationStatusIn(
                                     branchIds,
-                                    ActivityInvitationStatus.ACCEPTED
-                            )
-            );
+                                    List.of(
+                                            ActivityInvitationStatus.PENDING,
+                                            ActivityInvitationStatus.ACCEPTED
+                                    )
+                            );
+
+            Map<Long, ActivityInvitedBranch> invitedBranchByActivityIdLocal =
+                    new LinkedHashMap<>();
+
+            for (ActivityInvitedBranch invitation : invitations) {
+                Long invitationActivityId =
+                        invitation.getActivity().getId();
+
+                ActivityInvitedBranch existing =
+                        invitedBranchByActivityIdLocal.get(
+                                invitationActivityId
+                        );
+
+                /*
+                 * An activity should never have more than one active
+                 * invitation to the same set of the viewer's own branches,
+                 * but if it somehow does, prefer showing the ACCEPTED one
+                 * over a stray PENDING one.
+                 */
+                boolean shouldReplace =
+                        existing == null
+                                || (existing.getInvitationStatus()
+                                != ActivityInvitationStatus.ACCEPTED
+                                && invitation.getInvitationStatus()
+                                == ActivityInvitationStatus.ACCEPTED);
+
+                if (shouldReplace) {
+                    invitedBranchByActivityIdLocal.put(
+                            invitationActivityId,
+                            invitation
+                    );
+                }
+            }
+
+            invitedBranchByActivityId = invitedBranchByActivityIdLocal;
+
+            Set<Long> invitedActivityIds =
+                    invitedBranchByActivityIdLocal.keySet();
 
             invitedActivityCountForResponse =
                     (long) invitedActivityIds.size();
@@ -329,6 +384,8 @@ public class ActivityServiceImpl implements ActivityService {
                                 );
 
         Set<Long> ownBranchIdsForMapping = ownBranchIdsForScope;
+        Map<Long, ActivityInvitedBranch> invitedBranchByActivityIdForMapping =
+                invitedBranchByActivityId;
         List<ActivityListItemResponse> content =
                 activityPage.getContent()
                         .stream()
@@ -337,11 +394,31 @@ public class ActivityServiceImpl implements ActivityService {
                                     activityMapper.toListItemResponse(activity);
 
                             if (ownBranchIdsForMapping != null) {
-                                item.setOwnBranch(
+                                boolean isOwn =
                                         ownBranchIdsForMapping.contains(
                                                 activity.getBranchId()
-                                        )
-                                );
+                                        );
+
+                                item.setOwnBranch(isOwn);
+
+                                if (!isOwn
+                                        && invitedBranchByActivityIdForMapping
+                                        != null) {
+
+                                    ActivityInvitedBranch invitation =
+                                            invitedBranchByActivityIdForMapping
+                                                    .get(activity.getId());
+
+                                    if (invitation != null) {
+                                        item.setInvitationId(
+                                                invitation.getId()
+                                        );
+                                        item.setInvitationStatus(
+                                                invitation
+                                                        .getInvitationStatus()
+                                        );
+                                    }
+                                }
                             }
 
                             item.setParticipantCount(

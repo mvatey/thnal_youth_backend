@@ -78,4 +78,29 @@ public interface ActivityInvitedBranchRepository
             @Param("branchIds") Collection<Long> branchIds,
             @Param("status") ActivityInvitationStatus status
     );
+
+    /*
+     * Full invitation rows (not just activity ids) for one of `branchIds`,
+     * restricted to the given statuses — used to fold BOTH pending and
+     * accepted co-hosting invitations into a branch-scoped staff member's
+     * activity list (see ActivityServiceImpl.getActivities), so a PENDING
+     * invitation can show up with an Accept/Decline action right there
+     * instead of only being reachable via the notification link. DECLINED
+     * and CANCELLED are deliberately excluded by the caller passing only
+     * the statuses it wants — this method itself is status-agnostic.
+     */
+    @EntityGraph(
+            attributePaths = {
+                    "branch"
+            }
+    )
+    @Query(
+            "SELECT ib FROM ActivityInvitedBranch ib "
+                    + "WHERE ib.branch.id IN :branchIds "
+                    + "AND ib.invitationStatus IN :statuses"
+    )
+    List<ActivityInvitedBranch> findByBranchIdInAndInvitationStatusIn(
+            @Param("branchIds") Collection<Long> branchIds,
+            @Param("statuses") Collection<ActivityInvitationStatus> statuses
+    );
 }
