@@ -2,10 +2,14 @@ package org.example.tnal_youth_backend.activity.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.example.tnal_youth_backend.activity.model.request.InviteParticipantsRequest;
 import org.example.tnal_youth_backend.activity.model.response.ActivityParticipantResponse;
+import org.example.tnal_youth_backend.activity.model.response.ActivityParticipantSummaryResponse;
 import org.example.tnal_youth_backend.activity.service.ActivityParticipantService;
+import org.example.tnal_youth_backend.activity.service.ActivityParticipantViewService;
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,25 +26,45 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ActivityParticipantController {
 
+    /*
+     * Existing write service:
+     * invite / remove.
+     */
     private final ActivityParticipantService
             participantService;
 
+    /*
+     * New read service:
+     * branch scoping + summary.
+     */
+    private final ActivityParticipantViewService
+            participantViewService;
+
     @PostMapping("/invite")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize(
+            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+    )
     public ResponseEntity<
             List<ActivityParticipantResponse>
             >
     inviteParticipants(
-            @PathVariable Long activityId,
+            @PathVariable
+            Long activityId,
+
             @Valid
             @RequestBody
             InviteParticipantsRequest request,
+
             Authentication authentication
     ) {
-        Long currentUserId =
-                getCurrentUserId(authentication);
 
-        List<ActivityParticipantResponse> response =
+        Long currentUserId =
+                getCurrentUserId(
+                        authentication
+                );
+
+        List<ActivityParticipantResponse>
+                response =
                 participantService
                         .inviteParticipants(
                                 activityId,
@@ -49,51 +73,105 @@ public class ActivityParticipantController {
                         );
 
         return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+                .status(
+                        HttpStatus.CREATED
+                )
+                .body(
+                        response
+                );
     }
 
+    /*
+     * Branch-scoped participant records.
+     */
     @GetMapping
     public ResponseEntity<
             List<ActivityParticipantResponse>
             >
     getParticipants(
-            @PathVariable Long activityId,
+            @PathVariable
+            Long activityId,
+
             Authentication authentication
     ) {
+
         return ResponseEntity.ok(
-                participantService
+                participantViewService
                         .getParticipants(
                                 activityId,
-                                getCurrentUserId(authentication)
+                                getCurrentUserId(
+                                        authentication
+                                )
                         )
         );
     }
 
-    @DeleteMapping("/{memberId}")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
-    public ResponseEntity<Void> removeParticipant(
-            @PathVariable Long activityId,
-            @PathVariable Long memberId,
+    /*
+     * Global Activity participant totals.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<
+            ActivityParticipantSummaryResponse
+            >
+    getSummary(
+            @PathVariable
+            Long activityId,
+
             Authentication authentication
     ) {
-        Long currentUserId =
-                getCurrentUserId(authentication);
 
-        participantService.removeParticipant(
-                activityId,
-                memberId,
-                currentUserId
+        return ResponseEntity.ok(
+                participantViewService
+                        .getSummary(
+                                activityId,
+                                getCurrentUserId(
+                                        authentication
+                                )
+                        )
         );
+    }
 
-        return ResponseEntity.noContent().build();
+    @DeleteMapping(
+            "/{memberId}"
+    )
+    @PreAuthorize(
+            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+    )
+    public ResponseEntity<Void>
+    removeParticipant(
+            @PathVariable
+            Long activityId,
+
+            @PathVariable
+            Long memberId,
+
+            Authentication authentication
+    ) {
+
+        participantService
+                .removeParticipant(
+                        activityId,
+                        memberId,
+                        getCurrentUserId(
+                                authentication
+                        )
+                );
+
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 
     private Long getCurrentUserId(
             Authentication authentication
     ) {
-        if (authentication == null
-                || !authentication.isAuthenticated()) {
+
+        if (
+                authentication == null
+                        ||
+                        !authentication
+                                .isAuthenticated()
+        ) {
 
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -102,12 +180,17 @@ public class ActivityParticipantController {
         }
 
         Object principal =
-                authentication.getPrincipal();
+                authentication
+                        .getPrincipal();
 
-        if (principal
-                instanceof CustomUserDetails userDetails) {
+        if (
+                principal
+                        instanceof CustomUserDetails
+                        userDetails
+        ) {
 
-            return userDetails.getUserId();
+            return userDetails
+                    .getUserId();
         }
 
         throw new ResponseStatusException(

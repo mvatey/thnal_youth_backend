@@ -1,34 +1,51 @@
 package org.example.tnal_youth_backend.activity.attendance.service.impl;
 
 import lombok.RequiredArgsConstructor;
+
 import org.example.tnal_youth_backend.activity.attendance.dto.request.AttendanceMemberRequest;
 import org.example.tnal_youth_backend.activity.attendance.dto.request.UpdateAttendanceStatusRequest;
 import org.example.tnal_youth_backend.activity.attendance.dto.response.ActivityAttendancePageResponse;
 import org.example.tnal_youth_backend.activity.attendance.dto.response.ActivityAttendanceResponse;
 import org.example.tnal_youth_backend.activity.attendance.dto.response.ActivityAttendanceSummaryResponse;
+
 import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatus;
+
 import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
+
 import org.example.tnal_youth_backend.activity.attendance.service.ActivityAttendanceService;
+
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
+
 import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
 import org.example.tnal_youth_backend.activity.model.enums.ParticipantRegistrationSource;
+
 import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+
 import org.example.tnal_youth_backend.member.member.entity.Member;
+
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+
 import org.springframework.http.HttpStatus;
+
 import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
+
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,29 +58,42 @@ import java.util.Set;
 public class ActivityAttendanceServiceImpl
         implements ActivityAttendanceService {
 
-    private static final String PRESENT = "PRESENT";
-    private static final String ABSENT = "ABSENT";
+    private static final String PRESENT =
+            "PRESENT";
 
-    private final ActivityRepository activityRepository;
+    private static final String ABSENT =
+            "ABSENT";
 
-    private final ActivityParticipantRepository participantRepository;
+    private final ActivityRepository
+            activityRepository;
 
-    private final AttendanceStatusRepository attendanceStatusRepository;
+    private final ActivityParticipantRepository
+            participantRepository;
 
-    private final UserRepository userRepository;
+    private final AttendanceStatusRepository
+            attendanceStatusRepository;
 
-    private final MemberRepository memberRepository;
+    private final UserRepository
+            userRepository;
 
-    private final BranchStaffRepository branchStaffRepository;
+    private final MemberRepository
+            memberRepository;
 
-    private final ActivityInvitedBranchRepository invitedBranchRepository;
+    private final BranchStaffRepository
+            branchStaffRepository;
+
+    private final ActivityInvitedBranchRepository
+            invitedBranchRepository;
 
     @Override
     @Transactional(readOnly = true)
     public ActivityAttendancePageResponse getAttendance(
             Long activityId
     ) {
-        findActivity(activityId);
+
+        findActivity(
+                activityId
+        );
 
         List<ActivityParticipant> participants =
                 participantRepository
@@ -75,12 +105,14 @@ public class ActivityAttendanceServiceImpl
                 loadAttendanceStatusCodes();
 
         List<ActivityAttendanceResponse> attendance =
-                participants.stream()
-                        .map(participant ->
-                                toResponse(
-                                        participant,
-                                        statusCodes
-                                )
+                participants
+                        .stream()
+                        .map(
+                                participant ->
+                                        toResponse(
+                                                participant,
+                                                statusCodes
+                                        )
                         )
                         .toList();
 
@@ -90,9 +122,14 @@ public class ActivityAttendanceServiceImpl
                         statusCodes
                 );
 
-        return ActivityAttendancePageResponse.builder()
-                .attendance(attendance)
-                .summary(summary)
+        return ActivityAttendancePageResponse
+                .builder()
+                .attendance(
+                        attendance
+                )
+                .summary(
+                        summary
+                )
                 .build();
     }
 
@@ -103,10 +140,15 @@ public class ActivityAttendanceServiceImpl
             AttendanceMemberRequest request,
             Long currentUserId
     ) {
-        Activity activity = findActivity(activityId);
 
-        validateAttendanceCanBeModified(activity);
-        validateCurrentUser(currentUserId);
+        Activity activity =
+                findActivity(
+                        activityId
+                );
+
+        validateAttendanceCanBeModified(
+                activity
+        );
 
         ActivityParticipant participant =
                 findParticipant(
@@ -114,7 +156,34 @@ public class ActivityAttendanceServiceImpl
                         request.getMemberId()
                 );
 
-        if (participant.getCheckedInAt() != null) {
+        /*
+         * IMPORTANT:
+         *
+         * Check-in must use the same
+         * branch permission as manual
+         * attendance.
+         */
+        Member member =
+                participant.getMember();
+
+        if (member == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Participant is not linked to a member"
+            );
+        }
+
+        validateManualAttendancePermission(
+                activity,
+                member.getBranchId(),
+                currentUserId
+        );
+
+        if (
+                participant.getCheckedInAt()
+                        != null
+        ) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Participant has already checked in"
@@ -122,26 +191,45 @@ public class ActivityAttendanceServiceImpl
         }
 
         AttendanceStatus presentStatus =
-                findAttendanceStatus(PRESENT);
+                findAttendanceStatus(
+                        PRESENT
+                );
 
         participant.setAttendanceStatusId(
                 presentStatus.getId()
         );
 
+        OffsetDateTime checkedInAt =
+                OffsetDateTime.now();
+
+        if (
+                participant.getRegisteredAt()
+                        != null
+                        &&
+                        checkedInAt.isBefore(
+                                participant
+                                        .getRegisteredAt()
+                        )
+        ) {
+
+            checkedInAt =
+                    participant
+                            .getRegisteredAt();
+        }
+
         participant.setCheckedInAt(
-                OffsetDateTime.now()
+                checkedInAt
         );
 
-        /*
-         * Reset checkout in case an incorrect attendance
-         * state existed before check-in.
-         */
-        participant.setCheckedOutAt(null);
+        participant.setCheckedOutAt(
+                null
+        );
 
         ActivityParticipant savedParticipant =
-                participantRepository.saveAndFlush(
-                        participant
-                );
+                participantRepository
+                        .saveAndFlush(
+                                participant
+                        );
 
         return toResponse(
                 savedParticipant,
@@ -159,10 +247,15 @@ public class ActivityAttendanceServiceImpl
             AttendanceMemberRequest request,
             Long currentUserId
     ) {
-        Activity activity = findActivity(activityId);
 
-        validateAttendanceCanBeModified(activity);
-        validateCurrentUser(currentUserId);
+        Activity activity =
+                findActivity(
+                        activityId
+                );
+
+        validateAttendanceCanBeModified(
+                activity
+        );
 
         ActivityParticipant participant =
                 findParticipant(
@@ -170,14 +263,42 @@ public class ActivityAttendanceServiceImpl
                         request.getMemberId()
                 );
 
-        if (participant.getCheckedInAt() == null) {
+        Member member =
+                participant.getMember();
+
+        if (member == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Participant is not linked to a member"
+            );
+        }
+
+        /*
+         * Same branch restriction as
+         * check-in/manual status.
+         */
+        validateManualAttendancePermission(
+                activity,
+                member.getBranchId(),
+                currentUserId
+        );
+
+        if (
+                participant.getCheckedInAt()
+                        == null
+        ) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Participant must check in before checking out"
             );
         }
 
-        if (participant.getCheckedOutAt() != null) {
+        if (
+                participant.getCheckedOutAt()
+                        != null
+        ) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Participant has already checked out"
@@ -189,9 +310,10 @@ public class ActivityAttendanceServiceImpl
         );
 
         ActivityParticipant savedParticipant =
-                participantRepository.saveAndFlush(
-                        participant
-                );
+                participantRepository
+                        .saveAndFlush(
+                                participant
+                        );
 
         return toResponse(
                 savedParticipant,
@@ -206,11 +328,24 @@ public class ActivityAttendanceServiceImpl
             UpdateAttendanceStatusRequest request,
             Long currentUserId
     ) {
-        Activity activity = findActivity(activityId);
 
-        validateManualAttendanceCanBeModified(activity);
+        Activity activity =
+                findActivity(
+                        activityId
+                );
 
-        Long memberId = request.getMemberId();
+        /*
+         * Manual attendance is allowed
+         * before/during/after Activity.
+         *
+         * CANCELLED stays locked.
+         */
+        validateManualAttendanceCanBeModified(
+                activity
+        );
+
+        Long memberId =
+                request.getMemberId();
 
         if (memberId == null) {
             throw new ResponseStatusException(
@@ -220,15 +355,26 @@ public class ActivityAttendanceServiceImpl
         }
 
         Member member =
-                memberRepository.findById(memberId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Member not found with ID: "
-                                                + memberId
-                                )
+                memberRepository
+                        .findById(
+                                memberId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "Member not found with ID: "
+                                                        + memberId
+                                        )
                         );
 
+        /*
+         * Host staff:
+         * → host members only.
+         *
+         * Invited staff:
+         * → own accepted branch members only.
+         */
         validateManualAttendancePermission(
                 activity,
                 member.getBranchId(),
@@ -236,10 +382,10 @@ public class ActivityAttendanceServiceImpl
         );
 
         /*
-         * A member may not have a participant row yet — e.g. they were
-         * never formally invited/divided, but staff is now recording
-         * their real-world attendance by hand ("walk-in"). Create the
-         * row on the fly instead of requiring prior registration.
+         * No participant yet?
+         *
+         * Create WALK_IN / INVITED_BRANCH
+         * participant automatically.
          */
         ActivityParticipant participant =
                 findOrCreateParticipant(
@@ -250,11 +396,19 @@ public class ActivityAttendanceServiceImpl
 
         String statusCode =
                 normalizeStatusCode(
-                        request.getAttendanceStatus()
+                        request
+                                .getAttendanceStatus()
                 );
 
-        if (!PRESENT.equals(statusCode)
-                && !ABSENT.equals(statusCode)) {
+        if (
+                !PRESENT.equals(
+                        statusCode
+                )
+                        &&
+                        !ABSENT.equals(
+                                statusCode
+                        )
+        ) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -263,46 +417,76 @@ public class ActivityAttendanceServiceImpl
         }
 
         AttendanceStatus attendanceStatus =
-                findAttendanceStatus(statusCode);
+                findAttendanceStatus(
+                        statusCode
+                );
 
         participant.setAttendanceStatusId(
                 attendanceStatus.getId()
         );
 
         switch (statusCode) {
-            case PRESENT -> {
-                if (participant.getCheckedInAt() == null) {
-                    OffsetDateTime checkedInAt = OffsetDateTime.now();
 
-                    // Keep the database invariant checked_in_at >= registered_at.
-                    // Imported/seeded participants can have a future registration
-                    // timestamp relative to the server clock.
-                    if (participant.getRegisteredAt() != null
-                            && checkedInAt.isBefore(participant.getRegisteredAt())) {
-                        checkedInAt = participant.getRegisteredAt();
+            case PRESENT -> {
+
+                if (
+                        participant
+                                .getCheckedInAt()
+                                == null
+                ) {
+
+                    OffsetDateTime checkedInAt =
+                            OffsetDateTime.now();
+
+                    if (
+                            participant
+                                    .getRegisteredAt()
+                                    != null
+                                    &&
+                                    checkedInAt.isBefore(
+                                            participant
+                                                    .getRegisteredAt()
+                                    )
+                    ) {
+
+                        checkedInAt =
+                                participant
+                                        .getRegisteredAt();
                     }
 
-                    participant.setCheckedInAt(checkedInAt);
+                    participant.setCheckedInAt(
+                            checkedInAt
+                    );
                 }
 
-                participant.setCheckedOutAt(null);
+                participant.setCheckedOutAt(
+                        null
+                );
             }
 
             case ABSENT -> {
-                participant.setCheckedInAt(null);
-                participant.setCheckedOutAt(null);
+
+                participant.setCheckedInAt(
+                        null
+                );
+
+                participant.setCheckedOutAt(
+                        null
+                );
             }
 
-            default -> throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Unsupported attendance status"
-            );
+            default ->
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Unsupported attendance status"
+                    );
         }
 
         ActivityParticipant savedParticipant =
-                participantRepository.saveAndFlush(
-                        participant
-                );
+                participantRepository
+                        .saveAndFlush(
+                                participant
+                        );
 
         return toResponse(
                 savedParticipant,
@@ -316,20 +500,26 @@ public class ActivityAttendanceServiceImpl
     private Activity findActivity(
             Long activityId
     ) {
+
         if (activityId == null) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Activity ID is required"
             );
         }
 
-        return activityRepository.findById(activityId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Activity not found with ID: "
-                                        + activityId
-                        )
+        return activityRepository
+                .findById(
+                        activityId
+                )
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Activity not found with ID: "
+                                                + activityId
+                                )
                 );
     }
 
@@ -337,7 +527,9 @@ public class ActivityAttendanceServiceImpl
             Long activityId,
             Long memberId
     ) {
+
         if (memberId == null) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Member ID is required"
@@ -349,249 +541,376 @@ public class ActivityAttendanceServiceImpl
                         activityId,
                         memberId
                 )
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Member is not a registered participant "
-                                        + "of this activity"
-                        )
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Member is not a registered participant "
+                                                + "of this activity"
+                                )
                 );
     }
 
-    /**
-     * Like {@link #findParticipant}, but for the manual-attendance flow: if
-     * the member has no participant row yet, one is created on the fly
-     * ("walk-in") instead of failing with 404 — see
-     * {@link #createWalkInParticipant}.
-     */
     private ActivityParticipant findOrCreateParticipant(
             Activity activity,
             Member member,
             Long currentUserId
     ) {
+
         return participantRepository
                 .findByActivity_IdAndMember_Id(
                         activity.getId(),
                         member.getId()
                 )
-                .orElseGet(() ->
-                        createWalkInParticipant(
-                                activity,
-                                member,
-                                currentUserId
-                        )
+                .orElseGet(
+                        () ->
+                                createWalkInParticipant(
+                                        activity,
+                                        member,
+                                        currentUserId
+                                )
                 );
     }
 
-    /**
-     * Creates a participant record for a member who was never formally
-     * invited/divided but is being marked present/absent by hand. A
-     * host-branch member is recorded as {@code WALK_IN}. A member of a
-     * different branch may only be recorded this way if that branch has an
-     * ACCEPTED invitation to co-host the activity (enforced again here,
-     * defense-in-depth alongside {@link #validateManualAttendancePermission}).
-     */
     private ActivityParticipant createWalkInParticipant(
             Activity activity,
             Member member,
             Long currentUserId
     ) {
-        User actingUser =
-                userRepository.findById(currentUserId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.UNAUTHORIZED,
-                                        "Authenticated user could not be found"
-                                )
-                        );
 
-        Long memberBranchId = member.getBranchId();
+        User actingUser =
+                requireUser(
+                        currentUserId
+                );
+
+        Long memberBranchId =
+                member.getBranchId();
 
         if (memberBranchId == null) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Member " + member.getId()
+                    "Member "
+                            + member.getId()
                             + " does not belong to a branch"
             );
         }
 
-        Long hostBranchId = activity.getBranchId();
+        /*
+         * Defense in depth.
+         *
+         * Permission is already checked
+         * before this method, but check
+         * invited branch relationship again.
+         */
+        Long hostBranchId =
+                activity.getBranchId();
 
         ParticipantRegistrationSource source;
-        ActivityInvitedBranch invitedBranch = null;
 
-        if (hostBranchId != null
-                && hostBranchId.equals(memberBranchId)) {
+        ActivityInvitedBranch invitedBranch =
+                null;
 
-            source = ParticipantRegistrationSource.WALK_IN;
+        if (
+                hostBranchId != null
+                        &&
+                        hostBranchId.equals(
+                                memberBranchId
+                        )
+        ) {
+
+            source =
+                    ParticipantRegistrationSource
+                            .WALK_IN;
 
         } else {
+
             invitedBranch =
                     invitedBranchRepository
                             .findByActivity_IdAndBranch_IdAndInvitationStatus(
                                     activity.getId(),
                                     memberBranchId,
-                                    ActivityInvitationStatus.ACCEPTED
+                                    ActivityInvitationStatus
+                                            .ACCEPTED
                             )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "The member's branch has not "
-                                                    + "accepted an invitation "
-                                                    + "for this activity"
-                                    )
+                            .orElseThrow(
+                                    () ->
+                                            new ResponseStatusException(
+                                                    HttpStatus.FORBIDDEN,
+                                                    "The member's branch has not "
+                                                            + "accepted an invitation "
+                                                            + "for this activity"
+                                            )
                             );
 
-            source = ParticipantRegistrationSource.INVITED_BRANCH;
+            source =
+                    ParticipantRegistrationSource
+                            .INVITED_BRANCH;
         }
 
         ActivityParticipant participant =
-                ActivityParticipant.builder()
-                        .activity(activity)
-                        .member(member)
-                        .invitedBy(actingUser)
-                        .invitedBranch(invitedBranch)
-                        .registrationSource(source)
-                        .registeredAt(OffsetDateTime.now())
+                ActivityParticipant
+                        .builder()
+                        .activity(
+                                activity
+                        )
+                        .member(
+                                member
+                        )
+                        .invitedBy(
+                                actingUser
+                        )
+                        .invitedBranch(
+                                invitedBranch
+                        )
+                        .registrationSource(
+                                source
+                        )
+                        .registeredAt(
+                                OffsetDateTime.now()
+                        )
                         .build();
 
-        return participantRepository.saveAndFlush(
-                participant
-        );
+        return participantRepository
+                .saveAndFlush(
+                        participant
+                );
     }
 
     private AttendanceStatus findAttendanceStatus(
             String code
     ) {
+
         return attendanceStatusRepository
-                .findByCodeIgnoreCase(code)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.BAD_REQUEST,
-                                "Attendance status was not found: "
-                                        + code
-                        )
+                .findByCodeIgnoreCase(
+                        code
+                )
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Attendance status was not found: "
+                                                + code
+                                )
                 );
     }
 
-    private void validateCurrentUser(
-            Long currentUserId
-    ) {
-        if (currentUserId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authenticated user ID is required"
-            );
-        }
-
-        if (!userRepository.existsById(currentUserId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authenticated user was not found"
-            );
-        }
-    }
-
+    /**
+     * Check-in / check-out:
+     *
+     * Allowed while Activity is active.
+     *
+     * COMPLETED or CANCELLED:
+     * locked for check-in/out.
+     *
+     * Manual PRESENT/ABSENT corrections
+     * use a different rule below.
+     */
     private void validateAttendanceCanBeModified(
             Activity activity
     ) {
-        if (activity.getStatus() == null
-                || activity.getStatus().getCode() == null) {
+
+        if (
+                activity.getStatus() == null
+                        ||
+                        activity
+                                .getStatus()
+                                .getCode()
+                                == null
+        ) {
+
             return;
         }
 
         String statusCode =
-                activity.getStatus()
+                activity
+                        .getStatus()
                         .getCode()
                         .trim()
-                        .toUpperCase(Locale.ROOT);
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
 
-        if ("COMPLETED".equals(statusCode)
-                || "CANCELLED".equals(statusCode)) {
+        if (
+                "COMPLETED"
+                        .equals(
+                                statusCode
+                        )
+                        ||
+                        "CANCELLED"
+                                .equals(
+                                        statusCode
+                                )
+        ) {
 
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Attendance cannot be modified for a "
-                            + "completed or cancelled activity"
+                    "Check-in/check-out cannot be modified "
+                            + "for a completed or cancelled activity"
             );
         }
     }
 
     /**
-     * Manual attendance correction (marking present/absent by hand) is
-     * reserved for the completed-activity flow: while an activity is still
-     * DRAFT/UPCOMING/ONGOING there is nothing to "correct" yet, and a
-     * cancelled activity is locked entirely. Check-in and check-out continue
-     * to use the stricter validation above (blocked once COMPLETED or
-     * CANCELLED).
+     * Manual PRESENT / ABSENT.
+     *
+     * IMPORTANT FINAL RULE:
+     *
+     * Host and accepted invited staff
+     * may manually update attendance:
+     *
+     * - before Activity
+     * - during Activity
+     * - after Activity
+     *
+     * Only CANCELLED is locked.
      */
     private void validateManualAttendanceCanBeModified(
             Activity activity
     ) {
+
         String statusCode =
                 activity.getStatus() != null
-                        && activity.getStatus().getCode() != null
-                        ? activity.getStatus()
+                        &&
+                        activity
+                                .getStatus()
                                 .getCode()
-                                .trim()
-                                .toUpperCase(Locale.ROOT)
+                                != null
+
+                        ? activity
+                          .getStatus()
+                          .getCode()
+                          .trim()
+                          .toUpperCase(
+                                  Locale.ROOT
+                          )
+
                         : null;
 
-        if (!"COMPLETED".equals(statusCode)) {
+        if (
+                "CANCELLED"
+                        .equals(
+                                statusCode
+                        )
+        ) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Attendance can only be manually updated after "
-                            + "the activity is completed"
+                    "Attendance cannot be modified "
+                            + "for a cancelled activity"
             );
         }
     }
 
     /**
-     * Only a branch leader or secretary may manually correct attendance —
-     * never an admin (view-only in the activity module). Two branches of
-     * staff qualify:
-     * <ul>
-     *   <li>Staff of THIS activity's own host branch — may correct any
-     *       participant's attendance.</li>
-     *   <li>Staff of a branch with an ACCEPTED invitation to co-host this
-     *       activity — may correct attendance only for members of their
-     *       OWN branch (never the host's or another invited branch's).</li>
-     * </ul>
+     * Branch-scoped attendance permission.
+     *
+     * HOST BRANCH A:
+     *
+     * A Secretary / Leader
+     * → A member ✅
+     * → B member ❌
+     *
+     * ACCEPTED INVITED BRANCH B:
+     *
+     * B Secretary / Leader
+     * → B member ✅
+     * → A member ❌
+     * → C member ❌
+     *
+     * ADMIN / MEMBER / VIEWER:
+     * → cannot manually modify.
      */
     private void validateManualAttendancePermission(
             Activity activity,
             Long memberBranchId,
             Long currentUserId
     ) {
-        User currentUser = requireUser(currentUserId);
 
-        if (currentUser.getRole() != UserRole.BRANCH_LEADER
-                && currentUser.getRole() != UserRole.SECRETARY) {
+        User currentUser =
+                requireUser(
+                        currentUserId
+                );
+
+        if (
+                currentUser.getRole()
+                        != UserRole.BRANCH_LEADER
+                        &&
+                        currentUser.getRole()
+                                != UserRole.SECRETARY
+        ) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only a branch leader or secretary can "
-                            + "manually update attendance"
+                    "Only a branch leader or secretary "
+                            + "can update attendance"
+            );
+        }
+
+        if (
+                memberBranchId == null
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The member does not belong to a branch"
             );
         }
 
         Set<Long> staffBranchIds =
-                resolveStaffBranchIds(currentUser);
+                resolveStaffBranchIds(
+                        currentUser
+                );
 
-        if (activity.getBranchId() != null
-                && staffBranchIds.contains(activity.getBranchId())) {
+        Long hostBranchId =
+                activity.getBranchId();
+
+        /*
+         * CASE 1:
+         * HOST branch.
+         *
+         * Staff belongs to host
+         * AND
+         * member belongs to host.
+         */
+        if (
+                hostBranchId != null
+                        &&
+                        hostBranchId.equals(
+                                memberBranchId
+                        )
+                        &&
+                        staffBranchIds.contains(
+                                hostBranchId
+                        )
+        ) {
+
             return;
         }
 
-        if (memberBranchId != null
-                && staffBranchIds.contains(memberBranchId)) {
+        /*
+         * CASE 2:
+         * ACCEPTED invited branch.
+         *
+         * Staff must belong to the same
+         * branch as the member.
+         *
+         * That branch must have ACCEPTED
+         * the Activity invitation.
+         */
+        if (
+                staffBranchIds.contains(
+                        memberBranchId
+                )
+        ) {
 
             boolean branchAccepted =
                     invitedBranchRepository
                             .findByActivity_IdAndBranch_IdAndInvitationStatus(
                                     activity.getId(),
                                     memberBranchId,
-                                    ActivityInvitationStatus.ACCEPTED
+                                    ActivityInvitationStatus
+                                            .ACCEPTED
                             )
                             .isPresent();
 
@@ -602,29 +921,41 @@ public class ActivityAttendanceServiceImpl
 
         throw new ResponseStatusException(
                 HttpStatus.FORBIDDEN,
-                "You can only update attendance for activities hosted "
-                        + "by your own branch, or for your own branch's "
-                        + "members when your branch has accepted an "
-                        + "invitation to this activity"
+                "You can only update attendance "
+                        + "for members of your own branch"
         );
     }
 
     private Set<Long> resolveStaffBranchIds(
             User user
     ) {
-        if (user.getMemberId() == null) {
+
+        if (
+                user.getMemberId()
+                        == null
+        ) {
+
             return Set.of();
         }
 
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
+        Set<Long> branchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        user.getMemberId()
+                                )
+                );
+
+        memberRepository
+                .findById(
                         user.getMemberId()
                 )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
+                .map(
+                        Member::getBranchId
+                )
+                .ifPresent(
+                        branchIds::add
+                );
 
         return branchIds;
     }
@@ -632,34 +963,49 @@ public class ActivityAttendanceServiceImpl
     private User requireUser(
             Long userId
     ) {
+
         if (userId == null) {
+
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Authentication is required"
             );
         }
 
-        return userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.UNAUTHORIZED,
-                                "Authenticated user could not be found"
-                        )
+        return userRepository
+                .findById(
+                        userId
+                )
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user could not be found"
+                                )
                 );
     }
 
     private String normalizeStatusCode(
             String value
     ) {
-        if (value == null || value.isBlank()) {
+
+        if (
+                value == null
+                        ||
+                        value.isBlank()
+        ) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Attendance status is required"
             );
         }
 
-        return value.trim()
-                .toUpperCase(Locale.ROOT);
+        return value
+                .trim()
+                .toUpperCase(
+                        Locale.ROOT
+                );
     }
 
     private Map<Short, String>
@@ -668,11 +1014,18 @@ public class ActivityAttendanceServiceImpl
         Map<Short, String> statusCodes =
                 new HashMap<>();
 
-        for (AttendanceStatus status
-                : attendanceStatusRepository.findAll()) {
+        for (
+                AttendanceStatus status
+                :
+                attendanceStatusRepository
+                        .findAll()
+        ) {
 
-            if (status.getId() != null
-                    && status.getCode() != null) {
+            if (
+                    status.getId() != null
+                            &&
+                            status.getCode() != null
+            ) {
 
                 statusCodes.put(
                         status.getId(),
@@ -688,22 +1041,38 @@ public class ActivityAttendanceServiceImpl
             ActivityParticipant participant,
             Map<Short, String> statusCodes
     ) {
-        Member member = participant.getMember();
 
-        String attendanceStatusCode = null;
+        Member member =
+                participant
+                        .getMember();
 
-        if (participant.getAttendanceStatusId() != null) {
+        String attendanceStatusCode =
+                null;
+
+        if (
+                participant
+                        .getAttendanceStatusId()
+                        != null
+        ) {
+
             attendanceStatusCode =
                     statusCodes.get(
-                            participant.getAttendanceStatusId()
+                            participant
+                                    .getAttendanceStatusId()
                     );
         }
 
-        return ActivityAttendanceResponse.builder()
-                .participantId(participant.getId())
+        return ActivityAttendanceResponse
+                .builder()
+                .participantId(
+                        participant.getId()
+                )
                 .activityId(
-                        participant.getActivity() != null
-                                ? participant.getActivity().getId()
+                        participant.getActivity()
+                                != null
+                                ? participant
+                                  .getActivity()
+                                  .getId()
                                 : null
                 )
                 .memberId(
@@ -742,19 +1111,23 @@ public class ActivityAttendanceServiceImpl
                                 : null
                 )
                 .attendanceStatusId(
-                        participant.getAttendanceStatusId()
+                        participant
+                                .getAttendanceStatusId()
                 )
                 .attendanceStatus(
                         attendanceStatusCode
                 )
                 .checkedInAt(
-                        participant.getCheckedInAt()
+                        participant
+                                .getCheckedInAt()
                 )
                 .checkedOutAt(
-                        participant.getCheckedOutAt()
+                        participant
+                                .getCheckedOutAt()
                 )
                 .registeredAt(
-                        participant.getRegisteredAt()
+                        participant
+                                .getRegisteredAt()
                 )
                 .build();
     }
@@ -763,55 +1136,110 @@ public class ActivityAttendanceServiceImpl
             List<ActivityParticipant> participants,
             Map<Short, String> statusCodes
     ) {
-        long present = 0;
-        long absent = 0;
-        long checkedIn = 0;
-        long checkedOut = 0;
-        long notRecorded = 0;
 
-        for (ActivityParticipant participant : participants) {
+        long present =
+                0;
 
-            if (participant.getCheckedInAt() != null) {
+        long absent =
+                0;
+
+        long checkedIn =
+                0;
+
+        long checkedOut =
+                0;
+
+        long notRecorded =
+                0;
+
+        for (
+                ActivityParticipant participant
+                :
+                participants
+        ) {
+
+            if (
+                    participant
+                            .getCheckedInAt()
+                            != null
+            ) {
+
                 checkedIn++;
             }
 
-            if (participant.getCheckedOutAt() != null) {
+            if (
+                    participant
+                            .getCheckedOutAt()
+                            != null
+            ) {
+
                 checkedOut++;
             }
 
             Short statusId =
-                    participant.getAttendanceStatusId();
+                    participant
+                            .getAttendanceStatusId();
 
-            if (statusId == null) {
+            if (
+                    statusId == null
+            ) {
+
                 notRecorded++;
                 continue;
             }
 
             String statusCode =
-                    statusCodes.get(statusId);
+                    statusCodes.get(
+                            statusId
+                    );
 
-            if (statusCode == null) {
+            if (
+                    statusCode == null
+            ) {
+
                 notRecorded++;
                 continue;
             }
 
             switch (
-                    statusCode.trim()
-                            .toUpperCase(Locale.ROOT)
+                    statusCode
+                            .trim()
+                            .toUpperCase(
+                                    Locale.ROOT
+                            )
             ) {
-                case PRESENT -> present++;
-                case ABSENT -> absent++;
-                default -> notRecorded++;
+
+                case PRESENT ->
+                        present++;
+
+                case ABSENT ->
+                        absent++;
+
+                default ->
+                        notRecorded++;
             }
         }
 
-        return ActivityAttendanceSummaryResponse.builder()
-                .totalParticipants(participants.size())
-                .present(present)
-                .absent(absent)
-                .checkedIn(checkedIn)
-                .checkedOut(checkedOut)
-                .notRecorded(notRecorded)
+        return ActivityAttendanceSummaryResponse
+                .builder()
+                .totalParticipants(
+                        participants.size()
+                )
+                .present(
+                        present
+                )
+                .absent(
+                        absent
+                )
+                .checkedIn(
+                        checkedIn
+                )
+                .checkedOut(
+                        checkedOut
+                )
+                .notRecorded(
+                        notRecorded
+                )
                 .build();
     }
 }
