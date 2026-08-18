@@ -55,6 +55,18 @@ public class ActivityResponse {
 
     private Long createdBy;
 
+    /**
+     * The activity creator's display name and phone, resolved from
+     * {@link #createdBy} (a {@code users.id}) via that user's linked
+     * member record. Only populated on the single-activity detail
+     * fetch ({@code getActivityById}) — {@code null} on create/update/
+     * list responses, where the frontend falls back to showing the raw
+     * {@link #createdBy} id instead.
+     */
+    private String createdByName;
+
+    private String createdByPhone;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

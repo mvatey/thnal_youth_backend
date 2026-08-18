@@ -142,6 +142,8 @@ public class ActivityServiceImpl implements ActivityService {
         ActivityResponse response =
                 activityMapper.toResponse(activity);
 
+        resolveCreatedByDisplay(activity, response);
+
         boolean canManage = computeCanManage(currentUser, activity);
         response.setCanManage(canManage);
 
@@ -245,18 +247,30 @@ public class ActivityServiceImpl implements ActivityService {
                             invitedActivityIds,
                             pageable
                     );
-        } else if (currentUser.getRole() == UserRole.SECRETARY) {
-            Set<Long> branchIds = resolveSecretaryBranchIds(currentUser);
+        } else if (currentUser.getRole() == UserRole.SECRETARY
+                || currentUser.getRole() == UserRole.BRANCH_LEADER) {
+            /*
+             * Both a SECRETARY and a BRANCH_LEADER can respond to a branch
+             * co-hosting invitation (see
+             * ActivityInvitedBranchServiceImpl#validateInvitedBranchPermission),
+             * so both need this same own/invited scoping to actually see
+             * the tabs, the pending badge, and the accept/decline action on
+             * this list -- previously only SECRETARY reached this branch,
+             * so a branch leader's list fell through to the unscoped
+             * "every activity in the system" branch below and never showed
+             * ownBranch at all (see ActivityListItemResponse#ownBranch).
+             */
+            Set<Long> branchIds = resolveOwnBranchIds(currentUser);
             ownBranchIdsForScope = branchIds;
 
             /*
-             * A secretary's activity list should also include activities
-             * hosted by a DIFFERENT branch that has invited one of this
-             * secretary's own branches to co-host — previously the list
-             * only ever queried by host branchId, so an accepted co-hosting
-             * invitation never actually surfaced the activity here (only
-             * reachable via the activity's own detail-page URL, e.g. from
-             * the invitation notification).
+             * A secretary's/branch leader's activity list should also
+             * include activities hosted by a DIFFERENT branch that has
+             * invited one of their own branches to co-host — previously the
+             * list only ever queried by host branchId, so an accepted
+             * co-hosting invitation never actually surfaced the activity
+             * here (only reachable via the activity's own detail-page URL,
+             * e.g. from the invitation notification).
              *
              * PENDING is included too (not just ACCEPTED) so an invitation
              * that hasn't been responded to yet shows up here with an
@@ -470,18 +484,25 @@ public class ActivityServiceImpl implements ActivityService {
         }
     }
 
-    private Set<Long> resolveSecretaryBranchIds(User user) {
+    /**
+     * Resolves the branches a SECRETARY or BRANCH_LEADER caller is own-branch
+     * staff of (active branch_staff assignments plus their member record's
+     * home branch) -- same shape as {@link #resolveStaffBranchIds}. Named
+     * generically (was {@code resolveSecretaryBranchIds}) since both roles
+     * use it identically here.
+     */
+    private Set<Long> resolveOwnBranchIds(User user) {
         if (user.getMemberId() == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Secretary account is not linked to a member"
+                    "Account is not linked to a member"
             );
         }
 
         Member member = memberRepository.findById(user.getMemberId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Secretary member record could not be found"
+                        "Member record could not be found"
                 ));
 
         Set<Long> branchIds = new LinkedHashSet<>(
@@ -497,7 +518,7 @@ public class ActivityServiceImpl implements ActivityService {
         if (branchIds.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Secretary is not assigned to a branch"
+                    "You are not assigned to a branch"
             );
         }
 
@@ -956,6 +977,40 @@ public class ActivityServiceImpl implements ActivityService {
                                 "Authenticated user could not be found"
                         )
                 );
+    }
+
+    /**
+     * Resolves {@code activity.createdBy} (a {@code users.id}) to the
+     * creator's display name and phone via that user's linked member
+     * record, and sets them on the response. Previously the response only
+     * ever carried the raw {@code createdBy} id, so the activity detail
+     * page's "អ្នកគ្រប់គ្រង"/"លេខទំនាក់ទំនង" fields fell all the way
+     * through to showing "#{id}" and "-" respectively. Best-effort: a
+     * creator account with no linked member (or a since-deleted user)
+     * just leaves these null, same as before.
+     */
+    private void resolveCreatedByDisplay(
+            Activity activity,
+            ActivityResponse response
+    ) {
+        if (activity.getCreatedBy() == null) {
+            return;
+        }
+
+        userRepository.findById(activity.getCreatedBy())
+                .map(User::getMemberId)
+                .filter(memberId -> memberId != null)
+                .flatMap(memberRepository::findById)
+                .ifPresent(creatorMember -> {
+                    String name = creatorMember.getFullNameKm();
+
+                    if (name == null || name.isBlank()) {
+                        name = creatorMember.getFullNameEn();
+                    }
+
+                    response.setCreatedByName(name);
+                    response.setCreatedByPhone(creatorMember.getPhone());
+                });
     }
 
     private void validateCreateRequest(

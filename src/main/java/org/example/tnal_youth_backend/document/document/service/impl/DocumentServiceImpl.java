@@ -1,9 +1,11 @@
 package org.example.tnal_youth_backend.document.document.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.document.document.dto.request.DocumentRequest;
 import org.example.tnal_youth_backend.document.document.dto.response.*;
@@ -18,6 +20,8 @@ import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -37,8 +41,17 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocumentServiceImpl
         implements DocumentService {
+
+    /**
+     * Fires only from {@link #createDocument}, never {@link #updateDocument}
+     * — the notification feature's trigger #3 was scoped to "the secretary
+     * manually created a certificate/letter of appointment for members,"
+     * not edits.
+     */
+    private static final String DOCUMENT_ADDED_TYPE_CODE = "DOCUMENT_ADDED";
 
     private final DocumentRepository documentRepository;
     private final DocumentTypeRepository documentTypeRepository;
@@ -48,6 +61,8 @@ public class DocumentServiceImpl
     private final ActivityRepository activityRepository;
     private final DocumentMapper documentMapper;
     private final BranchService branchService;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -152,6 +167,10 @@ public class DocumentServiceImpl
                                     document
                             );
 
+            notifyMemberDocumentIssued(
+                    saved
+            );
+
             return documentMapper
                     .toResponse(
                             saved
@@ -161,6 +180,78 @@ public class DocumentServiceImpl
                 DataIntegrityViolationException exception
         ) {
             throw databaseConstraintException(
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Notifies the document's owning member — via their linked user
+     * account's email/Telegram, same {@link NotificationCreatedEvent}
+     * pipeline as the activity triggers — that a document was just
+     * issued to them. This is how certificates and letters of
+     * appointment reach this hook: both save through the exact same
+     * {@code POST /api/documents} member-owned-document path (see
+     * {@code document/create/page.js}'s {@code saveMemberCertificatesToBackend}
+     * / {@code saveAppointmentLettersToBackend}), so there's no need for
+     * a separate certificate/letter-specific endpoint — every
+     * member-owned document created here already flows through this one
+     * place.
+     *
+     * <p>Best-effort and entirely swallowed on failure (missing/inactive
+     * notification type, no linked user account, a downstream
+     * email/Telegram error): none of that should ever fail the actual
+     * document save, which is the part the secretary actually asked for.
+     */
+    private void notifyMemberDocumentIssued(
+            Document saved
+    ) {
+        if (saved.getMemberId() == null) {
+            return;
+        }
+
+        try {
+            User recipientUser =
+                    userRepository
+                            .findByMemberId(saved.getMemberId())
+                            .orElse(null);
+
+            if (recipientUser == null) {
+                return;
+            }
+
+            Short typeId =
+                    notificationService.findActiveTypeIdByCode(
+                            DOCUMENT_ADDED_TYPE_CODE
+                    );
+
+            if (typeId == null) {
+                return;
+            }
+
+            NotificationCreateDTO notification =
+                    new NotificationCreateDTO();
+
+            notification.setTypeId(typeId);
+            notification.setTitle("ឯកសារថ្មីត្រូវបានចេញ");
+            notification.setBody(
+                    "ឯកសារ \"" + saved.getTitle()
+                            + "\" ត្រូវបានចេញជូនអ្នក។ សូមចូលទៅកាន់គណនីរបស់អ្នកដើម្បីមើលឯកសារ។"
+            );
+            notification.setTarget(
+                    NotificationCreateDTO.TargetMode.USERS
+            );
+            notification.setTargetUserIds(
+                    List.of(recipientUser.getId())
+            );
+
+            notificationService.create(notification);
+
+        } catch (Exception exception) {
+            log.warn(
+                    "DocumentServiceImpl: failed to notify member {} about document {}",
+                    saved.getMemberId(),
+                    saved.getId(),
                     exception
             );
         }
@@ -577,8 +668,15 @@ public class DocumentServiceImpl
         UserRole currentRole =
                 currentUser.getRole();
 
+        /*
+         * VIEWER has the same read authority as ADMIN throughout this
+         * app (see UserRole's doc comment) — folded into isAdmin here
+         * so every admin-scoped branch below (unrestricted visibility,
+         * skip the accessible-branch checks) applies to VIEWER too.
+         */
         boolean isAdmin =
-                currentRole == UserRole.ADMIN;
+                currentRole == UserRole.ADMIN
+                        || currentRole == UserRole.VIEWER;
 
         boolean isMember =
                 currentRole == UserRole.MEMBER;
@@ -662,10 +760,19 @@ public class DocumentServiceImpl
          *
          * SECRETARY / BRANCH_LEADER:
          * returns only their accessible branches.
+         *
+         * VIEWER:
+         * BranchService's own role check only knows about
+         * ADMIN/SECRETARY/BRANCH_LEADER and throws FORBIDDEN for
+         * anything else, so VIEWER skips that call entirely rather
+         * than being misclassified as branch-scoped staff or blocked
+         * outright — isAdmin is already true for VIEWER above, so the
+         * query below ignores queryBranchIds' contents for it anyway.
          */
         Set<Long> accessibleBranchIds =
-                branchService
-                        .getAccessibleBranchIds();
+                currentRole == UserRole.VIEWER
+                        ? Set.of()
+                        : branchService.getAccessibleBranchIds();
 
         /*
          * Non-admin with no branch access has no documents.
@@ -862,6 +969,28 @@ public class DocumentServiceImpl
         }
 
         /*
+         * VIEWER has the same read authority as ADMIN throughout this
+         * app (see UserRole's doc comment), but the branchService
+         * calls below only know about ADMIN/SECRETARY/BRANCH_LEADER
+         * and throw FORBIDDEN for anything else — so VIEWER is
+         * special-cased here rather than touching BranchService for
+         * this one gap. Safe to short-circuit unconditionally: this
+         * method is also reached from updateDocument/deleteDocument,
+         * but those are SECRETARY/BRANCH_LEADER-only per
+         * DocumentController's @PreAuthorize, so a VIEWER caller can
+         * only ever arrive here via the read-only getDocumentById path.
+         */
+        User currentUser =
+                SecurityUtil.getCurrentUser();
+
+        if (
+                currentUser != null
+                        && currentUser.getRole() == UserRole.VIEWER
+        ) {
+            return;
+        }
+
+        /*
          * Branch-owned document.
          */
         if (document.getBranchId() != null) {
@@ -1010,8 +1139,17 @@ public class DocumentServiceImpl
             );
         }
 
+        /*
+         * VIEWER has the same read authority as ADMIN throughout this
+         * app (see UserRole's doc comment) — folded into isAdmin here.
+         * isStaff deliberately does NOT include VIEWER, so the
+         * branchService.getAccessibleBranchIds() call a few lines down
+         * (which only knows about ADMIN/SECRETARY/BRANCH_LEADER and
+         * would throw FORBIDDEN for VIEWER) is never reached for it.
+         */
         boolean isAdmin =
-                role == UserRole.ADMIN;
+                role == UserRole.ADMIN
+                        || role == UserRole.VIEWER;
 
         boolean isMember =
                 role == UserRole.MEMBER;

@@ -62,6 +62,15 @@ public class MemberMapper {
 
                 toLocalDate(
                         row[17]
+                ),
+
+                toStringValue(
+                        row[18]
+                ),
+
+                toAccountRoleResponse(
+                        row[19],
+                        row[20]
                 )
         );
     }
@@ -164,6 +173,28 @@ public class MemberMapper {
                 code,
                 toStringValue(
                         genderLabelKm
+                )
+        );
+    }
+
+    private MemberListResponse.AccountRoleResponse
+    toAccountRoleResponse(
+            Object roleCode,
+            Object roleLabelKm
+    ) {
+        String code =
+                toStringValue(
+                        roleCode
+                );
+
+        if (code == null) {
+            return null;
+        }
+
+        return new MemberListResponse.AccountRoleResponse(
+                code,
+                toStringValue(
+                        roleLabelKm
                 )
         );
     }

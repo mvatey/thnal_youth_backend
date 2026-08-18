@@ -113,24 +113,25 @@ public class BranchServiceImpl implements BranchService {
                     );
 
             /*
-             * Fallback when branch_staff has no active assignment.
+             * The member's home branch (members.branch_id) is ALWAYS in
+             * scope, not just as a fallback for when branch_staff is
+             * empty -- a secretary/branch leader with active branch_staff
+             * rows still needs their own home branch listed here too.
              */
-            if (accessibleBranchIds.isEmpty()) {
-                Member member =
-                        memberRepository
-                                .findById(memberId)
-                                .orElseThrow(() ->
-                                        new ResponseStatusException(
-                                                HttpStatus.FORBIDDEN,
-                                                "Linked member record was not found"
-                                        )
-                                );
+            Member member =
+                    memberRepository
+                            .findById(memberId)
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Linked member record was not found"
+                                    )
+                            );
 
-                if (member.getBranchId() != null) {
-                    accessibleBranchIds.add(
-                            member.getBranchId()
-                    );
-                }
+            if (member.getBranchId() != null) {
+                accessibleBranchIds.add(
+                        member.getBranchId()
+                );
             }
 
             branches =
@@ -682,9 +683,13 @@ public class BranchServiceImpl implements BranchService {
                 currentUser.getRole();
 
         /*
-         * Admin can select any valid branch.
+         * Admin can select any valid branch. VIEWER has the same viewing
+         * authority as ADMIN throughout the app (see UserRole's doc
+         * comment), so it gets the same unrestricted read here -- this
+         * method never mutates anything, it only resolves which branch
+         * the caller may look at.
          */
-        if (role == UserRole.ADMIN) {
+        if (role == UserRole.ADMIN || role == UserRole.VIEWER) {
             return branch;
         }
 
@@ -1635,8 +1640,13 @@ public class BranchServiceImpl implements BranchService {
         /*
          * ADMIN:
          * access to every branch.
+         *
+         * VIEWER gets the same unrestricted read scope as ADMIN here (see
+         * UserRole's doc comment) -- this method only ever backs read
+         * paths (e.g. DocumentServiceImpl.getDocuments), so widening it
+         * to VIEWER cannot expose any mutating capability.
          */
-        if (role == UserRole.ADMIN) {
+        if (role == UserRole.ADMIN || role == UserRole.VIEWER) {
             return branchRepository
                     .findAll()
                     .stream()
@@ -1686,27 +1696,27 @@ public class BranchServiceImpl implements BranchService {
                 );
 
         /*
-         * Fallback:
-         * if branch_staff has no active assignment,
-         * use the member's primary branch.
+         * The member's home branch (members.branch_id) is ALWAYS in
+         * scope -- not just as a fallback for when branch_staff has no
+         * active assignment. Only adding it in that empty-set case was
+         * the bug: once a secretary/branch leader has any active
+         * branch_staff row, their own home branch silently dropped out
+         * of their accessible scope everywhere this method is used.
          */
-        if (accessibleBranchIds.isEmpty()) {
+        Member member =
+                memberRepository
+                        .findById(memberId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "Linked member record was not found"
+                                )
+                        );
 
-            Member member =
-                    memberRepository
-                            .findById(memberId)
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (member.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        member.getBranchId()
-                );
-            }
+        if (member.getBranchId() != null) {
+            accessibleBranchIds.add(
+                    member.getBranchId()
+            );
         }
 
         return accessibleBranchIds;

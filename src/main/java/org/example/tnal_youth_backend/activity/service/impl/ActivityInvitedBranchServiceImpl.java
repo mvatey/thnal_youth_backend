@@ -7,9 +7,11 @@ import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranc
 import org.example.tnal_youth_backend.activity.model.enums.ActivityBranchRole;
 import org.example.tnal_youth_backend.activity.model.enums.ActivityInvitationStatus;
 import org.example.tnal_youth_backend.activity.model.request.InviteBranchRequest;
+import org.example.tnal_youth_backend.activity.model.request.NotifyCertificateBranchesRequest;
 import org.example.tnal_youth_backend.activity.model.request.RespondBranchInvitationRequest;
 import org.example.tnal_youth_backend.activity.model.response.ActivityBranchResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityInvitedBranchResponse;
+import org.example.tnal_youth_backend.activity.model.response.CertificateBranchNotifyResponse;
 import org.example.tnal_youth_backend.activity.repository.ActivityInvitedBranchRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
@@ -63,6 +65,9 @@ public class ActivityInvitedBranchServiceImpl
 
     private static final String BRANCH_INVITATION_TYPE_CODE =
             "ACTIVITY_BRANCH_INVITATION";
+
+    private static final String CERTIFICATE_READY_TYPE_CODE =
+            "ACTIVITY_CERTIFICATE_READY";
 
     @Override
     @Transactional
@@ -406,6 +411,145 @@ public class ActivityInvitedBranchServiceImpl
         invitedBranchRepository.saveAndFlush(
                 invitation
         );
+    }
+
+    @Override
+    @Transactional
+    public CertificateBranchNotifyResponse notifyBranchesCertificatesReady(
+            Long activityId,
+            NotifyCertificateBranchesRequest request,
+            Long currentUserId
+    ) {
+        Activity activity = findActivity(activityId);
+
+        if (request == null
+                || request.getBranchIds() == null
+                || request.getBranchIds().isEmpty()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "At least one branch ID is required"
+            );
+        }
+
+        User currentUser = findUser(currentUserId);
+
+        /*
+         * Only the activity's own host branch leadership may broadcast
+         * that certificates are ready -- same authorization as
+         * inviting/cancelling a co-hosting branch invitation.
+         */
+        validateHostManagePermission(activity, currentUser);
+
+        /*
+         * De-dupe while preserving request order.
+         */
+        Set<Long> requestedBranchIds =
+                new LinkedHashSet<>(request.getBranchIds());
+
+        if (activity.getBranchId() != null
+                && requestedBranchIds.contains(activity.getBranchId())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    """
+                    The activity's own host branch cannot be included --
+                    its members already receive their certificates directly
+                    """
+            );
+        }
+
+        /*
+         * Every requested branch must be an ACCEPTED co-host of this
+         * activity -- a branch that was never invited, or that is only
+         * PENDING/DECLINED/CANCELLED, has no business being told its
+         * members' certificates are ready.
+         */
+        List<Long> invalidBranchIds = new ArrayList<>();
+
+        for (Long branchId : requestedBranchIds) {
+            ActivityInvitedBranch invitation =
+                    invitedBranchRepository
+                            .findByActivity_IdAndBranch_Id(
+                                    activityId,
+                                    branchId
+                            )
+                            .orElse(null);
+
+            if (invitation == null
+                    || invitation.getInvitationStatus()
+                            != ActivityInvitationStatus.ACCEPTED) {
+
+                invalidBranchIds.add(branchId);
+            }
+        }
+
+        if (!invalidBranchIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "These branches are not accepted co-hosts of this "
+                            + "activity: " + invalidBranchIds
+            );
+        }
+
+        Short typeId = notificationRepo.findActiveTypeIdByCode(
+                CERTIFICATE_READY_TYPE_CODE
+        );
+
+        List<Long> notifiedBranchIds = new ArrayList<>();
+        List<Long> skippedBranchIds = new ArrayList<>();
+
+        for (Long branchId : requestedBranchIds) {
+            Set<Long> userIds =
+                    branchStaffRepository.findActiveStaffUserIds(branchId);
+
+            if (userIds.isEmpty() || typeId == null) {
+                skippedBranchIds.add(branchId);
+                continue;
+            }
+
+            try {
+                NotificationCreateDTO notification =
+                        new NotificationCreateDTO();
+                notification.setTypeId(typeId);
+                notification.setTitle(
+                        "វិញ្ញាបនបត្រសម្រាប់សាខារបស់អ្នកបានរួចរាល់"
+                );
+                notification.setBody(
+                        "វិញ្ញាបនបត្រសម្រាប់សមាជិកសាខារបស់អ្នកដែលបាន"
+                                + "ចូលរួមកម្មវិធី \""
+                                + activity.getTitleKm()
+                                + "\" បានរួចរាល់ សូមទាក់ទងសាខារៀបចំកម្មវិធី"
+                                + "ដើម្បីទទួល"
+                );
+                notification.setActionUrl(
+                        "/activity/" + activity.getId()
+                );
+                notification.setActivityId(activity.getId());
+                notification.setBranchId(branchId);
+                notification.setTarget(
+                        NotificationCreateDTO.TargetMode.USERS
+                );
+                notification.setTargetUserIds(
+                        new ArrayList<>(userIds)
+                );
+
+                notificationService.create(notification);
+
+                notifiedBranchIds.add(branchId);
+            } catch (RuntimeException exception) {
+                /*
+                 * A notification failure for one branch must not stop the
+                 * others from being notified.
+                 */
+                skippedBranchIds.add(branchId);
+            }
+        }
+
+        return CertificateBranchNotifyResponse.builder()
+                .notifiedBranchIds(notifiedBranchIds)
+                .skippedBranchIds(skippedBranchIds)
+                .build();
     }
 
     private Activity findActivity(

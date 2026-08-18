@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.notification.service;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.exception.BusinessException;
+import org.example.tnal_youth_backend.notification.dispatch.NotificationCreatedEvent;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateResultDTO;
 import org.example.tnal_youth_backend.notification.dto.NotificationDTO;
@@ -9,6 +10,7 @@ import org.example.tnal_youth_backend.notification.dto.NotificationPageDTO;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
 import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ import java.util.List;
 public class NotificationService {
 
     private final NotificationRepo repo;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Creates a notification and fans it out to recipients in one transaction.
@@ -84,6 +87,14 @@ public class NotificationService {
         }
 
         int recipientCount = fanOut(nid, req);
+
+        // Published now, not awaited — the listener only actually runs
+        // AFTER_COMMIT (see NotificationCreatedEvent), so a rollback below
+        // this line (there isn't one today, but if one is added later)
+        // still can't result in an email/Telegram send for a notification
+        // that was never really created.
+        eventPublisher.publishEvent(new NotificationCreatedEvent(nid));
+
         // Zero-audience is surfaced to the caller (not thrown) so admins can see
         // the effect of their target choice without a hard failure on
         // legitimately-empty branches or activities.

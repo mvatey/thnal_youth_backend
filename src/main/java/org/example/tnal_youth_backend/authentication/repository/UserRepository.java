@@ -25,6 +25,10 @@ public interface UserRepository
             Long memberId
     );
 
+    Optional<User> findByTelegramChatId(
+            Long telegramChatId
+    );
+
     // -------------------------
     // Exists
     // -------------------------

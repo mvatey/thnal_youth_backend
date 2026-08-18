@@ -74,6 +74,18 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
+    /**
+     * The linked Telegram chat id, set once this account completes the
+     * connect flow (see {@code authentication.telegram.TelegramLinkService}).
+     * {@code null} means not connected yet — this is exactly the condition
+     * the activity page's "connect your Telegram" banner checks.
+     */
+    @Column(name = "telegram_chat_id", unique = true)
+    private Long telegramChatId;
+
+    @Column(name = "telegram_linked_at")
+    private OffsetDateTime telegramLinkedAt;
+
     @PrePersist
     protected void onCreate() {
 

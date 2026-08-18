@@ -6,8 +6,10 @@ import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.notification.dispatch.NotificationCreatedEvent;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
 import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ public class ActivityReminderScheduler {
     private final ActivityParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final NotificationRepo notificationRepo;
+    private final ApplicationEventPublisher eventPublisher;
 
     /*
      * Runs every day at 14:00 (2pm) server time.
@@ -156,6 +159,12 @@ public class ActivityReminderScheduler {
         }
 
         notificationRepo.fanOutUsers(notificationId, userIds);
+
+        // Same AFTER_COMMIT-dispatched channel fan-out as
+        // NotificationService#create — this scheduler bypasses that
+        // service (see the class doc comment) but reminders still need
+        // email/Telegram delivery, so the event is published here too.
+        eventPublisher.publishEvent(new NotificationCreatedEvent(notificationId));
     }
 
     private boolean isCancelled(Activity activity) {

@@ -102,7 +102,16 @@ public interface MemberRepository
                         ml.label_en AS level_label_en,
                         f.id AS profile_photo_id,
                         f.file_path AS profile_photo_url,
-                        m.joined_on
+                        m.joined_on,
+                        m.email AS email,
+                        u.role AS account_role_code,
+                        CASE u.role
+                            WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                            WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                            WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                            WHEN 'MEMBER' THEN 'សមាជិក'
+                            ELSE u.role
+                        END AS account_role_label_km
                     FROM members m
                     INNER JOIN branches b
                             ON b.id = m.branch_id
@@ -112,6 +121,8 @@ public interface MemberRepository
                            ON ml.id = m.level_id
                     LEFT JOIN files f
                            ON f.id = m.profile_photo_id
+                    LEFT JOIN users u
+                           ON u.member_id = m.id
                     ORDER BY
                         m.created_at DESC,
                         m.id DESC
@@ -145,7 +156,16 @@ public interface MemberRepository
                         ml.label_en AS level_label_en,
                         f.id AS profile_photo_id,
                         f.file_path AS profile_photo_url,
-                        m.joined_on
+                        m.joined_on,
+                        m.email AS email,
+                        u.role AS account_role_code,
+                        CASE u.role
+                            WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                            WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                            WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                            WHEN 'MEMBER' THEN 'សមាជិក'
+                            ELSE u.role
+                        END AS account_role_label_km
                     FROM members m
                     INNER JOIN branches b
                             ON b.id = m.branch_id
@@ -155,6 +175,8 @@ public interface MemberRepository
                            ON ml.id = m.level_id
                     LEFT JOIN files f
                            ON f.id = m.profile_photo_id
+                    LEFT JOIN users u
+                           ON u.member_id = m.id
                     WHERE
                         LOWER(m.full_name_km)
                             LIKE LOWER(CONCAT('%', :name, '%'))
@@ -196,7 +218,16 @@ public interface MemberRepository
                         ml.label_en AS level_label_en,
                         f.id AS profile_photo_id,
                         f.file_path AS profile_photo_url,
-                        m.joined_on
+                        m.joined_on,
+                        m.email AS email,
+                        u.role AS account_role_code,
+                        CASE u.role
+                            WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                            WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                            WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                            WHEN 'MEMBER' THEN 'សមាជិក'
+                            ELSE u.role
+                        END AS account_role_label_km
                     FROM members m
                     INNER JOIN branches b
                             ON b.id = m.branch_id
@@ -206,6 +237,8 @@ public interface MemberRepository
                            ON ml.id = m.level_id
                     LEFT JOIN files f
                            ON f.id = m.profile_photo_id
+                    LEFT JOIN users u
+                           ON u.member_id = m.id
                     WHERE m.branch_id = :branchId
                     ORDER BY
                         m.created_at DESC,
@@ -243,7 +276,16 @@ public interface MemberRepository
                         ml.label_en AS level_label_en,
                         f.id AS profile_photo_id,
                         f.file_path AS profile_photo_url,
-                        m.joined_on
+                        m.joined_on,
+                        m.email AS email,
+                        u.role AS account_role_code,
+                        CASE u.role
+                            WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                            WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                            WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                            WHEN 'MEMBER' THEN 'សមាជិក'
+                            ELSE u.role
+                        END AS account_role_label_km
                     FROM members m
                     INNER JOIN branches b
                             ON b.id = m.branch_id
@@ -253,6 +295,8 @@ public interface MemberRepository
                            ON ml.id = m.level_id
                     LEFT JOIN files f
                            ON f.id = m.profile_photo_id
+                    LEFT JOIN users u
+                           ON u.member_id = m.id
                     WHERE m.status_id = :statusId
                     ORDER BY
                         m.created_at DESC,
@@ -290,7 +334,16 @@ public interface MemberRepository
                         ml.label_en AS level_label_en,
                         f.id AS profile_photo_id,
                         f.file_path AS profile_photo_url,
-                        m.joined_on
+                        m.joined_on,
+                        m.email AS email,
+                        u.role AS account_role_code,
+                        CASE u.role
+                            WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                            WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                            WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                            WHEN 'MEMBER' THEN 'សមាជិក'
+                            ELSE u.role
+                        END AS account_role_label_km
                     FROM members m
                     INNER JOIN branches b
                             ON b.id = m.branch_id
@@ -300,6 +353,8 @@ public interface MemberRepository
                            ON ml.id = m.level_id
                     LEFT JOIN files f
                            ON f.id = m.profile_photo_id
+                    LEFT JOIN users u
+                           ON u.member_id = m.id
                     WHERE m.gender = :gender
                     ORDER BY
                         m.created_at DESC,
@@ -428,7 +483,16 @@ public interface MemberRepository
                 f.id AS profile_photo_id,
                 f.file_path AS profile_photo_url,
 
-                m.joined_on
+                m.joined_on,
+                m.email AS email,
+                u.role AS account_role_code,
+                CASE u.role
+                    WHEN 'ADMIN' THEN 'អ្នកគ្រប់គ្រង'
+                    WHEN 'SECRETARY' THEN 'លេខាធិការ'
+                    WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
+                    WHEN 'MEMBER' THEN 'សមាជិក'
+                    ELSE u.role
+                END AS account_role_label_km
 
             FROM members m
 
@@ -443,6 +507,8 @@ public interface MemberRepository
 
             LEFT JOIN files f
                    ON f.id = m.profile_photo_id
+            LEFT JOIN users u
+                   ON u.member_id = m.id
 
             WHERE (
                 :search IS NULL

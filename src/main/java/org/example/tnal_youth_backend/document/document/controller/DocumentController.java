@@ -48,7 +48,7 @@ public class DocumentController {
      */
     @GetMapping
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER','VIEWER')"
     )
     public ResponseEntity<DocumentPageResponse>
     getDocuments(
@@ -111,7 +111,7 @@ public class DocumentController {
      */
     @GetMapping("/member-documents")
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER','VIEWER')"
     )
     public ResponseEntity<MemberDocumentPageResponse>
     getMemberDocuments(
@@ -162,7 +162,7 @@ public class DocumentController {
      */
     @GetMapping("/type-options")
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER','VIEWER')"
     )
     public ResponseEntity<List<DocumentTypeOptionResponse>>
     getDocumentTypeOptions() {
@@ -190,7 +190,7 @@ public class DocumentController {
      */
     @GetMapping("/{id}")
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','MEMBER','VIEWER')"
     )
     public ResponseEntity<DocumentResponse>
     getDocumentById(

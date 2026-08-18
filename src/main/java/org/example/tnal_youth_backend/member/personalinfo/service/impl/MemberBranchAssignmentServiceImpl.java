@@ -187,15 +187,6 @@ public class MemberBranchAssignmentServiceImpl
         Member member =
                 requireMember(memberId);
 
-        if (branchId.equals(
-                member.getBranchId()
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Cannot remove the member's primary branch here — change it from the branch field instead"
-            );
-        }
-
         MapSqlParameterSource params =
                 new MapSqlParameterSource()
                         .addValue(
@@ -206,6 +197,56 @@ public class MemberBranchAssignmentServiceImpl
                                 "memberId",
                                 memberId
                         );
+
+        /*
+         * The multiselect on the member's personal-info page shows
+         * every branch this secretary covers — primary/home branch
+         * (members.branch_id) plus any additional branch_staff rows
+         * — as one flat, indistinguishable list of checkboxes. There
+         * is no separate "primary branch" field for staff to fall
+         * back to, so instead of always rejecting removal of the
+         * primary branch (the old behavior here), fall back to
+         * promoting another one of the secretary's still-active
+         * branches to take its place. Only reject when this is
+         * genuinely the member's last remaining branch, since every
+         * member is required to have one.
+         */
+        if (branchId.equals(
+                member.getBranchId()
+        )) {
+            Long fallbackBranchId =
+                    jdbcTemplate.query(
+                            """
+                            SELECT branch_id FROM branch_staff
+                            WHERE member_id = :memberId
+                              AND branch_id <> :branchId
+                              AND ended_on IS NULL
+                            ORDER BY started_on ASC, id ASC
+                            LIMIT 1
+                            """,
+                            params,
+                            resultSet ->
+                                    resultSet.next()
+                                            ? resultSet.getLong(
+                                            "branch_id"
+                                    )
+                                            : null
+                    );
+
+            if (fallbackBranchId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "This is the only branch this secretary covers — assign another branch before removing this one"
+                );
+            }
+
+            member.setBranchId(
+                    fallbackBranchId
+            );
+
+            memberRepository
+                    .saveAndFlush(member);
+        }
 
         jdbcTemplate.update(
                 """

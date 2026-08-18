@@ -67,6 +67,58 @@ public interface NotificationRepo {
         """)
     OffsetDateTime findCreatedAtById(@Param("nid") Long notificationId);
 
+    /**
+     * Full row lookup used by {@code NotificationDispatchListener} to read
+     * back a just-committed notification's title/body/action_url for
+     * email/Telegram dispatch. Returns {@code null} if the id doesn't
+     * exist (defensive — should not happen for a notification id that was
+     * just inserted in the same, now-committed, transaction).
+     */
+    @Select("""
+        SELECT
+            id             AS id,
+            type_id        AS typeId,
+            title          AS title,
+            body           AS body,
+            action_url     AS actionUrl,
+            activity_id    AS activityId,
+            branch_id      AS branchId,
+            created_by     AS createdBy,
+            client_request_id AS clientRequestId,
+            created_at     AS createdAt
+        FROM notifications
+        WHERE id = #{nid}
+        """)
+    NotificationModel findById(@Param("nid") Long notificationId);
+
+    /**
+     * Every recipient's user id for a notification, used by
+     * {@code NotificationDispatchListener} to drive the email/Telegram
+     * fan-out after the in-app fan-out has already committed.
+     */
+    @Select("""
+        SELECT user_id
+        FROM notification_recipients
+        WHERE notification_id = #{nid}
+        """)
+    List<Long> findRecipientUserIds(@Param("nid") Long notificationId);
+
+    // ---------- per-channel delivery tracking (V332 notification_deliveries) ----------
+    // Observability only — a failed/skipped row here never blocks anything, it just
+    // records what NotificationDispatchListener actually attempted for each recipient.
+
+    @Insert("""
+        INSERT INTO notification_deliveries
+            (notification_id, user_id, channel, status, error_message)
+        VALUES
+            (#{notificationId}, #{userId}, #{channel}, #{status}, #{errorMessage})
+        """)
+    int insertDelivery(@Param("notificationId") Long notificationId,
+                       @Param("userId") Long userId,
+                       @Param("channel") String channel,
+                       @Param("status") String status,
+                       @Param("errorMessage") String errorMessage);
+
     @Select("""
         SELECT COUNT(*)
         FROM notification_recipients

@@ -175,20 +175,24 @@ public class MemberAccessValidator {
                 );
 
         /*
-         * Temporary fallback when branch_staff
-         * has not been configured yet.
+         * A secretary/branch-leader's home branch (members.branch_id) is
+         * ALWAYS in scope, regardless of whether branch_staff also has
+         * active rows for them -- it must never be added only as a
+         * fallback for when branch_staff is empty. That conditional
+         * fallback was the actual bug: once a secretary has even one
+         * active branch_staff row (e.g. an additional branch assigned
+         * after being revoked and re-added elsewhere), their own home
+         * branch silently dropped out of scope here.
          */
-        if (accessibleBranchIds.isEmpty()) {
-            Member currentMember =
-                    findMember(
-                            currentMemberId
-                    );
-
-            if (currentMember.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
+        Member currentMember =
+                findMember(
+                        currentMemberId
                 );
-            }
+
+        if (currentMember.getBranchId() != null) {
+            accessibleBranchIds.add(
+                    currentMember.getBranchId()
+            );
         }
 
         if (!accessibleBranchIds.contains(

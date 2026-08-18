@@ -3,8 +3,10 @@ package org.example.tnal_youth_backend.activity.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.model.request.InviteBranchRequest;
+import org.example.tnal_youth_backend.activity.model.request.NotifyCertificateBranchesRequest;
 import org.example.tnal_youth_backend.activity.model.request.RespondBranchInvitationRequest;
 import org.example.tnal_youth_backend.activity.model.response.ActivityInvitedBranchResponse;
+import org.example.tnal_youth_backend.activity.model.response.CertificateBranchNotifyResponse;
 import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchService;
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.springframework.http.HttpStatus;
@@ -107,6 +109,37 @@ public class ActivityInvitedBranchController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Broadcasts "certificates from this activity are ready" to the
+     * leadership (SECRETARY/BRANCH_LEADER only, never individual members)
+     * of every given branch. Every branch ID must already be an ACCEPTED
+     * co-host of this activity, and only the activity's own host branch's
+     * SECRETARY/BRANCH_LEADER may call this — both enforced in the service
+     * layer, not here.
+     */
+    @PostMapping("/certificates/notify")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    public ResponseEntity<CertificateBranchNotifyResponse>
+    notifyBranchesCertificatesReady(
+            @PathVariable Long activityId,
+            @Valid
+            @RequestBody
+            NotifyCertificateBranchesRequest request,
+            Authentication authentication
+    ) {
+        Long currentUserId =
+                getCurrentUserId(authentication);
+
+        return ResponseEntity.ok(
+                invitedBranchService
+                        .notifyBranchesCertificatesReady(
+                                activityId,
+                                request,
+                                currentUserId
+                        )
+        );
     }
 
     private Long getCurrentUserId(
