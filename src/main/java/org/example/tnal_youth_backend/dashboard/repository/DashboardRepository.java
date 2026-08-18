@@ -264,7 +264,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path AS cover_image,
+                    a.cover_image_id AS cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -275,8 +275,6 @@ public class DashboardRepository {
                     ON ast.id = a.status_id
                 JOIN activity_types at
                     ON at.id = a.type_id
-                LEFT JOIN files f
-                    ON f.id = a.cover_image_id
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'COMPLETED'
@@ -284,7 +282,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path,
+                    a.cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -311,7 +309,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path AS cover_image,
+                    a.cover_image_id AS cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -322,8 +320,6 @@ public class DashboardRepository {
                     ON ast.id = a.status_id
                 JOIN activity_types at
                     ON at.id = a.type_id
-                LEFT JOIN files f
-                    ON f.id = a.cover_image_id
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'COMPLETED'
@@ -332,7 +328,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path,
+                    a.cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -368,7 +364,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path AS cover_image,
+                    a.cover_image_id AS cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -379,8 +375,6 @@ public class DashboardRepository {
                     ON ast.id = a.status_id
                 JOIN activity_types at
                     ON at.id = a.type_id
-                LEFT JOIN files f
-                    ON f.id = a.cover_image_id
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'UPCOMING'
@@ -389,7 +383,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path,
+                    a.cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -421,7 +415,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path AS cover_image,
+                    a.cover_image_id AS cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -432,8 +426,6 @@ public class DashboardRepository {
                     ON ast.id = a.status_id
                 JOIN activity_types at
                     ON at.id = a.type_id
-                LEFT JOIN files f
-                    ON f.id = a.cover_image_id
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'UPCOMING'
@@ -443,7 +435,7 @@ public class DashboardRepository {
                     a.id,
                     a.title_km,
                     a.title_en,
-                    f.file_path,
+                    a.cover_image_id,
                     a.starts_at,
                     a.ends_at,
                     a.location_name,
@@ -693,8 +685,9 @@ public class DashboardRepository {
                         resultSet.getString(
                                 "title_en"
                         ),
-                        resultSet.getString(
-                                "cover_image"
+                        resultSet.getObject(
+                                "cover_image_id",
+                                Long.class
                         ),
                         resultSet.getObject(
                                 "starts_at",

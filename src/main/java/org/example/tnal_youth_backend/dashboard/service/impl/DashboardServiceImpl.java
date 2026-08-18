@@ -361,7 +361,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .id(row.id())
                 .titleKm(row.titleKm())
                 .titleEn(row.titleEn())
-                .coverImage(row.coverImage())
+                .coverImageId(row.coverImageId())
                 .startsAt(row.startsAt())
                 .endsAt(row.endsAt())
                 .locationName(row.locationName())

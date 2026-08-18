@@ -16,6 +16,8 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
+import org.example.tnal_youth_backend.document.type.entity.DocumentType;
+import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepository;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -44,6 +46,15 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentTypeRepository documentTypeRepository;
+
+    // The document type used whenever an activity attachment is mirrored
+    // into the Document module (see mirrorAttachmentAsDocument below) --
+    // documents.document_type_id is NOT NULL, and this code (V13 seed
+    // data) is exactly the "A document related to a specific activity"
+    // type already seeded for this purpose.
+    private static final String ACTIVITY_DOCUMENT_TYPE_CODE =
+            "ACTIVITY_DOCUMENT";
 
     // ============================================================
     // COVER IMAGE
@@ -476,6 +487,15 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
      *
      * Best-effort: this must never fail the attachment upload the
      * user is waiting on, so all exceptions are swallowed here.
+     *
+     * IMPORTANT: documents.document_type_id is NOT NULL, and a failed
+     * INSERT poisons the surrounding @Transactional's JDBC connection
+     * (Postgres aborts the whole transaction) -- catching the exception
+     * in Java does NOT undo that, every later statement on this same
+     * transaction (including the caller's own response-building lookups)
+     * would then fail too. So the type id is resolved and validated
+     * *before* ever attempting the insert, instead of relying on the
+     * catch block below to recover from a doomed one.
      */
     private void mirrorAttachmentAsDocument(
             Activity activity,
@@ -483,8 +503,21 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
             ActivityAttachment savedAttachment,
             Long currentUserId
     ) {
+        Short documentTypeId = documentTypeRepository
+                .findByCodeIgnoreCase(ACTIVITY_DOCUMENT_TYPE_CODE)
+                .map(DocumentType::getId)
+                .orElse(null);
+
+        if (documentTypeId == null) {
+            // The "ACTIVITY_DOCUMENT" type isn't seeded -- skip mirroring
+            // rather than attempting an insert that's guaranteed to violate
+            // the NOT NULL constraint and poison the transaction.
+            return;
+        }
+
         try {
             Document document = Document.builder()
+                    .typeId(documentTypeId)
                     .fileId(uploadedFile.getId())
                     .title(
                             savedAttachment.getTitle() != null
