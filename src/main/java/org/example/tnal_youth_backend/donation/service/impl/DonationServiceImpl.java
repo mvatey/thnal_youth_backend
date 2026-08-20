@@ -21,6 +21,7 @@ import org.example.tnal_youth_backend.donation.repository.BranchDonationTotalRow
 import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +96,7 @@ public class DonationServiceImpl implements DonationService {
     private final ActivityRepository activityRepository;
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
     private final ActivityInvitedBranchService activityInvitedBranchService;
+    private final StaffBranchScopeService staffBranchScopeService;
 
     // ===================================================================
     // create
@@ -105,12 +107,7 @@ public class DonationServiceImpl implements DonationService {
     public DonationCreateResultResponse create(DonationCreateRequest req) {
         Long actorId = SecurityUtils.getCurrentUserId();
 
-        // ---- object-level authz: a branch leader can only record for their branch ----
-        Long scopeBranchId = scopedBranchIdOrNull(actorId);
-        if (scopeBranchId != null && !scopeBranchId.equals(req.getBranchId())) {
-            throw new AccessDeniedException(
-                    "You may only record donations for your own branch");
-        }
+        enforceStaffBranchAccess(req.getBranchId());
 
         String clientRequestId = normalizeToNull(req.getClientRequestId());
 
@@ -172,11 +169,7 @@ public class DonationServiceImpl implements DonationService {
         if (dto == null) {
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
         }
-        // Object-level authz: a branch leader may only read donations for their branch.
-        Long scopeBranchId = scopedBranchIdOrNull(SecurityUtils.getCurrentUserId());
-        if (scopeBranchId != null && !scopeBranchId.equals(dto.getBranchId())) {
-            throw new AccessDeniedException("This donation belongs to another branch");
-        }
+        enforceStaffBranchAccess(dto.getBranchId());
         return dto;
     }
 
@@ -226,13 +219,8 @@ public class DonationServiceImpl implements DonationService {
             throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
         }
 
-        // Object-level authz: a branch leader may only edit donations in their own
-        // branch AND may not move one out of (or into) their branch.
-        Long scopeBranchId = scopedBranchIdOrNull(actorId);
-        if (scopeBranchId != null
-                && (!scopeBranchId.equals(current.getBranchId()) || !scopeBranchId.equals(req.getBranchId()))) {
-            throw new AccessDeniedException("You may only edit donations for your own branch");
-        }
+        enforceStaffBranchAccess(current.getBranchId());
+        enforceStaffBranchAccess(req.getBranchId());
 
         Prepared p = validateAndPrepare(
                 req.getDonationTypeId(), req.getMemberId(), req.getSponsorId(), req.getDonorName(),
@@ -312,17 +300,18 @@ public class DonationServiceImpl implements DonationService {
         // recording a donation (validateActivityDonationBranchEligibility),
         // just checked against the viewer's own branch instead of a
         // request's branchId.
-        Long scopeBranchId = scopedBranchIdOrNull(actorId);
-        if (scopeBranchId != null && !isBranchEligibleForActivity(activityId, scopeBranchId)) {
-            throw new AccessDeniedException(
-                    "Your branch has no relationship to this activity");
-        }
+        String role = SecurityUtils.getCurrentUserRole();
+        java.util.Set<Long> staffScope =
+                ("SECRETARY".equals(role) || "BRANCH_LEADER".equals(role))
+                        ? staffBranchScopeService.currentStaffBranchIds()
+                        : null;
 
         List<ActivityBranchResponse> eligibleBranches = activityInvitedBranchService
                 .getActivityBranches(activityId)
                 .stream()
                 .filter(branch -> branch.getRole() == ActivityBranchRole.ORGANIZER
                         || branch.getInvitationStatus() == ActivityInvitationStatus.ACCEPTED)
+                .filter(branch -> staffScope == null || staffScope.contains(branch.getBranchId()))
                 .toList();
 
         Map<Long, BranchDonationTotalRow> totalsByBranchId = new HashMap<>();
@@ -540,26 +529,40 @@ public class DonationServiceImpl implements DonationService {
      * (ADMIN / SECRETARY, or any non-branch-leader). A BRANCH_LEADER with no branch
      * assigned fails closed with 403 — we will not silently widen their scope.
      */
-    private Long scopedBranchIdOrNull(Long actorId) {
-        if (!ROLE_BRANCH_LEADER.equals(SecurityUtils.getCurrentUserRole())) {
-            return null; // org-wide
+    private void enforceStaffBranchAccess(Long branchId) {
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!"SECRETARY".equals(role) && !"BRANCH_LEADER".equals(role)) {
+            return;
         }
-        Long branchId = repo.findBranchIdByUserId(actorId);
-        if (branchId == null) {
+        if (!staffBranchScopeService.currentStaffBranchIds().contains(branchId)) {
             throw new AccessDeniedException(
-                    "Your account is a branch leader but is not assigned to a branch");
+                    "This branch is outside your permitted scope"
+            );
         }
-        return branchId;
     }
 
-    /**
-     * The branch filter to apply to a list/summary query: a branch leader is
-     * force-narrowed to their own branch regardless of the requested filter;
-     * everyone else gets the filter they asked for (possibly null = all branches).
-     */
     private Long effectiveBranchFilter(Long requestedBranchId) {
-        Long scope = scopedBranchIdOrNull(SecurityUtils.getCurrentUserId());
-        return scope != null ? scope : requestedBranchId;
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!"SECRETARY".equals(role) && !"BRANCH_LEADER".equals(role)) {
+            return requestedBranchId;
+        }
+
+        var allowed = staffBranchScopeService.currentStaffBranchIds();
+        if (requestedBranchId == null) {
+            if (allowed.size() == 1) {
+                return allowed.iterator().next();
+            }
+            throw new AccessDeniedException(
+                    "Select one of your assigned branches"
+            );
+        }
+
+        if (!allowed.contains(requestedBranchId)) {
+            throw new AccessDeniedException(
+                    "This branch is outside your permitted scope"
+            );
+        }
+        return requestedBranchId;
     }
 
     private static String normalizeToNull(String s) {

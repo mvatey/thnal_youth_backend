@@ -9,6 +9,7 @@ import org.example.tnal_youth_backend.member.status.dto.MemberStatusResponse;
 import org.example.tnal_youth_backend.member.status.service.MemberStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -70,6 +71,7 @@ public class MemberStatusController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MemberStatusResponse>
     createMemberStatus(
             @Valid
@@ -86,6 +88,7 @@ public class MemberStatusController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MemberStatusResponse>
     updateMemberStatus(
             @PathVariable Short id,
@@ -102,6 +105,7 @@ public class MemberStatusController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void>
     deleteMemberStatus(
             @PathVariable Short id

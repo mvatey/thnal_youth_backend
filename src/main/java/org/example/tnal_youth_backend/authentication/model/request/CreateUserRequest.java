@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.authentication.model.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -29,8 +30,10 @@ import lombok.Setter;
 public class CreateUserRequest {
 
     @NotBlank(message = "Khmer full name is required")
+    @Size(max = 500, message = "Khmer full name must not exceed 500 characters")
     private String fullNameKm;
 
+    @Size(max = 500, message = "English full name must not exceed 500 characters")
     private String fullNameEn;
 
     @NotBlank(message = "Phone number is required")
@@ -42,6 +45,7 @@ public class CreateUserRequest {
 
     @NotBlank(message = "Email is required to send the account activation code")
     @Email(message = "Email format is invalid")
+    @Size(max = 255, message = "Email must not exceed 255 characters")
     private String email;
 
     /*

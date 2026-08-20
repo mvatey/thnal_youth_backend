@@ -71,6 +71,11 @@ public class MemberMapper {
                 toAccountRoleResponse(
                         row[19],
                         row[20]
+                ),
+
+                toAccountStatusResponse(
+                        row[21],
+                        row[22]
                 )
         );
     }
@@ -438,4 +443,20 @@ public class MemberMapper {
                         .getName()
         );
     }
+    private MemberListResponse.AccountStatusResponse
+    toAccountStatusResponse(
+            Object codeValue,
+            Object labelValue
+    ) {
+        String code = toStringValue(codeValue);
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+
+        return new MemberListResponse.AccountStatusResponse(
+                code,
+                toStringValue(labelValue)
+        );
+    }
+
 }

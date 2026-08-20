@@ -117,11 +117,8 @@ public class DocumentServiceImpl
 
         /*
          * Security:
-         * Secretary / Branch Leader may only create
+         * Admin / Secretary / Branch Leader may only create
          * documents inside branches they can access.
-         *
-         * ADMIN cannot reach this method because
-         * POST /api/documents is blocked by @PreAuthorize.
          */
         validateDocumentOwnerAccess(request);
 

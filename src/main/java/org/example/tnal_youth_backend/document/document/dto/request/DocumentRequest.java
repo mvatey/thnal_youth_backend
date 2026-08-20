@@ -21,8 +21,8 @@ public record DocumentRequest(
 
         @NotBlank(message = "Document title is required")
         @Size(
-                max = 500,
-                message = "Document title must not exceed 500 characters"
+                max = 255,
+                message = "Document title must not exceed 255 characters"
         )
         String title,
 

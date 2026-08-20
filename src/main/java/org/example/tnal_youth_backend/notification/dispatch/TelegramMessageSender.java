@@ -9,7 +9,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -27,7 +29,14 @@ public class TelegramMessageSender {
     private static final String SEND_MESSAGE_URL_TEMPLATE =
             "https://api.telegram.org/bot%s/sendMessage";
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public TelegramMessageSender(RestTemplateBuilder restTemplateBuilder) {
+        this.restTemplate = restTemplateBuilder
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(10))
+                .build();
+    }
 
     /**
      * Left blank by default on purpose — the user fills in the real bot
@@ -42,9 +51,9 @@ public class TelegramMessageSender {
 
     public void send(User user, NotificationModel notification) {
         if (botToken == null || botToken.isBlank()) {
-            log.warn("TelegramMessageSender: app.telegram.bot-token is not configured, skipping send to chat {}",
-                    user.getTelegramChatId());
-            return;
+            throw new IllegalStateException(
+                    "Telegram delivery is not configured"
+            );
         }
 
         String url = String.format(SEND_MESSAGE_URL_TEMPLATE, botToken);

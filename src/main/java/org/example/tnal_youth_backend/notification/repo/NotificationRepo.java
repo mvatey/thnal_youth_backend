@@ -112,6 +112,11 @@ public interface NotificationRepo {
             (notification_id, user_id, channel, status, error_message)
         VALUES
             (#{notificationId}, #{userId}, #{channel}, #{status}, #{errorMessage})
+        ON CONFLICT (notification_id, user_id, channel)
+        DO UPDATE SET
+            status = EXCLUDED.status,
+            error_message = EXCLUDED.error_message,
+            created_at = NOW()
         """)
     int insertDelivery(@Param("notificationId") Long notificationId,
                        @Param("userId") Long userId,

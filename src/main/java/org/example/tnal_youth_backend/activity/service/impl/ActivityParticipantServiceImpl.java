@@ -22,6 +22,7 @@ import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
 import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
 import org.example.tnal_youth_backend.notification.service.NotificationService;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ActivityParticipantServiceImpl
         implements ActivityParticipantService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final ActivityRepository activityRepository;
 
@@ -599,12 +602,16 @@ public class ActivityParticipantServiceImpl
             Activity activity,
             User currentUser
     ) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return new ManagePermission(true, null);
+        }
+
         if (currentUser.getRole() != UserRole.BRANCH_LEADER
                 && currentUser.getRole() != UserRole.SECRETARY) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only a branch leader or secretary can manage "
+                    "Only an administrator, branch leader, or secretary can manage "
                             + "activity participants"
             );
         }
@@ -641,21 +648,7 @@ public class ActivityParticipantServiceImpl
     }
 
     private Set<Long> resolveStaffBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            return Set.of();
-        }
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private void validateActivityCanBeModified(

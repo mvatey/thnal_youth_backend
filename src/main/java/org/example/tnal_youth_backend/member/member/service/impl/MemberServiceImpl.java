@@ -248,6 +248,7 @@ public class MemberServiceImpl implements MemberService {
             String search,
             Long branchId,
             Short statusId,
+            String accountStatus,
             Gender gender
     ) {
 
@@ -282,6 +283,20 @@ public class MemberServiceImpl implements MemberService {
             findStatus(
                     statusId
             );
+        }
+
+        String normalizedAccountStatus = trimToNull(accountStatus);
+        if (normalizedAccountStatus != null) {
+            normalizedAccountStatus = normalizedAccountStatus.toUpperCase();
+            try {
+                org.example.tnal_youth_backend.authentication.model.enums.UserStatus
+                        .valueOf(normalizedAccountStatus);
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid account status"
+                );
+            }
         }
 
         String normalizedSearch =
@@ -334,6 +349,7 @@ public class MemberServiceImpl implements MemberService {
                                 queryBranchScope,
                                 unrestrictedScope,
                                 statusId,
+                                normalizedAccountStatus,
                                 gender == null
                                         ? null
                                         : gender.name(),
@@ -1369,6 +1385,10 @@ public class MemberServiceImpl implements MemberService {
                                 member.getId()
                         )
 
+                        .branchId(
+                                member.getBranchId()
+                        )
+
                         .phone(
                                 phone
                         )
@@ -1442,6 +1462,10 @@ public class MemberServiceImpl implements MemberService {
 
                             user.setFullNameEn(
                                     member.getFullNameEn()
+                            );
+
+                            user.setBranchId(
+                                    member.getBranchId()
                             );
 
                             userRepository

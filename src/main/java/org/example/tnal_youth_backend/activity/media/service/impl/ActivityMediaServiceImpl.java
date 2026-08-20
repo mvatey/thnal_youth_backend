@@ -23,6 +23,7 @@ import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,8 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class ActivityMediaServiceImpl implements ActivityMediaService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final ActivityRepository activityRepository;
     private final ActivityPhotoRepository activityPhotoRepository;
@@ -577,9 +580,8 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     }
 
     /**
-     * Only a branch leader or secretary who is staff of this activity's own
-     * host branch may upload/delete the activity's cover image, gallery
-     * photos, or attachments.
+     * Administrators manage activity media organization-wide. Branch leaders
+     * and secretaries may manage media for activities hosted by their branch.
      */
     private void validateManagePermission(
             Activity activity,
@@ -598,12 +600,16 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                         "Authenticated user was not found"
                 ));
 
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+
         if (currentUser.getRole() != UserRole.BRANCH_LEADER
                 && currentUser.getRole() != UserRole.SECRETARY) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only a branch leader or secretary can manage "
+                    "Only an administrator, branch leader, or secretary can manage "
                             + "activity files"
             );
         }
@@ -622,21 +628,7 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
     }
 
     private Set<Long> resolveStaffBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            return Set.of();
-        }
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private void validateGalleryFiles(List<MultipartFile> files) {

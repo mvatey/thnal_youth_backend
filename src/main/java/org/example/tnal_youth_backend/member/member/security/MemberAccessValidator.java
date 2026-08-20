@@ -5,9 +5,9 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
-import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,8 +23,7 @@ public class MemberAccessValidator {
 
     private final MemberRepository memberRepository;
 
-    private final BranchStaffRepository
-            branchStaffRepository;
+    private final StaffBranchScopeService staffBranchScopeService;
 
     public Member validateAccessibleMember(
             Long memberId
@@ -143,66 +142,25 @@ public class MemberAccessValidator {
             );
         }
 
-        UserRole role =
-                currentUser.getRole();
+        UserRole role = currentUser.getRole();
 
-        if (
-                role != UserRole.SECRETARY
-                        && role != UserRole.BRANCH_LEADER
-        ) {
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to manage members"
             );
         }
 
-        Long currentMemberId =
-                currentUser.getMemberId();
-
-        if (currentMemberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentMemberId
-                                )
-                );
-
         /*
-         * A secretary/branch-leader's home branch (members.branch_id) is
-         * ALWAYS in scope, regardless of whether branch_staff also has
-         * active rows for them -- it must never be added only as a
-         * fallback for when branch_staff is empty. That conditional
-         * fallback was the actual bug: once a secretary has even one
-         * active branch_staff row (e.g. an additional branch assigned
-         * after being revoked and re-added elsewhere), their own home
-         * branch silently dropped out of scope here.
+         * Central Phase-3 rule:
+         * SECRETARY -> home + all active assigned branches.
+         * BRANCH_LEADER -> exactly one branch only.
          */
-        Member currentMember =
-                findMember(
-                        currentMemberId
-                );
-
-        if (currentMember.getBranchId() != null) {
-            accessibleBranchIds.add(
-                    currentMember.getBranchId()
-            );
-        }
-
-        if (!accessibleBranchIds.contains(
+        staffBranchScopeService.requireStaffBranchAccess(
+                currentUser,
                 branchId
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You do not have access to this member's branch"
-            );
-        }
+        );
     }
 
     private User getCurrentUser() {

@@ -19,6 +19,7 @@ import org.example.tnal_youth_backend.member.branch.repository.BranchStaffReposi
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,8 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class ActivityParticipantViewService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final ActivityRepository
             activityRepository;
@@ -363,35 +366,7 @@ public class ActivityParticipantViewService {
     resolveStaffBranchIds(
             User user
     ) {
-
-        if (
-                user.getMemberId()
-                        == null
-        ) {
-
-            return Set.of();
-        }
-
-        Set<Long> branchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        user.getMemberId()
-                                )
-                );
-
-        memberRepository
-                .findById(
-                        user.getMemberId()
-                )
-                .map(
-                        Member::getBranchId
-                )
-                .ifPresent(
-                        branchIds::add
-                );
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private Activity findActivity(

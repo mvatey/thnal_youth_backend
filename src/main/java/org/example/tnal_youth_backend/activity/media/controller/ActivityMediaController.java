@@ -39,7 +39,7 @@ public class ActivityMediaController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<ActivityCoverImageResponse> uploadCoverImage(
             @PathVariable Long activityId,
@@ -72,7 +72,7 @@ public class ActivityMediaController {
 
     @DeleteMapping("/cover-image")
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<Void> deleteCoverImage(
             @PathVariable Long activityId,
@@ -97,7 +97,7 @@ public class ActivityMediaController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<List<ActivityPhotoResponse>> uploadGalleryImages(
             @PathVariable Long activityId,
@@ -136,7 +136,7 @@ public class ActivityMediaController {
 
     @DeleteMapping("/gallery/{photoId}")
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<Void> deleteGalleryImage(
             @PathVariable Long activityId,
@@ -163,7 +163,7 @@ public class ActivityMediaController {
             value = "/attachments",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<ActivityAttachmentResponse> uploadAttachment(
             @PathVariable Long activityId,
             @RequestParam("file") MultipartFile file,
@@ -195,7 +195,7 @@ public class ActivityMediaController {
     }
 
     @DeleteMapping("/attachments/{attachmentId}")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<Void> deleteAttachment(
             @PathVariable Long activityId,
             @PathVariable Long attachmentId,

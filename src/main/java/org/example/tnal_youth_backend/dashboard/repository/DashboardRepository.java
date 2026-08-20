@@ -323,7 +323,16 @@ public class DashboardRepository {
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'COMPLETED'
-                  AND a.branch_id IN (:branchIds)
+                  AND (
+                        a.branch_id IN (:branchIds)
+                        OR EXISTS (
+                            SELECT 1
+                            FROM activity_invited_branches aib
+                            WHERE aib.activity_id = a.id
+                              AND aib.branch_id IN (:branchIds)
+                              AND aib.invitation_status IN ('PENDING', 'ACCEPTED')
+                        )
+                  )
                 GROUP BY
                     a.id,
                     a.title_km,
@@ -429,7 +438,16 @@ public class DashboardRepository {
                 LEFT JOIN activity_participants ap
                     ON ap.activity_id = a.id
                 WHERE ast.code = 'UPCOMING'
-                  AND a.branch_id IN (:branchIds)
+                  AND (
+                        a.branch_id IN (:branchIds)
+                        OR EXISTS (
+                            SELECT 1
+                            FROM activity_invited_branches aib
+                            WHERE aib.activity_id = a.id
+                              AND aib.branch_id IN (:branchIds)
+                              AND aib.invitation_status IN ('PENDING', 'ACCEPTED')
+                        )
+                  )
                   AND a.starts_at >= :now
                 GROUP BY
                     a.id,

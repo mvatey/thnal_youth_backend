@@ -116,6 +116,14 @@ public class LookupController {
         );
     }
 
+    @GetMapping("/user-statuses")
+    public ResponseEntity<List<LookupOptionResponse<String>>>
+    getUserStatusOptions() {
+        return ResponseEntity.ok(
+                lookupService.getUserStatusOptions()
+        );
+    }
+
     @GetMapping("/branch-levels")
     public ResponseEntity<List<LookupOptionResponse<Short>>> getBranchLevelOptions() {
         return ResponseEntity.ok(lookupService.getBranchLevelOptions());

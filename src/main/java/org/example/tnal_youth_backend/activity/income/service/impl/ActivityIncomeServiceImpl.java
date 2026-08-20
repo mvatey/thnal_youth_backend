@@ -22,6 +22,7 @@ import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.exchangerate.dto.response.ExchangeRateResponse;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,9 +41,11 @@ public class ActivityIncomeServiceImpl implements ActivityIncomeService {
     private static final String USD = "USD";
     private static final String KHR = "KHR";
     private static final String ROLE_BRANCH_LEADER = "BRANCH_LEADER";
+    private static final String ROLE_SECRETARY = "SECRETARY";
 
     private final ActivityRepository activityRepository;
     private final ActivityIncomeRepository activityIncomeRepository;
+    private final StaffBranchScopeService staffBranchScopeService;
     private final DonationRepository donationRepository;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
@@ -268,39 +271,32 @@ public class ActivityIncomeServiceImpl implements ActivityIncomeService {
     }
 
     private Long effectiveBranchFilter(Long requestedBranchId) {
-        Long scopedBranchId = scopedBranchIdOrNull();
-        return scopedBranchId != null ? scopedBranchId : requestedBranchId;
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!ROLE_BRANCH_LEADER.equals(role) && !ROLE_SECRETARY.equals(role)) {
+            return requestedBranchId;
+        }
+
+        Set<Long> allowed = staffBranchScopeService.currentStaffBranchIds();
+        if (requestedBranchId == null) {
+            if (allowed.size() == 1) {
+                return allowed.iterator().next();
+            }
+            throw new AccessDeniedException("Select one of your assigned branches");
+        }
+        if (!allowed.contains(requestedBranchId)) {
+            throw new AccessDeniedException("This branch is outside your permitted scope");
+        }
+        return requestedBranchId;
     }
 
     private void enforceBranchAccess(Long requestedBranchId) {
-        Long scopedBranchId = scopedBranchIdOrNull();
-
-        if (scopedBranchId != null
-                && !scopedBranchId.equals(requestedBranchId)) {
-            throw new AccessDeniedException(
-                    "This branch is outside your permitted scope"
-            );
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!ROLE_BRANCH_LEADER.equals(role) && !ROLE_SECRETARY.equals(role)) {
+            return;
         }
-    }
-
-    private Long scopedBranchIdOrNull() {
-        if (!ROLE_BRANCH_LEADER.equals(
-                SecurityUtils.getCurrentUserRole()
-        )) {
-            return null;
+        if (!staffBranchScopeService.currentStaffBranchIds().contains(requestedBranchId)) {
+            throw new AccessDeniedException("This branch is outside your permitted scope");
         }
-
-        Long branchId = activityIncomeRepository.findBranchIdByUserId(
-                SecurityUtils.getCurrentUserId()
-        );
-
-        if (branchId == null) {
-            throw new AccessDeniedException(
-                    "Your account is a branch leader but is not assigned to a branch"
-            );
-        }
-
-        return branchId;
     }
 
     private void validateUniqueMembers(

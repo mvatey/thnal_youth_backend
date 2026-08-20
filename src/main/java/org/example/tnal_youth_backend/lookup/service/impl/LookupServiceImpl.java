@@ -5,6 +5,7 @@ import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceS
 import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.lookup.dto.*;
@@ -290,6 +291,49 @@ public class LookupServiceImpl
                             HttpStatus.FORBIDDEN,
                             "You are not allowed to assign user roles"
                     );
+        };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<String>>
+    getUserStatusOptions() {
+        return List.of(
+                toUserStatusOption(UserStatus.PENDING_ACTIVATION),
+                toUserStatusOption(UserStatus.ACTIVE),
+                toUserStatusOption(UserStatus.INACTIVE),
+                toUserStatusOption(UserStatus.LOCKED)
+        );
+    }
+
+    private LookupOptionResponse<String> toUserStatusOption(
+            UserStatus status
+    ) {
+        return switch (status) {
+            case PENDING_ACTIVATION -> new LookupOptionResponse<>(
+                    status.name(),
+                    status.name(),
+                    "រង់ចាំដំណើរការ",
+                    "Pending activation"
+            );
+            case ACTIVE -> new LookupOptionResponse<>(
+                    status.name(),
+                    status.name(),
+                    "សកម្ម",
+                    "Active"
+            );
+            case INACTIVE -> new LookupOptionResponse<>(
+                    status.name(),
+                    status.name(),
+                    "អសកម្ម",
+                    "Inactive"
+            );
+            case LOCKED -> new LookupOptionResponse<>(
+                    status.name(),
+                    status.name(),
+                    "បានចាក់សោ",
+                    "Locked"
+            );
         };
     }
 

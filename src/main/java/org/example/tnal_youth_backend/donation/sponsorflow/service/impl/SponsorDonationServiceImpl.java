@@ -15,6 +15,7 @@ import org.example.tnal_youth_backend.donation.sponsorflow.repository.SponsorDon
 import org.example.tnal_youth_backend.donation.sponsorflow.service.SponsorDonationService;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
     private static final String DONOR_MEMBER = "MEMBER";
 
     private final SponsorDonationRepository repo;
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final DonationService donationService;
 
@@ -430,17 +432,7 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
             );
         }
 
-        Long scopeBranchId =
-                scopedBranchIdOrNull();
-
-        if (
-                scopeBranchId != null
-                        && !scopeBranchId.equals(row.getBranchId())
-        ) {
-            throw new AccessDeniedException(
-                    "Donation is outside your branch"
-            );
-        }
+        enforceStaffBranchAccess(row.getBranchId());
 
         return row;
     }
@@ -617,57 +609,47 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
     private Long resolveWritableBranch(
             Long requestedBranchId
     ) {
-        Long scopeBranchId =
-                scopedBranchIdOrNull();
-
-        if (
-                scopeBranchId != null
-                        && !scopeBranchId.equals(requestedBranchId)
-        ) {
-            throw new AccessDeniedException(
-                    "You may only record donations for your own branch"
-            );
-        }
-
+        enforceStaffBranchAccess(requestedBranchId);
         return requestedBranchId;
     }
 
     private Long effectiveBranchFilter(
             Long requestedBranchId
     ) {
-        Long scopeBranchId =
-                scopedBranchIdOrNull();
-
-        if (scopeBranchId != null) {
-            return scopeBranchId;
+        String role = repo.userRole(SecurityUtils.getCurrentUserId());
+        if (!"SECRETARY".equals(role)
+                && !"BRANCH_LEADER".equals(role)) {
+            return requestedBranchId;
         }
 
+        var allowed = staffBranchScopeService.currentStaffBranchIds();
+        if (requestedBranchId == null) {
+            if (allowed.size() == 1) {
+                return allowed.iterator().next();
+            }
+            throw new AccessDeniedException(
+                    "Select one of your assigned branches"
+            );
+        }
+        if (!allowed.contains(requestedBranchId)) {
+            throw new AccessDeniedException(
+                    "This branch is outside your permitted scope"
+            );
+        }
         return requestedBranchId;
     }
 
-    private Long scopedBranchIdOrNull() {
-        Long actorId =
-                SecurityUtils.getCurrentUserId();
-
-        String role =
-                repo.userRole(actorId);
-
-        if (
-                !"BRANCH_LEADER".equals(role)
-        ) {
-            return null;
+    private void enforceStaffBranchAccess(Long branchId) {
+        String role = repo.userRole(SecurityUtils.getCurrentUserId());
+        if (!"SECRETARY".equals(role)
+                && !"BRANCH_LEADER".equals(role)) {
+            return;
         }
-
-        Long branchId =
-                repo.userBranch(actorId);
-
-        if (branchId == null) {
+        if (!staffBranchScopeService.currentStaffBranchIds().contains(branchId)) {
             throw new AccessDeniedException(
-                    "Branch leader account is not linked to a branch"
+                    "This branch is outside your permitted scope"
             );
         }
-
-        return branchId;
     }
 
     private SponsorDonationRepository.SponsorInsert sponsorRow(

@@ -9,6 +9,8 @@ import org.example.tnal_youth_backend.authentication.model.response.UserListItem
 import org.example.tnal_youth_backend.authentication.model.response.UserSummaryResponse;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.UserManagementService;
+import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,12 +24,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /*
- * Given an explicit bean name — see the note in
- * UserManagementController.java for why this is necessary
- * (a pre-existing, unrelated UserManagementServiceImpl already
- * exists under org.example.tnal_youth_backend.account.user).
+ * Official implementation for administrative user-account
+ * management under /api/admin/users.
  */
-@Service("adminUserManagementServiceImpl")
+@Service
 @RequiredArgsConstructor
 public class UserManagementServiceImpl
         implements UserManagementService {
@@ -38,13 +38,15 @@ public class UserManagementServiceImpl
      * SECRETARY accounts are always tied to a member/branch
      * and must be created through those existing flows instead.
      */
-    private static final Set<UserRole> CREATABLE_ROLES =
+    private static final Set<UserRole> STANDALONE_CREATABLE_ROLES =
             EnumSet.of(
                     UserRole.ADMIN,
                     UserRole.VIEWER
             );
 
     private final UserRepository userRepository;
+
+    private final MemberRepository memberRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -53,25 +55,21 @@ public class UserManagementServiceImpl
     // =========================================================
 
     /*
-     * "Users" here means accounts whose role is not tied to a
-     * branch or member at all — i.e. CREATABLE_ROLES (ADMIN,
-     * VIEWER). Those already have their own home in the Members
-     * page; this summary/list only ever counts CREATABLE_ROLES
-     * accounts managed here.
+     * The Users page represents login accounts, not only standalone
+     * accounts. Therefore summary numbers count every row in users,
+     * including accounts linked to members through member_id.
      *
-     * This used to filter on memberId IS NULL instead, but some
-     * legacy/seed BRANCH_LEADER accounts were created directly via
-     * SQL migration with member_id left NULL (see
-     * V324__activate_branch_staff_login_accounts.sql), so they
-     * slipped through — role is the reliable filter.
+     * STANDALONE_CREATABLE_ROLES is intentionally used only by the
+     * create flow; it must never be used to hide linked accounts from
+     * the Users list or summary.
      */
     @Override
     @Transactional(readOnly = true)
     public UserSummaryResponse getSummary() {
-        long total = userRepository.countByRoleIn(CREATABLE_ROLES);
+        long total = userRepository.count();
 
         long active = userRepository
-                .countByRoleInAndStatus(CREATABLE_ROLES, UserStatus.ACTIVE);
+                .countByStatus(UserStatus.ACTIVE);
 
         long inactive = Math.max(
                 total - active,
@@ -112,7 +110,7 @@ public class UserManagementServiceImpl
                         : status.trim().toUpperCase();
 
         return userRepository
-                .findAllByRoleInOrderByCreatedAtDescIdDesc(CREATABLE_ROLES)
+                .findAllByOrderByCreatedAtDescIdDesc()
                 .stream()
                 .filter(user ->
                         normalizedRole == null
@@ -121,8 +119,7 @@ public class UserManagementServiceImpl
                 )
                 .filter(user ->
                         normalizedStatus == null
-                                || (user.getStatus() != null
-                                && user.getStatus().name().equals(normalizedStatus))
+                                || matchesVisibleStatus(user, normalizedStatus)
                 )
                 .filter(user ->
                         normalizedSearch.isEmpty()
@@ -148,6 +145,28 @@ public class UserManagementServiceImpl
     ) {
         return value != null
                 && value.toLowerCase().contains(normalizedSearch);
+    }
+
+    /*
+     * The visible status on the Users page follows Member status for
+     * member-linked accounts, so it stays consistent with Member Detail
+     * and the Member list. Standalone accounts have no Member row, so
+     * their internal users.status is used as the fallback.
+     */
+    private boolean matchesVisibleStatus(
+            User user,
+            String normalizedStatus
+    ) {
+        if (user.getMemberId() != null) {
+            return memberRepository.findById(user.getMemberId())
+                    .map(Member::getStatus)
+                    .map(status -> status.getCode() != null
+                            && status.getCode().equalsIgnoreCase(normalizedStatus))
+                    .orElse(false);
+        }
+
+        return user.getStatus() != null
+                && user.getStatus().name().equalsIgnoreCase(normalizedStatus);
     }
 
     // =========================================================
@@ -229,7 +248,7 @@ public class UserManagementServiceImpl
             );
         }
 
-        if (!CREATABLE_ROLES.contains(role)) {
+        if (!STANDALONE_CREATABLE_ROLES.contains(role)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "This endpoint can only create ADMIN or VIEWER accounts. "
@@ -246,9 +265,15 @@ public class UserManagementServiceImpl
     // =========================================================
 
     private UserListItemResponse toListItem(User user) {
+        Member linkedMember =
+                user.getMemberId() == null
+                        ? null
+                        : memberRepository.findById(user.getMemberId()).orElse(null);
+
         return UserListItemResponse.builder()
                 .id(user.getId())
                 .memberId(user.getMemberId())
+                .branchId(user.getBranchId())
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .fullNameKm(user.getFullNameKm())
@@ -262,6 +287,26 @@ public class UserManagementServiceImpl
                 .status(
                         user.getStatus() != null
                                 ? user.getStatus().name()
+                                : null
+                )
+                .memberStatusId(
+                        linkedMember != null && linkedMember.getStatus() != null
+                                ? linkedMember.getStatus().getId()
+                                : null
+                )
+                .memberStatusCode(
+                        linkedMember != null && linkedMember.getStatus() != null
+                                ? linkedMember.getStatus().getCode()
+                                : null
+                )
+                .memberStatusLabelKm(
+                        linkedMember != null && linkedMember.getStatus() != null
+                                ? linkedMember.getStatus().getLabelKm()
+                                : null
+                )
+                .memberStatusLabelEn(
+                        linkedMember != null && linkedMember.getStatus() != null
+                                ? linkedMember.getStatus().getLabelEn()
                                 : null
                 )
                 .lastLoginAt(user.getLastLoginAt())

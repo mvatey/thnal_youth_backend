@@ -492,7 +492,16 @@ public interface MemberRepository
                     WHEN 'BRANCH_LEADER' THEN 'ប្រធានសាខា'
                     WHEN 'MEMBER' THEN 'សមាជិក'
                     ELSE u.role
-                END AS account_role_label_km
+                END AS account_role_label_km,
+
+                u.status AS account_status_code,
+                CASE u.status
+                    WHEN 'PENDING_ACTIVATION' THEN 'រង់ចាំដំណើរការ'
+                    WHEN 'ACTIVE' THEN 'សកម្ម'
+                    WHEN 'INACTIVE' THEN 'អសកម្ម'
+                    WHEN 'LOCKED' THEN 'បានចាក់សោ'
+                    ELSE u.status
+                END AS account_status_label_km
 
             FROM members m
 
@@ -549,6 +558,11 @@ public interface MemberRepository
             )
 
             AND (
+                :accountStatus IS NULL
+                OR u.status = :accountStatus
+            )
+
+            AND (
                 :gender IS NULL
                 OR m.gender = :gender
             )
@@ -562,6 +576,8 @@ public interface MemberRepository
             SELECT COUNT(*)
 
             FROM members m
+            LEFT JOIN users u
+                   ON u.member_id = m.id
 
             WHERE (
                 :search IS NULL
@@ -594,6 +610,11 @@ public interface MemberRepository
             )
 
             AND (
+                :accountStatus IS NULL
+                OR u.status = :accountStatus
+            )
+
+            AND (
                 :gender IS NULL
                 OR m.gender = :gender
             )
@@ -616,6 +637,9 @@ public interface MemberRepository
 
             @Param("statusId")
             Short statusId,
+
+            @Param("accountStatus")
+            String accountStatus,
 
             @Param("gender")
             String gender,

@@ -80,5 +80,13 @@ public class ActivityListItemResponse {
      */
     private Long invitationId;
 
+    /*
+     * Branch represented by invitationId. This is intentionally separate
+     * from branchId, which is always the activity's organizer. It lets the
+     * frontend keep an invited activity visible when the global branch
+     * selector is set to the invited/co-hosting branch.
+     */
+    private Long invitedBranchId;
+
     private ActivityInvitationStatus invitationStatus;
 }

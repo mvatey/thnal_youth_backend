@@ -42,7 +42,7 @@ public class ActivityParticipantController {
 
     @PostMapping("/invite")
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<
             List<ActivityParticipantResponse>
@@ -135,7 +135,7 @@ public class ActivityParticipantController {
             "/{memberId}"
     )
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<Void>
     removeParticipant(

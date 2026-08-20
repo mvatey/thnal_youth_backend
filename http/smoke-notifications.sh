@@ -6,24 +6,23 @@
 # the inbox reads, and the read-state endpoints, plus a couple of negative cases.
 # Requires: bash, curl, jq.
 #
-# Config via env (defaults match application.properties + the seed data):
+# Config via env:
 #   BASE_URL       default http://localhost:8081
 #   ADMIN_LOGIN    default admin1@gmail.com
 #   MEMBER_LOGIN   default member1@gmail.com
-#   PASSWORD       default 12345         (seed: "Temporary password for all accounts: 12345")
+#   PASSWORD       required; use the private password configured for test accounts
 #   BRANCH_ID      default 1
 #   ACTIVITY_ID    default 1
 #   USER_IDS       default [1,2,3]       (JSON array literal)
 #
-# Usage:  ./smoke-notifications.sh.sh
-#         BASE_URL=http://localhost:8081 PASSWORD=12345 ./smoke-notifications.sh.sh
+# Usage:  PASSWORD='<private-test-password>' ./smoke-notifications.sh
 
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8081}"
 ADMIN_LOGIN="${ADMIN_LOGIN:-admin1@gmail.com}"
 MEMBER_LOGIN="${MEMBER_LOGIN:-member1@gmail.com}"
-PASSWORD="${PASSWORD:-12345}"
+: "${PASSWORD:?Set PASSWORD to the private password for the local test accounts}"
 BRANCH_ID="${BRANCH_ID:-1}"
 ACTIVITY_ID="${ACTIVITY_ID:-1}"
 USER_IDS="${USER_IDS:-[1,2,3]}"

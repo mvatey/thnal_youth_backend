@@ -79,7 +79,7 @@ public class ActivityAttendanceController {
 
     @PatchMapping("/status")
     @PreAuthorize(
-            "hasAnyRole('SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
     )
     public ResponseEntity<ActivityAttendanceResponse>
     updateStatus(

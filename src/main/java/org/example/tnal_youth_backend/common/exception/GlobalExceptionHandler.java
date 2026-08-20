@@ -30,54 +30,37 @@ public class GlobalExceptionHandler {
     handleBusinessException(
             BusinessException exception
     ) {
-        HttpStatus status;
-
-        if (
-                "UNAUTHENTICATED"
-                        .equals(
-                                exception.getCode()
-                        )
-        ) {
-            status =
-                    HttpStatus.UNAUTHORIZED;
-
-        } else if (
-                "FORBIDDEN"
-                        .equals(
-                                exception.getCode()
-                        )
-        ) {
-            status =
-                    HttpStatus.FORBIDDEN;
-
-        } else if (
-                "NOT_FOUND"
-                        .equals(
-                                exception.getCode()
-                        )
-        ) {
-            status =
-                    HttpStatus.NOT_FOUND;
-
-        } else if (
-                "CONFLICT"
-                        .equals(
-                                exception.getCode()
-                        )
-        ) {
-            status =
-                    HttpStatus.CONFLICT;
-
-        } else {
-            status =
-                    HttpStatus.BAD_REQUEST;
-        }
+        HttpStatus status = exception.getStatus() == null
+                ? HttpStatus.BAD_REQUEST
+                : exception.getStatus();
 
         return ResponseEntity
                 .status(status)
                 .body(
                         ApiResponse.error(
                                 exception.getCode(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+
+    /*
+     * ==========================================================
+     * RESOURCE NOT FOUND
+     * ==========================================================
+     */
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>>
+    handleResourceNotFoundException(
+            ResourceNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiResponse.error(
+                                "RESOURCE_NOT_FOUND",
                                 exception.getMessage()
                         )
                 );

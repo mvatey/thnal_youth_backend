@@ -51,7 +51,10 @@ public record MemberListResponse(
          * which is legitimate — not every member has a login.
          */
         @JsonProperty("account_role")
-        AccountRoleResponse accountRole
+        AccountRoleResponse accountRole,
+
+        @JsonProperty("account_status")
+        AccountStatusResponse accountStatus
 ) {
 
     public record GenderResponse(
@@ -95,6 +98,15 @@ public record MemberListResponse(
     }
 
     public record AccountRoleResponse(
+
+            String code,
+
+            @JsonProperty("label_km")
+            String labelKm
+    ) {
+    }
+
+    public record AccountStatusResponse(
 
             String code,
 

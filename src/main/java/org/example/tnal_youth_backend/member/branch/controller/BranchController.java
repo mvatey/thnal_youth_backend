@@ -64,7 +64,7 @@ public class BranchController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     public ResponseEntity<BranchResponse>
     getBranchById(
             @PathVariable Long id
@@ -123,7 +123,7 @@ public class BranchController {
     }
 
     @GetMapping("/{id}/leader")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     public ResponseEntity<BranchLeaderResponse> getLeader(@PathVariable Long id) {
         return ResponseEntity.ok(branchService.getLeader(id));
     }
@@ -140,7 +140,8 @@ public class BranchController {
         hasAnyRole(
             'ADMIN',
             'SECRETARY',
-            'BRANCH_LEADER'
+            'BRANCH_LEADER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<BranchSummaryResponse>
@@ -156,7 +157,8 @@ public class BranchController {
         hasAnyRole(
             'ADMIN',
             'SECRETARY',
-            'BRANCH_LEADER'
+            'BRANCH_LEADER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<BranchDetailPageResponse>
@@ -172,7 +174,7 @@ public class BranchController {
 
     @GetMapping("/{branchId}/members")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')"
+            "hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER', 'VIEWER')"
     )
     public ResponseEntity<BranchMemberPageResponse>
     getBranchMembers(

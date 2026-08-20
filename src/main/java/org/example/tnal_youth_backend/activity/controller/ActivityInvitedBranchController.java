@@ -29,7 +29,7 @@ public class ActivityInvitedBranchController {
             invitedBranchService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<ActivityInvitedBranchResponse>
     inviteBranch(
             @PathVariable Long activityId,
@@ -68,7 +68,7 @@ public class ActivityInvitedBranchController {
     }
 
     @PatchMapping("/{invitationId}/respond")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<ActivityInvitedBranchResponse>
     respondToInvitation(
             @PathVariable Long activityId,
@@ -93,7 +93,7 @@ public class ActivityInvitedBranchController {
     }
 
     @DeleteMapping("/{invitationId}")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<Void> cancelInvitation(
             @PathVariable Long activityId,
             @PathVariable Long invitationId,
@@ -120,7 +120,7 @@ public class ActivityInvitedBranchController {
      * layer, not here.
      */
     @PostMapping("/certificates/notify")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<CertificateBranchNotifyResponse>
     notifyBranchesCertificatesReady(
             @PathVariable Long activityId,

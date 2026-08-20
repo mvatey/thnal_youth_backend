@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -61,6 +62,7 @@ public class FileController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY')")
     public ResponseEntity<List<FileResponse>> getAllFiles() {
 
         return ResponseEntity.ok(
@@ -68,7 +70,8 @@ public class FileController {
         );
     }
 
-        @GetMapping("/{id}")
+    @GetMapping("/{id}")
+    @PreAuthorize("@fileAccess.canRead(#id)")
     public ResponseEntity<FileResponse> getFileById(
             @PathVariable Long id
     ) {
@@ -89,6 +92,7 @@ public class FileController {
 //    }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<FileResponse> createFile(
             @Valid
             @RequestBody
@@ -103,6 +107,7 @@ public class FileController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY')")
     public ResponseEntity<FileResponse> updateFile(
             @PathVariable Long id,
 
@@ -120,6 +125,7 @@ public class FileController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY')")
     public ResponseEntity<Void> deleteFile(
             @PathVariable Long id
     ) {
@@ -131,6 +137,7 @@ public class FileController {
     }
 
     @GetMapping("/{id}/content")
+    @PreAuthorize("@fileAccess.canRead(#id)")
     public ResponseEntity<Resource> getFileContent(
             @PathVariable Long id
     ) {
@@ -147,7 +154,7 @@ public class FileController {
                     file.getMimeType()
             );
 
-        } catch (Exception exception) {
+        } catch (InvalidMediaTypeException exception) {
             mediaType =
                     MediaType.APPLICATION_OCTET_STREAM;
         }
@@ -163,6 +170,8 @@ public class FileController {
         return ResponseEntity.ok()
                 .contentType(mediaType)
                 .contentLength(file.getSizeBytes())
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .header("X-Content-Type-Options", "nosniff")
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         disposition.toString()
@@ -183,6 +192,7 @@ public class FileController {
             value = "/upload",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<FileResponse> uploadFile(
             @RequestPart("file")
             MultipartFile file
@@ -200,7 +210,7 @@ public class FileController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize(
-            "hasAnyRole('SECRETARY','BRANCH_LEADER')"
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')"
     )
     public ResponseEntity<FileResponse>
     uploadDocumentAttachment(

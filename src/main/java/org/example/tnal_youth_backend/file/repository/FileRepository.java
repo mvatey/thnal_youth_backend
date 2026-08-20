@@ -12,6 +12,11 @@ public interface FileRepository
 
     boolean existsByFilePath(String filePath);
 
+    boolean existsByIdAndUploadedById(
+            Long id,
+            Long uploadedById
+    );
+
     boolean existsByFilePathAndIdNot(
             String filePath,
             Long id

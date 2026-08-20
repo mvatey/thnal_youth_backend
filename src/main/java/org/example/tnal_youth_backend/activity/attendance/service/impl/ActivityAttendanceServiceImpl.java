@@ -36,6 +36,7 @@ import org.example.tnal_youth_backend.member.member.entity.Member;
 
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 
 import org.springframework.stereotype.Service;
@@ -57,6 +58,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ActivityAttendanceServiceImpl
         implements ActivityAttendanceService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private static final String PRESENT =
             "PRESENT";
@@ -818,8 +821,8 @@ public class ActivityAttendanceServiceImpl
      * → A member ❌
      * → C member ❌
      *
-     * ADMIN / MEMBER / VIEWER:
-     * → cannot manually modify.
+     * ADMIN: organization-wide access.
+     * MEMBER / VIEWER: cannot manually modify.
      */
     private void validateManualAttendancePermission(
             Activity activity,
@@ -831,6 +834,10 @@ public class ActivityAttendanceServiceImpl
                 requireUser(
                         currentUserId
                 );
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
 
         if (
                 currentUser.getRole()
@@ -929,35 +936,7 @@ public class ActivityAttendanceServiceImpl
     private Set<Long> resolveStaffBranchIds(
             User user
     ) {
-
-        if (
-                user.getMemberId()
-                        == null
-        ) {
-
-            return Set.of();
-        }
-
-        Set<Long> branchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        user.getMemberId()
-                                )
-                );
-
-        memberRepository
-                .findById(
-                        user.getMemberId()
-                )
-                .map(
-                        Member::getBranchId
-                )
-                .ifPresent(
-                        branchIds::add
-                );
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private User requireUser(

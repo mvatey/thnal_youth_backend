@@ -16,6 +16,7 @@ public interface MemberService {
             String search,
             Long branchId,
             Short statusId,
+            String accountStatus,
             Gender gender
     );
 

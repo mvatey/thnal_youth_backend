@@ -30,6 +30,8 @@ public class ActivityIncomeController {
 
     private static final String STAFF =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String READ_ACCESS =
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')";
 
     private final ActivityIncomeService activityIncomeService;
 
@@ -46,7 +48,7 @@ public class ActivityIncomeController {
     }
 
     @GetMapping("/incomes")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<ActivityIncomePageResponse> list(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) String search,
@@ -70,7 +72,7 @@ public class ActivityIncomeController {
     }
 
     @GetMapping("/{activityId}/incomes")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<ActivityIncomeDetailResponse> getDetail(
             @PathVariable Long activityId
     ) {

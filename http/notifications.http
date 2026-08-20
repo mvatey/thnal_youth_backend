@@ -2,13 +2,13 @@
 ### Works in IntelliJ HTTP Client and VS Code "REST Client".
 ### Run requests top-to-bottom: login first (captures the token), then the rest.
 ###
-### Base URL + creds come from the http-client.env.json profile if present,
-### otherwise fall back to the defaults below (server.port=8081, seed password 12345).
+### Replace the login values with active local test accounts. Migration V309
+### intentionally disabled the old shared demo password.
 
 @baseUrl = http://localhost:8081
 @adminEmail = admin1@gmail.com
 @memberEmail = member1@gmail.com
-@password = 12345
+@password = CHANGE_ME
 
 ### -------------------------------------------------------------------------
 ### 1. Login as ADMIN — captures {{adminToken}} from the JSON response.

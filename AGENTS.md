@@ -50,10 +50,15 @@ compile. That gap is now filled.
   lives in the repo SQL.
 - **Business errors** → throw `common.exception.BusinessException(code, message)`.
   `common.exception.GlobalExceptionHandler` maps:
-  - `BusinessException` → **400** with `errorCode` (except code `UNAUTHENTICATED` → **401**).
+  - `BusinessException` → its declared/default HTTP status with `errorCode`.
   - `MethodArgumentNotValidException` → **400** `VALIDATION_FAILED`.
-  - `DataIntegrityViolationException` → **400** `DATA_INTEGRITY_VIOLATION`.
+  - `ResourceNotFoundException` → **404** `RESOURCE_NOT_FOUND`.
+  - `DataIntegrityViolationException` → **409** `DATA_INTEGRITY_VIOLATION`.
   - `AccessDeniedException` → **403** `FORBIDDEN`; `AuthenticationException` → **401**.
+- Authentication uses this same shared error handler. Do not add a module-local
+  controller advice or return a parallel `code`/`status`/`path` error shape;
+  clients rely on the shared `success`, `errorCode`, `message`, `timestamp`
+  envelope.
 - **Response envelope**: `common.response.ApiResponse<T>` (`ok(...)` / `error(...)`),
   UTC timestamp, `@JsonInclude(NON_NULL)`.
 - **Current user id**: `security.SecurityUtils.getCurrentUserId()` (throws
@@ -159,6 +164,46 @@ valid amount to reach the code it asserts.
 ---
 
 ## 5. Testing
+
+### File access contract
+
+- `GET /api/files/{id}` and `GET /api/files/{id}/content` use object-level
+  authorization through `file.security.FileAccessService`.
+- Access is allowed to ADMIN, the uploader, the member who owns the linked
+  record, an activity participant for that activity's media/documents, or
+  SECRETARY/BRANCH_LEADER staff when the linked record is inside their resolved
+  branch scope. VIEWER is limited to activity media.
+- A file ID is never treated as a capability; unrelated authenticated users
+  must receive 403 rather than being able to enumerate stored files.
+- Browser file URLs should go through the authenticated Next.js proxy
+  (`/api/files/{id}/content` or `/api/backend/files/{id}/content`) so the backend
+  receives the bearer token.
+
+### Document write contract
+
+- `POST`, `PUT`, and `DELETE /api/documents/**` allow ADMIN, SECRETARY, and
+  BRANCH_LEADER. The service still validates the selected document owner's
+  branch scope; adding ADMIN here makes document management consistent with
+  the rest of the staff UI.
+- Generated member ID-card templates are stored as member-owned backend
+  documents and identified by the description marker `[TNAL:ID_CARD]`.
+
+### Authentication session contract
+
+- Browser logout must call `POST /api/auth/logout` with the HttpOnly refresh
+  token before clearing cookies, so the persisted refresh-token session is
+  revoked server-side. Cookies are still cleared if that best-effort backend
+  call is unavailable.
+- The Next.js `/api/auth/refresh` route keeps both tokens HttpOnly, checks the
+  access-token `exp`, and calls backend refresh only within two minutes of
+  expiry. Backend refresh rotates the refresh token; the browser serializes
+  refresh checks to avoid replaying the same token concurrently.
+- The old `/api/test/**` role-check controller is retired; production role
+  behavior is covered through real feature endpoints and security tests.
+- Authentication regression tests are split between
+  `AuthControllerValidationTest` (invalid request bodies never reach services)
+  and `AuthServiceRefreshTokenTest` (rotation, revoked/expired/malformed tokens,
+  inactive accounts, and logout revocation). They require no database.
 
 **Donation test inventory (all green, verified 2026-07-27):**
 

@@ -26,6 +26,7 @@ import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
 import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
 import org.example.tnal_youth_backend.notification.service.NotificationService;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ActivityInvitedBranchServiceImpl
         implements ActivityInvitedBranchService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final ActivityRepository activityRepository;
 
@@ -646,13 +649,17 @@ public class ActivityInvitedBranchServiceImpl
     }
 
     /**
-     * Only a branch leader or secretary who is staff of the activity's own
-     * host branch may invite/cancel a co-hosting branch invitation.
+     * Administrators manage invitations organization-wide. Branch leaders
+     * and secretaries may manage invitations for their host branch.
      */
     private void validateHostManagePermission(
             Activity activity,
             User currentUser
     ) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+
         if (currentUser.getRole() != UserRole.BRANCH_LEADER
                 && currentUser.getRole() != UserRole.SECRETARY) {
 
@@ -677,13 +684,17 @@ public class ActivityInvitedBranchServiceImpl
     }
 
     /**
-     * Only a branch leader or secretary who is staff of the INVITED branch
-     * itself may accept/decline on its behalf.
+     * Administrators may respond organization-wide. Branch leaders and
+     * secretaries may respond only for a branch they staff.
      */
     private void validateInvitedBranchPermission(
             ActivityInvitedBranch invitation,
             User currentUser
     ) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+
         if (currentUser.getRole() != UserRole.BRANCH_LEADER
                 && currentUser.getRole() != UserRole.SECRETARY) {
 
@@ -713,21 +724,7 @@ public class ActivityInvitedBranchServiceImpl
     }
 
     private Set<Long> resolveStaffBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            return Set.of();
-        }
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     /**

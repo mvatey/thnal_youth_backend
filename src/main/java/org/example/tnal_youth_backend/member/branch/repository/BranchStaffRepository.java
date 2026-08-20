@@ -50,6 +50,33 @@ public class BranchStaffRepository {
         return rows.stream().findFirst();
     }
 
+
+    public Optional<Long> findActiveLeaderBranchIdByMemberId(Long memberId) {
+        if (memberId == null) {
+            return Optional.empty();
+        }
+
+        String sql = """
+                SELECT bs.branch_id
+                FROM branch_staff bs
+                JOIN positions p ON p.id = bs.position_id
+                WHERE bs.member_id = :memberId
+                  AND p.code = 'BRANCH_LEADER'
+                  AND bs.ended_on IS NULL
+                  AND bs.is_primary = TRUE
+                ORDER BY bs.started_on DESC, bs.id DESC
+                LIMIT 1
+                """;
+
+        List<Long> rows = jdbcTemplate.queryForList(
+                sql,
+                new MapSqlParameterSource("memberId", memberId),
+                Long.class
+        );
+
+        return rows.stream().findFirst();
+    }
+
     public boolean isActiveMemberOfBranch(Long branchId, Long memberId) {
         String sql = """
                 SELECT EXISTS (
@@ -62,6 +89,27 @@ public class BranchStaffRepository {
                 new MapSqlParameterSource().addValue("branchId", branchId).addValue("memberId", memberId),
                 Boolean.class);
         return Boolean.TRUE.equals(result);
+    }
+
+
+    public void endOtherActiveAssignmentsForLeader(Long memberId, Long keepBranchId) {
+        if (memberId == null || keepBranchId == null) {
+            return;
+        }
+        jdbcTemplate.update(
+                """
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE,
+                    is_primary = FALSE,
+                    updated_at = NOW()
+                WHERE member_id = :memberId
+                  AND branch_id <> :keepBranchId
+                  AND ended_on IS NULL
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("keepBranchId", keepBranchId)
+        );
     }
 
     public void assignLeader(Long branchId, Long memberId, Long appointedBy) {

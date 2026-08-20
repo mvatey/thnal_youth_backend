@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.member.religion.dto.ReligionResponse;
 import org.example.tnal_youth_backend.member.religion.service.ReligionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,6 +63,7 @@ public class ReligionController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReligionResponse>
     createReligion(
             @Valid
@@ -78,6 +80,7 @@ public class ReligionController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReligionResponse>
     updateReligion(
             @PathVariable Short id,
@@ -94,6 +97,7 @@ public class ReligionController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void>
     deleteReligion(
             @PathVariable Short id

@@ -44,6 +44,7 @@ import java.util.List;
 public class DonationController {
 
     private static final String STAFF = "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String READ_ACCESS = "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')";
     private static final String DONATION_ENTRY = "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
     private final DonationService service;
@@ -56,13 +57,13 @@ public class DonationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ResponseEntity<ApiResponse<DonationResponse>> get(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @GetMapping
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ResponseEntity<ApiResponse<DonationPageResponse>> list(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Short typeId,
@@ -81,7 +82,7 @@ public class DonationController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ResponseEntity<ApiResponse<DonationSummaryResponse>> summary(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Short typeId,
@@ -110,7 +111,7 @@ public class DonationController {
      * DonationServiceImpl#activityBranchTotals).
      */
     @GetMapping("/activity/{activityId}/branch-totals")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ResponseEntity<ApiResponse<List<DonationBranchTotalResponse>>> activityBranchTotals(
             @PathVariable Long activityId) {
         return ResponseEntity.ok(ApiResponse.ok(service.activityBranchTotals(activityId)));

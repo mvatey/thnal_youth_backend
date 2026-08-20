@@ -19,6 +19,7 @@ import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +46,7 @@ public class BranchServiceImpl implements BranchService {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
     private final ActivityRepository activityRepository;
+    private final StaffBranchScopeService staffBranchScopeService;
 
 
     @Override
@@ -94,45 +96,9 @@ public class BranchServiceImpl implements BranchService {
                 role == UserRole.SECRETARY
                         || role == UserRole.BRANCH_LEADER
         ) {
-            Long memberId =
-                    currentUser.getMemberId();
-
-            if (memberId == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Your account is not linked to a member record"
-                );
-            }
-
             Set<Long> accessibleBranchIds =
-                    new LinkedHashSet<>(
-                            branchStaffRepository
-                                    .findActiveBranchIdsByMemberId(
-                                            memberId
-                                    )
-                    );
-
-            /*
-             * The member's home branch (members.branch_id) is ALWAYS in
-             * scope, not just as a fallback for when branch_staff is
-             * empty -- a secretary/branch leader with active branch_staff
-             * rows still needs their own home branch listed here too.
-             */
-            Member member =
-                    memberRepository
-                            .findById(memberId)
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (member.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        member.getBranchId()
-                );
-            }
+                    staffBranchScopeService
+                            .staffBranchIds(currentUser);
 
             branches =
                     branchRepository
@@ -607,6 +573,23 @@ public class BranchServiceImpl implements BranchService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "The branch leader must be an active member of this branch");
         }
+
+        branchStaffRepository.findActiveLeaderBranchIdByMemberId(memberId)
+                .filter(existingBranchId -> !existingBranchId.equals(branchId))
+                .ifPresent(existingBranchId -> {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "This member is already the active branch leader of branch "
+                                    + existingBranchId
+                    );
+                });
+
+        // A promoted branch leader must stop carrying secretary-style
+        // additional branch assignments. Leader scope is exactly one branch.
+        branchStaffRepository.endOtherActiveAssignmentsForLeader(
+                memberId,
+                branchId
+        );
         branchStaffRepository.assignLeader(branchId, memberId, requireCurrentUserId());
         return branchStaffRepository.findActiveLeader(branchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1435,138 +1418,11 @@ public class BranchServiceImpl implements BranchService {
             Long branchId,
             Long memberId
     ) {
-        Branch branch =
-                branchRepository
-                        .findById(branchId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Branch not found"
-                                )
-                        );
-
-        Member selectedMember =
-                memberRepository
-                        .findById(memberId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Selected member was not found"
-                                )
-                        );
-
         /*
-         * The selected candidate must belong
-         * to the branch being edited.
+         * Keep a single authoritative assignment path. This writes branch_staff,
+         * enforces one active branch per BRANCH_LEADER, and synchronizes users.role.
          */
-        if (
-                selectedMember.getBranchId() == null
-                        || !selectedMember
-                        .getBranchId()
-                        .equals(branch.getId())
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Selected member does not belong to this branch"
-            );
-        }
-
-        User selectedUser =
-                userRepository
-                        .findByMemberId(memberId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.BAD_REQUEST,
-                                        "Selected member does not have a user account"
-                                )
-                        );
-
-        UserRole selectedCurrentRole =
-                selectedUser.getRole();
-
-        /*
-         * A member or secretary can be promoted.
-         * Selecting the current leader can be treated
-         * as a no-op.
-         */
-        if (
-                selectedCurrentRole != UserRole.MEMBER
-                        && selectedCurrentRole != UserRole.SECRETARY
-                        && selectedCurrentRole != UserRole.BRANCH_LEADER
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Only a member or secretary can become branch leader"
-            );
-        }
-
-        List<BranchManagementProjection> managementMembers =
-                memberRepository
-                        .findBranchManagementMembers(
-                                branchId,
-                                List.of(
-                                        UserRole.BRANCH_LEADER
-                                )
-                        );
-
-        User currentLeaderUser = null;
-
-        for (
-                BranchManagementProjection projection
-                : managementMembers
-        ) {
-            Member currentLeaderMember =
-                    projection.getMember();
-
-            /*
-             * The selected member is already the leader.
-             */
-            if (
-                    currentLeaderMember
-                            .getId()
-                            .equals(memberId)
-            ) {
-                return;
-            }
-
-            currentLeaderUser =
-                    userRepository
-                            .findByMemberId(
-                                    currentLeaderMember.getId()
-                            )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.CONFLICT,
-                                            "Current branch leader does not have a user account"
-                                    )
-                            );
-
-            break;
-        }
-
-        /*
-         * Demote the existing branch leader.
-         */
-        if (currentLeaderUser != null) {
-            currentLeaderUser.setRole(
-                    UserRole.MEMBER
-            );
-
-            userRepository.save(
-                    currentLeaderUser
-            );
-        }
-
-        /*
-         * Promote the selected candidate.
-         */
-        selectedUser.setRole(
-                UserRole.BRANCH_LEADER
-        );
-
-        userRepository.save(
-                selectedUser
-        );
+        assignLeader(branchId, memberId);
     }
 
     @Override
@@ -1673,53 +1529,8 @@ public class BranchServiceImpl implements BranchService {
             );
         }
 
-        Long memberId =
-                currentUser.getMemberId();
-
-        if (memberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        /*
-         * First:
-         * get active branch_staff assignments.
-         */
-        Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        memberId
-                                )
-                );
-
-        /*
-         * The member's home branch (members.branch_id) is ALWAYS in
-         * scope -- not just as a fallback for when branch_staff has no
-         * active assignment. Only adding it in that empty-set case was
-         * the bug: once a secretary/branch leader has any active
-         * branch_staff row, their own home branch silently dropped out
-         * of their accessible scope everywhere this method is used.
-         */
-        Member member =
-                memberRepository
-                        .findById(memberId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN,
-                                        "Linked member record was not found"
-                                )
-                        );
-
-        if (member.getBranchId() != null) {
-            accessibleBranchIds.add(
-                    member.getBranchId()
-            );
-        }
-
-        return accessibleBranchIds;
+        return staffBranchScopeService
+                .staffBranchIds(currentUser);
     }
 
     private String generateNextBranchCode() {

@@ -63,20 +63,9 @@ public interface UserRepository
             UserStatus status
     );
 
-    /*
-     * "Users" (as opposed to members / branch staff) are accounts
-     * whose ROLE is not tied to a branch or member — today that's
-     * ADMIN and VIEWER (see the CREATABLE_ROLES set in
-     * UserManagementServiceImpl, which is what's actually passed
-     * in here).
-     *
-     * NOTE: this used to filter on memberId IS NULL instead. That
-     * turned out to be unreliable — some legacy/seed BRANCH_LEADER
-     * accounts (see V324__activate_branch_staff_login_accounts.sql)
-     * were created directly via SQL with member_id left NULL, so
-     * they slipped through a memberId-based filter. Role is the
-     * real source of truth for "is this a branch/member account."
-     */
+    // Role-scoped counts/lists are retained for callers that genuinely
+    // need them. The admin Users page itself uses the unscoped findAll/count
+    // methods because it must display every login account.
     long countByRoleIn(
             Collection<UserRole> roles
     );

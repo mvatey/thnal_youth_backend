@@ -20,6 +20,7 @@ import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.exchangerate.dto.response.ExchangeRateResponse;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,7 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
     private static final String ROLE_SECRETARY = "SECRETARY";
 
     private final MonthlyDonationRepository monthlyDonationRepository;
+    private final StaffBranchScopeService staffBranchScopeService;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
 
@@ -390,49 +392,45 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
     private Long effectiveBranchFilter(
             Long requestedBranchId
     ) {
-        Long scopedBranchId =
-                scopedBranchIdOrNull();
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!ROLE_BRANCH_LEADER.equals(role)
+                && !ROLE_SECRETARY.equals(role)) {
+            return requestedBranchId;
+        }
 
-        return scopedBranchId != null
-                ? scopedBranchId
-                : requestedBranchId;
+        Set<Long> allowed = staffBranchScopeService.currentStaffBranchIds();
+        if (requestedBranchId == null) {
+            if (allowed.size() == 1) {
+                return allowed.iterator().next();
+            }
+            throw new AccessDeniedException(
+                    "Select one of your assigned branches"
+            );
+        }
+
+        if (!allowed.contains(requestedBranchId)) {
+            throw new AccessDeniedException(
+                    "This branch is outside your permitted scope"
+            );
+        }
+        return requestedBranchId;
     }
 
     private void enforceBranchAccess(
             Long requestedBranchId
     ) {
-        Long scopedBranchId =
-                scopedBranchIdOrNull();
+        String role = SecurityUtils.getCurrentUserRole();
+        if (!ROLE_BRANCH_LEADER.equals(role)
+                && !ROLE_SECRETARY.equals(role)) {
+            return;
+        }
 
-        if (scopedBranchId != null
-                && !scopedBranchId.equals(requestedBranchId)) {
+        if (!staffBranchScopeService.currentStaffBranchIds()
+                .contains(requestedBranchId)) {
             throw new AccessDeniedException(
                     "This branch is outside your permitted scope"
             );
         }
-    }
-
-    private Long scopedBranchIdOrNull() {
-        String currentRole =
-                SecurityUtils.getCurrentUserRole();
-
-        if (!ROLE_BRANCH_LEADER.equals(currentRole)
-                && !ROLE_SECRETARY.equals(currentRole)) {
-            return null;
-        }
-
-        Long branchId =
-                monthlyDonationRepository.findBranchIdByUserId(
-                        SecurityUtils.getCurrentUserId()
-                );
-
-        if (branchId == null) {
-            throw new AccessDeniedException(
-                    "Your account is not assigned to a branch"
-            );
-        }
-
-        return branchId;
     }
 
     private void validateUniqueMembers(

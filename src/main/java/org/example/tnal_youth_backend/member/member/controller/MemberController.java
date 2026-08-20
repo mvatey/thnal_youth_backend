@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/members")
@@ -62,6 +61,9 @@ public class MemberController {
             Short statusId,
 
             @RequestParam(required = false)
+            String accountStatus,
+
+            @RequestParam(required = false)
             Gender gender
     ) {
         return ResponseEntity.ok(
@@ -71,6 +73,7 @@ public class MemberController {
                         search,
                         branchId,
                         statusId,
+                        accountStatus,
                         gender
                 )
         );
@@ -129,6 +132,7 @@ public class MemberController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     updateMember(
             @PathVariable
@@ -183,6 +187,7 @@ public class MemberController {
     }
 
     @PatchMapping("/{id}/profile-photo")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     updateMemberProfilePhoto(
             @PathVariable Long id,
@@ -202,6 +207,7 @@ public class MemberController {
             value = "/{memberId}/profile-photo",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     uploadMemberProfilePhoto(
             @PathVariable Long memberId,

@@ -24,13 +24,15 @@ public class MonthlyDonationController {
 
     private static final String STAFF =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String READ_ACCESS =
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')";
     private static final String DONATION_ENTRY =
             "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
     private final MonthlyDonationService monthlyDonationService;
 
     @GetMapping("/members")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<MonthlyDonationMemberPageResponse> listMembers(
             @RequestParam Long branchId,
             @RequestParam Integer month,
@@ -61,7 +63,7 @@ public class MonthlyDonationController {
     }
 
     @GetMapping
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<MonthlyDonationPageResponse> listMonthlyDonations(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Integer month,
@@ -83,7 +85,7 @@ public class MonthlyDonationController {
     }
 
     @GetMapping("/{branchId}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<MonthlyDonationDetailResponse> getMonthlyDonationDetail(
             @PathVariable Long branchId,
             @RequestParam

@@ -27,6 +27,9 @@ public interface LookupService {
     List<RoleOptionResponse>
     getUserRoleOptions();
 
+    List<LookupOptionResponse<String>>
+    getUserStatusOptions();
+
     List<LookupOptionResponse<Short>> getBranchLevelOptions();
 
     List<LookupOptionResponse<Short>> getBranchStatusOptions();

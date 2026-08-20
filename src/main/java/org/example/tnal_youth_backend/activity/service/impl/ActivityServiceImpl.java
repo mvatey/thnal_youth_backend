@@ -26,6 +26,7 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +48,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ActivityServiceImpl implements ActivityService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final ActivityRepository activityRepository;
     private final ActivityTypeRepository activityTypeRepository;
@@ -427,6 +430,9 @@ public class ActivityServiceImpl implements ActivityService {
                                         item.setInvitationId(
                                                 invitation.getId()
                                         );
+                                        item.setInvitedBranchId(
+                                                invitation.getBranch().getId()
+                                        );
                                         item.setInvitationStatus(
                                                 invitation
                                                         .getInvitationStatus()
@@ -492,37 +498,7 @@ public class ActivityServiceImpl implements ActivityService {
      * use it identically here.
      */
     private Set<Long> resolveOwnBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Account is not linked to a member"
-            );
-        }
-
-        Member member = memberRepository.findById(user.getMemberId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Member record could not be found"
-                ));
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        if (member.getBranchId() != null) {
-            branchIds.add(member.getBranchId());
-        }
-
-        if (branchIds.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You are not assigned to a branch"
-            );
-        }
-
-        return Set.copyOf(branchIds);
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     @Override
@@ -873,22 +849,25 @@ public class ActivityServiceImpl implements ActivityService {
         if (!computeCanManage(currentUser, activity)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only a branch leader or secretary of this "
+                    "Only an administrator or staff of this "
                             + "activity's own branch can modify it"
             );
         }
     }
 
     /**
-     * True only for a branch leader or secretary who is staff of this
-     * activity's own branch. Admins and members always get {@code false} —
-     * admins are limited to viewing the activity module, and members never
-     * manage activities at all.
+     * Administrators manage activities organization-wide. Branch leaders
+     * and secretaries may manage activities hosted by one of their branches.
+     * Members and viewers never manage activities.
      */
     private boolean computeCanManage(
             User user,
             Activity activity
     ) {
+        if (user.getRole() == UserRole.ADMIN) {
+            return true;
+        }
+
         if (user.getRole() != UserRole.BRANCH_LEADER
                 && user.getRole() != UserRole.SECRETARY) {
             return false;
@@ -943,21 +922,7 @@ public class ActivityServiceImpl implements ActivityService {
     private Set<Long> resolveStaffBranchIds(
             User user
     ) {
-        if (user.getMemberId() == null) {
-            return Set.of();
-        }
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private User requireUser(

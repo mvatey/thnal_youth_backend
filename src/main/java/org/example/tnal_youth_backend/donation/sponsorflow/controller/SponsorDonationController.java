@@ -25,6 +25,8 @@ public class SponsorDonationController {
 
     private static final String STAFF =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+    private static final String READ_ACCESS =
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')";
     private static final String DONATION_ENTRY =
             "hasAnyRole('SECRETARY','BRANCH_LEADER')";
 
@@ -41,7 +43,7 @@ public class SponsorDonationController {
 
     /** Matches the UI filters: search, donor type, branch, and one paid date. */
     @GetMapping
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<SponsorDonationPageResponse> list(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) String donorKind,
@@ -57,7 +59,7 @@ public class SponsorDonationController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<SponsorDonationSummaryResponse> summary(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false)
@@ -67,7 +69,7 @@ public class SponsorDonationController {
     }
 
     @GetMapping("/lookup/sponsors")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<List<SponsorLookupResponse>> sponsors(
             @RequestParam(required = false) String search
     ) {
@@ -76,7 +78,7 @@ public class SponsorDonationController {
 
     /** MEMBER flow: choose branch first, then load active members in that branch. */
     @GetMapping("/lookup/members")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<List<SponsorLookupResponse>> members(
             @RequestParam Long branchId,
             @RequestParam(required = false) String search
@@ -85,7 +87,7 @@ public class SponsorDonationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(READ_ACCESS)
     public ApiResponse<SponsorDonationRowResponse> get(@PathVariable Long id) {
         return ApiResponse.ok(service.get(id));
     }

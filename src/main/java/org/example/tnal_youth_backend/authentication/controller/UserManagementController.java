@@ -20,35 +20,22 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /*
- * Admin-only user account management.
+ * Official admin-only user account management API.
  *
- * Lets an ADMIN create branch-less accounts (ADMIN or VIEWER role,
- * users.member_id stays NULL) and view the full user list/summary.
+ * /api/admin/users is the single endpoint family for managing
+ * login accounts. It lets ADMIN list every login account and
+ * create standalone ADMIN/VIEWER accounts while member-linked
+ * accounts continue to be provisioned by the Member flow.
  *
- * Gated both by the URL-level "/api/admin/**" -> hasRole('ADMIN')
- * rule in SecurityConfig and, defensively, by the class-level
- * @PreAuthorize below.
+ * Security is enforced both by SecurityConfig (/api/admin/**)
+ * and by the class-level @PreAuthorize below.
  */
-/*
- * NOTE ON THE BEAN NAME:
- * There is a pre-existing, unrelated class also named
- * "UserManagementController" in
- * org.example.tnal_youth_backend.account.user.controller
- * (a generic, currently ungated /api/users CRUD endpoint).
- * Spring registers beans under their default (decapitalized
- * simple class) name regardless of package, so two classes
- * named UserManagementController in different packages collide
- * at startup unless one of them is given an explicit bean name.
- * This controller is intentionally given one below so both
- * classes can coexist unchanged.
- */
-@RestController("adminUserManagementController")
+@RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(
         name = "A. User Administration",
-        description = "Manage non-branch-linked user accounts (ADMIN, VIEWER)"
+        description = "List all login accounts and create standalone ADMIN/VIEWER accounts"
 )
 public class UserManagementController {
 
@@ -64,6 +51,7 @@ public class UserManagementController {
      */
 
     @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     public ResponseEntity<UserSummaryResponse> getSummary() {
 
         return ResponseEntity.ok(
@@ -82,6 +70,7 @@ public class UserManagementController {
      */
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     public ResponseEntity<List<UserListItemResponse>> listUsers(
             @RequestParam(required = false)
             String search,
@@ -112,6 +101,7 @@ public class UserManagementController {
      */
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserListItemResponse> createUser(
             @Valid
             @RequestBody

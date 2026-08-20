@@ -50,8 +50,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/error",
-                                "/uploads/**"
+                                "/error"
                         )
                         .permitAll()
 
@@ -71,14 +70,36 @@ public class SecurityConfig {
                         .permitAll()
 
                         /*
+                         * Bot-to-server Telegram callback. The controller
+                         * validates its dedicated X-Bot-Secret and fails
+                         * closed when that secret is not configured.
+                         */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/telegram/link"
+                        )
+                        .permitAll()
+
+                        /*
                          * Current authenticated user.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/auth/me",
-                                "/api/users/me"
+                                "/api/auth/me"
                         )
                         .authenticated()
+
+                        /*
+                         * Retired legacy user-management namespace.
+                         *
+                         * The application now uses /api/admin/users/** for
+                         * administrative user management and /api/auth/me
+                         * for current-user self-service. Keep /api/users/**
+                         * closed so an old CRUD controller cannot become a
+                         * second, less-protected management path again.
+                         */
+                        .requestMatchers("/api/users/**")
+                        .denyAll()
 
                         /*
                          * Dashboard.
@@ -106,7 +127,6 @@ public class SecurityConfig {
                                 "/api/activities/"
                         )
                         .hasAnyRole(
-                                "ADMIN",
                                 "SECRETARY",
                                 "BRANCH_LEADER"
                         )
@@ -168,6 +188,12 @@ public class SecurityConfig {
                         /*
                          * Feature-level permissions.
                          */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/admin/**"
+                        )
+                        .hasAnyRole("ADMIN", "VIEWER")
+
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
 

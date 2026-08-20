@@ -14,13 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 /**
  * <p><b>NOTE for deployment:</b> {@code POST /api/telegram/link} is called by
  * the bot's own server, not a logged-in browser session, so it CANNOT sit
  * behind the normal JWT-authenticated rule set. It needs a
- * {@code permitAll()} entry added to the security config (not included in
- * the files this was built from) — the {@code X-Bot-Secret} header check
- * below is what actually protects it instead.
+ * {@code permitAll()} entry in the security config. The dedicated
+ * {@code X-Bot-Secret} header check below protects this one callback.
  */
 @RestController
 @RequestMapping("/api/telegram")
@@ -48,8 +50,7 @@ public class TelegramLinkController {
             @RequestHeader(value = "X-Bot-Secret", required = false) String botSecret,
             @Valid @RequestBody TelegramLinkConfirmRequest request
     ) {
-        if (webhookSecret == null || webhookSecret.isBlank()
-                || botSecret == null || !webhookSecret.equals(botSecret)) {
+        if (!secretMatches(webhookSecret, botSecret)) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Missing or invalid X-Bot-Secret"
@@ -58,5 +59,16 @@ public class TelegramLinkController {
 
         telegramLinkService.confirmLink(request.getToken(), request.getChatId());
         return ResponseEntity.ok().build();
+    }
+
+    private boolean secretMatches(String expected, String actual) {
+        if (expected == null || expected.isBlank() || actual == null) {
+            return false;
+        }
+
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }

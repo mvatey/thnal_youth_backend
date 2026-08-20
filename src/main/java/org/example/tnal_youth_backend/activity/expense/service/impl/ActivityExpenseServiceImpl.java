@@ -23,6 +23,7 @@ import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ActivityExpenseServiceImpl
         implements ActivityExpenseService {
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private static final String USD = "USD";
     private static final String KHR = "KHR";
@@ -390,12 +393,16 @@ public class ActivityExpenseServiceImpl
             Activity activity,
             User currentUser
     ) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+
         if (currentUser.getRole() != UserRole.BRANCH_LEADER
                 && currentUser.getRole() != UserRole.SECRETARY) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only a branch leader or secretary can manage "
+                    "Only an administrator, branch leader, or secretary can manage "
                             + "activity expenses"
             );
         }
@@ -430,21 +437,7 @@ public class ActivityExpenseServiceImpl
     }
 
     private Set<Long> resolveStaffBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            return Set.of();
-        }
-
-        Set<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(
-                        user.getMemberId()
-                )
-        );
-
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
-
-        return branchIds;
+        return staffBranchScopeService.staffBranchIds(user);
     }
 
     private FileEntity findReceiptFile(

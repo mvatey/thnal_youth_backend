@@ -28,10 +28,15 @@ public class User implements UserDetails {
     @Column(name = "member_id")
     private Long memberId;
 
+    // Branch scope for this login account. For member-linked accounts this
+    // mirrors members.branch_id. Standalone ADMIN/VIEWER accounts may keep it null.
+    @Column(name = "branch_id")
+    private Long branchId;
+
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -46,10 +51,10 @@ public class User implements UserDetails {
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    @Column(name = "full_name_km", nullable = false)
+    @Column(name = "full_name_km", nullable = false, columnDefinition = "TEXT")
     private String fullNameKm;
 
-    @Column(name = "full_name_en")
+    @Column(name = "full_name_en", columnDefinition = "TEXT")
     private String fullNameEn;
 
     @Column(name = "profile_image")

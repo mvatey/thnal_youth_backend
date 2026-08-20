@@ -27,19 +27,19 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(
-            @RequestBody LoginRequest request,
+            @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest
     ) {
         return ResponseEntity.ok(authService.login(request, httpRequest));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.refresh(request));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<?> logout(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.logout(request));
     }
 
@@ -51,7 +51,7 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(
-            @RequestBody ForgotPasswordRequest request
+            @Valid @RequestBody ForgotPasswordRequest request
     ){
 
         return ResponseEntity.ok(
