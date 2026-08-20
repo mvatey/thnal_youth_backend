@@ -20,6 +20,7 @@ import org.example.tnal_youth_backend.donation.entity.Donation;
 import org.example.tnal_youth_backend.donation.repository.BranchDonationTotalRow;
 import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.donation.service.DonationService;
+import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
@@ -97,6 +98,7 @@ public class DonationServiceImpl implements DonationService {
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
     private final ActivityInvitedBranchService activityInvitedBranchService;
     private final StaffBranchScopeService staffBranchScopeService;
+    private final ExchangeRateService exchangeRateService;
 
     // ===================================================================
     // create
@@ -124,7 +126,7 @@ public class DonationServiceImpl implements DonationService {
         Prepared p = validateAndPrepare(
                 req.getDonationTypeId(), req.getMemberId(), req.getSponsorId(), req.getDonorName(),
                 req.getActivityId(), req.getBranchId(), req.getDonationPeriod(),
-                req.getAmountKhr(), req.getAmountUsd(), req.getExchangeRateKhrPerUsd(),
+                req.getAmountKhr(), req.getAmountUsd(), resolveExchangeRate(req.getAmountKhr(), req.getPaidAt()),
                 req.getPaymentMethodId(), req.getReceiptFileId());
 
         Donation d = Donation.builder()
@@ -225,7 +227,7 @@ public class DonationServiceImpl implements DonationService {
         Prepared p = validateAndPrepare(
                 req.getDonationTypeId(), req.getMemberId(), req.getSponsorId(), req.getDonorName(),
                 req.getActivityId(), req.getBranchId(), req.getDonationPeriod(),
-                req.getAmountKhr(), req.getAmountUsd(), req.getExchangeRateKhrPerUsd(),
+                req.getAmountKhr(), req.getAmountUsd(), resolveExchangeRate(req.getAmountKhr(), req.getPaidAt()),
                 req.getPaymentMethodId(), req.getReceiptFileId());
 
         // donationNo / recordedBy / clientRequestId are intentionally NOT touched
@@ -355,6 +357,19 @@ public class DonationServiceImpl implements DonationService {
      * USD total. Throws {@link BusinessException} with a stable code on the first
      * violation.
      */
+
+    private BigDecimal resolveExchangeRate(BigDecimal amountKhr, OffsetDateTime paidAt) {
+        if (amountKhr == null || amountKhr.signum() <= 0) {
+            return null;
+        }
+        LocalDate rateDate = paidAt != null
+                ? paidAt.toLocalDate()
+                : LocalDate.now(clock);
+        return exchangeRateService
+                .getRateForDate("USD", "KHR", rateDate)
+                .getRate();
+    }
+
     private Prepared validateAndPrepare(Short donationTypeId, Long memberId, Long sponsorId, String donorNameRaw,
                                         Long activityId, Long branchId, LocalDate donationPeriod,
                                         BigDecimal amountKhrRaw, BigDecimal amountUsdRaw, BigDecimal rate,
