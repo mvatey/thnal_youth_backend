@@ -120,13 +120,24 @@ public class ActivityServiceImpl implements ActivityService {
         User currentUser = requireUser(currentUserId);
 
         /*
-         * A member may only view the detail of an activity they were
-         * personally invited to (i.e. they are already a participant).
-         * Staff roles (admin, secretary, branch leader) can view any
-         * activity.
+         * MEMBER visibility follows the same rule as the activity list:
+         *
+         *   1) activities hosted by the member's own/home branch, OR
+         *   2) activities where the member was personally invited/added
+         *      as a participant.
+         *
+         * This keeps ordinary branch activities visible to every member of
+         * that branch while still allowing a member to see a cross-branch
+         * activity they were explicitly invited to.
          */
         if (currentUser.getRole() == UserRole.MEMBER) {
-            boolean invited =
+            boolean sameBranch =
+                    currentUser.getBranchId() != null
+                            && activity.getBranchId() != null
+                            && currentUser.getBranchId()
+                            .equals(activity.getBranchId());
+
+            boolean personallyInvited =
                     currentUser.getMemberId() != null
                             && activityParticipantRepository
                             .existsByActivity_IdAndMember_Id(
@@ -134,10 +145,11 @@ public class ActivityServiceImpl implements ActivityService {
                                     currentUser.getMemberId()
                             );
 
-            if (!invited) {
+            if (!sameBranch && !personallyInvited) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "You are not invited to this activity"
+                        "You can only view activities from your branch "
+                                + "or activities you were invited to"
                 );
             }
         }
@@ -350,10 +362,20 @@ public class ActivityServiceImpl implements ActivityService {
                     );
         } else if (currentUser.getRole() == UserRole.MEMBER) {
             /*
-             * A member only sees activities they were personally invited
-             * to — never the full activity catalog.
+             * MEMBER sees exactly:
+             *
+             *   - activities hosted by their own/home branch, plus
+             *   - activities where they were personally invited/added as
+             *     a participant (including activities hosted elsewhere).
+             *
+             * They never receive the organization-wide activity catalog.
              */
-            List<Long> invitedActivityIds =
+            Set<Long> ownBranchIds =
+                    currentUser.getBranchId() == null
+                            ? Set.of()
+                            : Set.of(currentUser.getBranchId());
+
+            List<Long> personallyInvitedActivityIds =
                     currentUser.getMemberId() == null
                             ? List.of()
                             : activityParticipantRepository
@@ -361,12 +383,28 @@ public class ActivityServiceImpl implements ActivityService {
                                     currentUser.getMemberId()
                             );
 
-            activityPage = invitedActivityIds.isEmpty()
-                    ? Page.empty(pageable)
-                    : activityRepository.findAllByIdIn(
-                            invitedActivityIds,
-                            pageable
-                    );
+            Set<Long> invitedIds =
+                    new LinkedHashSet<>(personallyInvitedActivityIds);
+
+            if (ownBranchIds.isEmpty()) {
+                activityPage = invitedIds.isEmpty()
+                        ? Page.empty(pageable)
+                        : activityRepository.findAllByIdIn(
+                                invitedIds,
+                                pageable
+                        );
+            } else if (invitedIds.isEmpty()) {
+                activityPage = activityRepository.findAllByBranchIdIn(
+                        ownBranchIds,
+                        pageable
+                );
+            } else {
+                activityPage = activityRepository.findAllByBranchIdInOrIdIn(
+                        ownBranchIds,
+                        invitedIds,
+                        pageable
+                );
+            }
         } else {
             activityPage = activityRepository.findAll(pageable);
         }

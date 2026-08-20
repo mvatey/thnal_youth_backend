@@ -102,7 +102,7 @@ public class Member {
     )
     private String placeOfBirth;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TshirtSizeConverter.class)
     @Column(
             name = "tshirt_size",
             length = 20

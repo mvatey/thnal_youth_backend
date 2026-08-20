@@ -378,6 +378,28 @@ public class MyDonationServiceImpl
                   :memberId
 
               AND donation.activity_id IS NOT NULL
+
+              AND donation_type.code =
+                  'ACTIVITY_DONATION'
+
+              /*
+               * The activity-income editor is one current row per
+               * member + activity + branch. Older duplicate rows can exist
+               * from historical/test saves, but My Donations must mirror
+               * the editor and expose only the latest current row.
+               */
+              AND donation.id = (
+                  SELECT d2.id
+                  FROM donations d2
+                  WHERE d2.member_id = donation.member_id
+                    AND d2.activity_id = donation.activity_id
+                    AND d2.branch_id = donation.branch_id
+                  ORDER BY
+                      d2.updated_at DESC NULLS LAST,
+                      d2.created_at DESC NULLS LAST,
+                      d2.id DESC
+                  LIMIT 1
+              )
             """;
 
     /*
