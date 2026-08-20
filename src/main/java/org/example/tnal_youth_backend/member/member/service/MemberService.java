@@ -30,7 +30,7 @@ public interface MemberService {
             MultipartFile file
     );
 
-    MemberSummaryResponse getMemberSummary();
+    MemberSummaryResponse getMemberSummary(Long branchId);
 
     MemberDetailSummaryResponse getMemberDetailSummary(
             Long memberId

@@ -11,6 +11,7 @@ import org.example.tnal_youth_backend.dashboard.util.DashboardMonthResolver;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class DashboardScopeResolver {
     private final DashboardMonthResolver dashboardMonthResolver;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final ViewerAccessService viewerAccessService;
 
     public DashboardScope resolve(
             String month
@@ -72,7 +74,7 @@ public class DashboardScopeResolver {
         }
 
         UserRole role =
-                user.getRole();
+                viewerAccessService.effectiveReadRole(user);
 
         if (role == null) {
             throw new DashboardAccessException(
@@ -112,10 +114,15 @@ public class DashboardScopeResolver {
                 role == UserRole.SECRETARY
                         || role == UserRole.BRANCH_LEADER
         ) {
-            Set<Long> accessibleBranchIds =
-                    resolveAccessibleBranchIds(
-                            user
-                    );
+            Set<Long> accessibleBranchIds;
+            if (viewerAccessService.isViewer(user)) {
+                if (user.getBranchId() == null) {
+                    throw new DashboardAccessException("Viewer branch scope requires a branch.");
+                }
+                accessibleBranchIds = Set.of(user.getBranchId());
+            } else {
+                accessibleBranchIds = resolveAccessibleBranchIds(user);
+            }
 
             return new DashboardScope(
                     user.getId(),

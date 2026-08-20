@@ -23,6 +23,8 @@ import org.example.tnal_youth_backend.activity.service.ActivityService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
@@ -59,6 +61,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final BranchRepository branchRepository;
     private final ActivityParticipantRepository activityParticipantRepository;
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
 
@@ -106,7 +109,9 @@ public class ActivityServiceImpl implements ActivityService {
         Activity savedActivity =
                 activityRepository.save(activity);
 
-        return activityMapper.toResponse(savedActivity);
+        ActivityResponse response = activityMapper.toResponse(savedActivity);
+        populateBranchName(response, savedActivity.getBranchId());
+        return response;
     }
 
     @Override
@@ -156,6 +161,29 @@ public class ActivityServiceImpl implements ActivityService {
 
         ActivityResponse response =
                 activityMapper.toResponse(activity);
+
+        populateBranchName(response, activity.getBranchId());
+
+        // Keep the detail card consistent with the activity list:
+        // member_joined / invited for every role. Capacity is not invitation count.
+        activityParticipantRepository
+                .countAttendanceGroupedByActivityIds(List.of(activityId))
+                .stream()
+                .findFirst()
+                .ifPresentOrElse(
+                        counts -> {
+                            response.setJoinedCount(
+                                    counts.getJoinedCount() == null ? 0L : counts.getJoinedCount()
+                            );
+                            response.setInvitedCount(
+                                    counts.getInvitedCount() == null ? 0L : counts.getInvitedCount()
+                            );
+                        },
+                        () -> {
+                            response.setJoinedCount(0L);
+                            response.setInvitedCount(0L);
+                        }
+                );
 
         resolveCreatedByDisplay(activity, response);
 
@@ -438,6 +466,22 @@ public class ActivityServiceImpl implements ActivityService {
                                         )
                                 );
 
+        Map<Long, ActivityParticipantRepository.ActivityAttendanceCountProjection>
+                attendanceCountsByActivityId =
+                pageActivityIds.isEmpty()
+                        ? Map.of()
+                        : activityParticipantRepository
+                                .countAttendanceGroupedByActivityIds(pageActivityIds)
+                                .stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                ActivityParticipantRepository
+                                                        .ActivityAttendanceCountProjection
+                                                        ::getActivityId,
+                                                projection -> projection
+                                        )
+                                );
+
         Set<Long> ownBranchIdsForMapping = ownBranchIdsForScope;
         Map<Long, ActivityInvitedBranch> invitedBranchByActivityIdForMapping =
                 invitedBranchByActivityId;
@@ -447,6 +491,8 @@ public class ActivityServiceImpl implements ActivityService {
                         .map(activity -> {
                             ActivityListItemResponse item =
                                     activityMapper.toListItemResponse(activity);
+
+                            populateBranchName(item, activity.getBranchId());
 
                             if (ownBranchIdsForMapping != null) {
                                 boolean isOwn =
@@ -485,6 +531,20 @@ public class ActivityServiceImpl implements ActivityService {
                                                     activity.getId(),
                                                     0L
                                             )
+                            );
+
+                            ActivityParticipantRepository.ActivityAttendanceCountProjection
+                                    attendanceCounts = attendanceCountsByActivityId
+                                            .get(activity.getId());
+                            item.setJoinedCount(
+                                    attendanceCounts == null
+                                            ? 0L
+                                            : attendanceCounts.getJoinedCount()
+                            );
+                            item.setInvitedCount(
+                                    attendanceCounts == null
+                                            ? 0L
+                                            : attendanceCounts.getInvitedCount()
                             );
 
                             return item;
@@ -638,7 +698,9 @@ public class ActivityServiceImpl implements ActivityService {
         Activity updatedActivity =
                 activityRepository.save(activity);
 
-        return activityMapper.toResponse(updatedActivity);
+        ActivityResponse response = activityMapper.toResponse(updatedActivity);
+        populateBranchName(response, updatedActivity.getBranchId());
+        return response;
     }
 
     @Override
@@ -887,7 +949,7 @@ public class ActivityServiceImpl implements ActivityService {
         if (!computeCanManage(currentUser, activity)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Only an administrator or staff of this "
+                    "Only Branch Leader or Secretary staff of this "
                             + "activity's own branch can modify it"
             );
         }
@@ -902,10 +964,7 @@ public class ActivityServiceImpl implements ActivityService {
             User user,
             Activity activity
     ) {
-        if (user.getRole() == UserRole.ADMIN) {
-            return true;
-        }
-
+        // ADMIN is organization-wide read-only for activities.
         if (user.getRole() != UserRole.BRANCH_LEADER
                 && user.getRole() != UserRole.SECRETARY) {
             return false;
@@ -1161,4 +1220,32 @@ public class ActivityServiceImpl implements ActivityService {
                 ? null
                 : trimmed;
     }
+    private void populateBranchName(
+            ActivityResponse response,
+            Long branchId
+    ) {
+        if (response == null || branchId == null) {
+            return;
+        }
+
+        branchRepository.findById(branchId).ifPresent(branch -> {
+            response.setBranchNameKm(branch.getNameKm());
+            response.setBranchNameEn(branch.getNameEn());
+        });
+    }
+
+    private void populateBranchName(
+            ActivityListItemResponse response,
+            Long branchId
+    ) {
+        if (response == null || branchId == null) {
+            return;
+        }
+
+        branchRepository.findById(branchId).ifPresent(branch -> {
+            response.setBranchNameKm(branch.getNameKm());
+            response.setBranchNameEn(branch.getNameEn());
+        });
+    }
+
 }

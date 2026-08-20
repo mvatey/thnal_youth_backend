@@ -99,7 +99,7 @@ public class MonthlyDonationController {
 
 
     @DeleteMapping("/{donationId}")
-    @PreAuthorize(STAFF)
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<Void> deleteMonthlyDonation(
             @PathVariable Long donationId
     ) {

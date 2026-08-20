@@ -31,6 +31,10 @@ public class ActivityResponse {
 
     private Long branchId;
 
+    private String branchNameKm;
+
+    private String branchNameEn;
+
     private Boolean publicActivity;
 
     private OffsetDateTime startsAt;
@@ -50,6 +54,12 @@ public class ActivityResponse {
     private String googleMapUrl;
 
     private Integer capacity;
+
+    /** Number of invited members who have actually joined/attended. */
+    private Long joinedCount;
+
+    /** Number of invited members. Walk-ins/self-registered participants are excluded. */
+    private Long invitedCount;
 
     private Long coverImageId;
 

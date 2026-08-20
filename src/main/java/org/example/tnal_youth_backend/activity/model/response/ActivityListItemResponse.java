@@ -30,6 +30,10 @@ public class ActivityListItemResponse {
 
     private Long branchId;
 
+    private String branchNameKm;
+
+    private String branchNameEn;
+
     private Boolean publicActivity;
 
     private OffsetDateTime startsAt;
@@ -50,6 +54,11 @@ public class ActivityListItemResponse {
      * against it too, not just the host branch's own.
      */
     private Long participantCount;
+
+    // Attendance summary displayed as member_joined / invited.
+    private Long joinedCount;
+
+    private Long invitedCount;
 
     /*
      * true  -> the viewer's own branch (or one of their staff-assigned

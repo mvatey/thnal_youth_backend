@@ -93,8 +93,11 @@ public class MyDonationServiceImpl
                 CAST(sponsor.email AS TEXT)
                     AS sponsor_email,
 
-                donation.donor_name
-                    AS donor_name,
+                COALESCE(
+                    NULLIF(TRIM(donation.donor_name), ''),
+                    NULLIF(TRIM(member_owner.full_name_km), ''),
+                    NULLIF(TRIM(member_owner.full_name_en), '')
+                ) AS donor_name,
 
                 activity.id
                     AS activity_id,
@@ -180,6 +183,10 @@ public class MyDonationServiceImpl
             LEFT JOIN sponsors sponsor
                    ON sponsor.id =
                       donation.sponsor_id
+
+            LEFT JOIN members member_owner
+                   ON member_owner.id =
+                      donation.member_id
 
             LEFT JOIN sponsor_types sponsor_type
                    ON sponsor_type.id =
@@ -262,8 +269,11 @@ public class MyDonationServiceImpl
                 CAST(sponsor.email AS TEXT)
                     AS sponsor_email,
 
-                donation.donor_name
-                    AS donor_name,
+                COALESCE(
+                    NULLIF(TRIM(donation.donor_name), ''),
+                    NULLIF(TRIM(member_owner.full_name_km), ''),
+                    NULLIF(TRIM(member_owner.full_name_en), '')
+                ) AS donor_name,
 
                 activity.id
                     AS activity_id,
@@ -349,6 +359,10 @@ public class MyDonationServiceImpl
             LEFT JOIN sponsors sponsor
                    ON sponsor.id =
                       donation.sponsor_id
+
+            LEFT JOIN members member_owner
+                   ON member_owner.id =
+                      donation.member_id
 
             LEFT JOIN sponsor_types sponsor_type
                    ON sponsor_type.id =

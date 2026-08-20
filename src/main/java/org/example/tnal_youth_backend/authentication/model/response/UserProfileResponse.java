@@ -28,4 +28,8 @@ public class UserProfileResponse {
     private String profileImage;
 
     private String role;
+
+    private String viewerScope;
+
+    private Long branchId;
 }

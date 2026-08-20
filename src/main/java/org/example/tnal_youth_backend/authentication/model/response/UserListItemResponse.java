@@ -33,6 +33,8 @@ public class UserListItemResponse {
 
     private String role;
 
+    private String viewerScope;
+
     private String status;
 
     /*

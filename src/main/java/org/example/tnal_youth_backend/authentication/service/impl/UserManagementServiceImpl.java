@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
 import org.example.tnal_youth_backend.authentication.model.request.CreateUserRequest;
 import org.example.tnal_youth_backend.authentication.model.response.UserListItemResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserSummaryResponse;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.UserManagementService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,21 +34,19 @@ import java.util.stream.Collectors;
 public class UserManagementServiceImpl
         implements UserManagementService {
 
-    /*
-     * Roles that can be created through this branch-less,
-     * admin-only account flow. MEMBER, BRANCH_LEADER, and
-     * SECRETARY accounts are always tied to a member/branch
-     * and must be created through those existing flows instead.
-     */
-    private static final Set<UserRole> STANDALONE_CREATABLE_ROLES =
+    /** Roles whose standalone login must be scoped to one branch. */
+    private static final Set<UserRole> BRANCH_SCOPED_ROLES =
             EnumSet.of(
-                    UserRole.ADMIN,
-                    UserRole.VIEWER
+                    UserRole.BRANCH_LEADER,
+                    UserRole.SECRETARY,
+                    UserRole.MEMBER
             );
 
     private final UserRepository userRepository;
 
     private final MemberRepository memberRepository;
+
+    private final BranchRepository branchRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -59,9 +59,6 @@ public class UserManagementServiceImpl
      * accounts. Therefore summary numbers count every row in users,
      * including accounts linked to members through member_id.
      *
-     * STANDALONE_CREATABLE_ROLES is intentionally used only by the
-     * create flow; it must never be used to hide linked accounts from
-     * the Users list or summary.
      */
     @Override
     @Transactional(readOnly = true)
@@ -187,7 +184,10 @@ public class UserManagementServiceImpl
     public UserListItemResponse createUser(
             CreateUserRequest request
     ) {
-        UserRole role = parseCreatableRole(request.getRole());
+        UserRole role = parseRole(request.getRole());
+        ViewerScope viewerScope = validateViewerScope(role, request.getViewerScope());
+
+        Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
 
         String phone = request.getPhone().trim();
 
@@ -214,10 +214,12 @@ public class UserManagementServiceImpl
 
         User user = User.builder()
                 .memberId(null)
+                .branchId(branchId)
                 .phone(phone)
                 .email(email)
                 .passwordHash(unusablePasswordHash)
                 .role(role)
+                .viewerScope(viewerScope)
                 .status(UserStatus.PENDING_ACTIVATION)
                 .fullNameKm(request.getFullNameKm().trim())
                 .fullNameEn(
@@ -234,30 +236,63 @@ public class UserManagementServiceImpl
         return toListItem(saved);
     }
 
-    private UserRole parseCreatableRole(String rawRole) {
-        UserRole role;
-
+    private UserRole parseRole(String rawRole) {
         try {
-            role = UserRole.valueOf(
-                    rawRole.trim().toUpperCase()
-            );
-        } catch (IllegalArgumentException exception) {
+            return UserRole.valueOf(rawRole.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Unknown role: " + rawRole
             );
         }
+    }
 
-        if (!STANDALONE_CREATABLE_ROLES.contains(role)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "This endpoint can only create ADMIN or VIEWER accounts. "
-                            + "Member, branch leader, and secretary accounts must be "
-                            + "created through the member/branch management flow."
-            );
+    private ViewerScope validateViewerScope(UserRole role, String rawScope) {
+        if (role != UserRole.VIEWER) {
+            if (rawScope != null && !rawScope.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "viewerScope is only allowed when role is VIEWER");
+            }
+            return null;
+        }
+        if (rawScope == null || rawScope.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "viewerScope is required for VIEWER accounts");
+        }
+        try {
+            return ViewerScope.valueOf(rawScope.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "viewerScope must be ADMIN, BRANCH_LEADER, SECRETARY, or MEMBER");
+        }
+    }
+
+    private Long validateAndResolveBranchId(UserRole role, ViewerScope viewerScope, Long requestedBranchId) {
+        boolean viewerNeedsBranch = role == UserRole.VIEWER && viewerScope != ViewerScope.ADMIN;
+        if (BRANCH_SCOPED_ROLES.contains(role) || viewerNeedsBranch) {
+            if (requestedBranchId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "branchId is required for MEMBER, SECRETARY, BRANCH_LEADER, and branch-scoped VIEWER accounts"
+                );
+            }
+            if (!branchRepository.existsById(requestedBranchId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Branch " + requestedBranchId + " does not exist"
+                );
+            }
+            return requestedBranchId;
         }
 
-        return role;
+        // ADMIN and VIEWER-as-ADMIN are organization-wide.
+        if (requestedBranchId != null && !branchRepository.existsById(requestedBranchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch " + requestedBranchId + " does not exist"
+            );
+        }
+        return requestedBranchId;
     }
 
     // =========================================================
@@ -284,6 +319,7 @@ public class UserManagementServiceImpl
                                 ? user.getRole().name()
                                 : null
                 )
+                .viewerScope(user.getViewerScope() != null ? user.getViewerScope().name() : null)
                 .status(
                         user.getStatus() != null
                                 ? user.getStatus().name()

@@ -264,6 +264,42 @@ public interface ActivityParticipantRepository
     );
 
     /*
+     * One row per activity containing the two values shown in the activity
+     * table: member_joined / invited. The query is activity-wide so every
+     * role sees the same values.
+     */
+    @Query(
+            value = """
+                    SELECT ap.activity_id AS activityId,
+                           SUM(CASE
+                                 WHEN UPPER(COALESCE(ast.code, '')) = 'PRESENT'
+                                      OR ap.checked_in_at IS NOT NULL
+                                 THEN 1 ELSE 0
+                               END) AS joinedCount,
+                           SUM(CASE
+                                 WHEN ap.registration_source IS NULL
+                                      OR ap.registration_source NOT IN ('WALK_IN', 'SELF_REGISTERED')
+                                 THEN 1 ELSE 0
+                               END) AS invitedCount
+                    FROM activity_participants ap
+                    LEFT JOIN attendance_statuses ast
+                           ON ast.id = ap.attendance_status_id
+                    WHERE ap.activity_id IN (:activityIds)
+                    GROUP BY ap.activity_id
+                    """,
+            nativeQuery = true
+    )
+    List<ActivityAttendanceCountProjection> countAttendanceGroupedByActivityIds(
+            @Param("activityIds") Collection<Long> activityIds
+    );
+
+    interface ActivityAttendanceCountProjection {
+        Long getActivityId();
+        Long getJoinedCount();
+        Long getInvitedCount();
+    }
+
+    /*
      * One row per activity id, counting EVERY participant regardless of
      * source (host branch, an accepted co-hosting branch, or a walk-in) —
      * same counting rule as validateCapacity. Used to populate

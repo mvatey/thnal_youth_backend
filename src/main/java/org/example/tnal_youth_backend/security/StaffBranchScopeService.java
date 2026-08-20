@@ -31,6 +31,7 @@ public class StaffBranchScopeService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final ViewerAccessService viewerAccessService;
 
     public Set<Long> currentStaffBranchIds() {
         User principal = SecurityUtil.getCurrentUser();
@@ -53,11 +54,22 @@ public class StaffBranchScopeService {
                     "Authenticated user does not have a role");
         }
 
-        if (user.getRole() == UserRole.SECRETARY) {
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(user);
+
+        if (viewerAccessService.isViewer(user) &&
+                (effectiveRole == UserRole.SECRETARY || effectiveRole == UserRole.BRANCH_LEADER)) {
+            if (user.getBranchId() == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Viewer branch scope is missing a branch");
+            }
+            return Set.of(user.getBranchId());
+        }
+
+        if (effectiveRole == UserRole.SECRETARY) {
             return secretaryBranchIds(user);
         }
 
-        if (user.getRole() == UserRole.BRANCH_LEADER) {
+        if (effectiveRole == UserRole.BRANCH_LEADER) {
             Long branchId = branchLeaderBranchId(user);
             return Set.of(branchId);
         }

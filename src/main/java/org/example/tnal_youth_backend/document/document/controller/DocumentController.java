@@ -209,7 +209,7 @@ public class DocumentController {
      * CREATE DOCUMENT
      * =========================================================
      *
-     * ADMIN / SECRETARY / BRANCH_LEADER only.
+     * SECRETARY / BRANCH_LEADER only.
      *
      * Can create:
      * - branch-owned document
@@ -220,7 +220,7 @@ public class DocumentController {
      */
     @PostMapping
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')"
     )
     public ResponseEntity<DocumentResponse>
     createDocument(
@@ -243,7 +243,7 @@ public class DocumentController {
      * UPDATE DOCUMENT
      * =========================================================
      *
-     * ADMIN / SECRETARY / BRANCH_LEADER only.
+     * SECRETARY / BRANCH_LEADER only.
      *
      * Service validates:
      * - access to existing document
@@ -251,7 +251,7 @@ public class DocumentController {
      */
     @PutMapping("/{id}")
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')"
     )
     public ResponseEntity<DocumentResponse>
     updateDocument(
@@ -276,14 +276,14 @@ public class DocumentController {
      * DELETE DOCUMENT
      * =========================================================
      *
-     * ADMIN / SECRETARY / BRANCH_LEADER only.
+     * SECRETARY / BRANCH_LEADER only.
      *
      * Existing document access is validated
      * inside the service before deleting.
      */
     @DeleteMapping("/{id}")
     @PreAuthorize(
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')"
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')"
     )
     public ResponseEntity<Void>
     deleteDocument(

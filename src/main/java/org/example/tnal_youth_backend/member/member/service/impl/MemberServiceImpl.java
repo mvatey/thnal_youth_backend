@@ -160,11 +160,11 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional(readOnly = true)
-    public MemberSummaryResponse getMemberSummary() {
+    public MemberSummaryResponse getMemberSummary(Long requestedBranchId) {
 
         Long effectiveBranchId =
                 resolveMemberListBranchId(
-                        null
+                        requestedBranchId
                 );
 
         long totalMembers =

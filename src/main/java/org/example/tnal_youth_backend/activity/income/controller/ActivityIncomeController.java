@@ -29,7 +29,7 @@ import java.time.OffsetDateTime;
 public class ActivityIncomeController {
 
     private static final String STAFF =
-            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')";
+            "hasAnyRole('SECRETARY','BRANCH_LEADER')";
     private static final String READ_ACCESS =
             "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')";
 

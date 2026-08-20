@@ -126,7 +126,7 @@ public class DonationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<Boolean>> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(Boolean.TRUE));

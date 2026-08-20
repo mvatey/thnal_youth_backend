@@ -102,7 +102,7 @@ public class SponsorDonationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY')")
+    @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

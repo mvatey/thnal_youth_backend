@@ -44,7 +44,7 @@ public class ActivityController {
     }
 
     @PutMapping("/{activityId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ActivityResponse updateActivity(
             @PathVariable Long activityId,
             @Valid @RequestBody UpdateActivityRequest request,
@@ -61,7 +61,7 @@ public class ActivityController {
     }
 
     @PatchMapping("/{activityId}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
     public ActivityResponse completeActivity(
             @PathVariable Long activityId,
             Authentication authentication

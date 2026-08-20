@@ -8,14 +8,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 /*
- * Request payload for an ADMIN creating a new, branch-less user
- * account (used for VIEWER accounts, and any additional ADMIN
- * accounts that don't need to go through the member/branch flow).
+ * Request payload for an ADMIN creating a standalone login account.
+ * The account may use any application role. BRANCH_LEADER, SECRETARY,
+ * and MEMBER accounts require branchId so their authorization scope is
+ * explicit even though member_id remains NULL.
  *
  * The created user's member_id is always left NULL by the service
- * layer — this endpoint is not for onboarding members, branch
- * leaders, or secretaries, which are created through their own
- * existing flows elsewhere in the app.
+ * layer. Creating a login here never creates a Member record.
  *
  * No password is collected here. The account is created in
  * PENDING_ACTIVATION status with an unusable placeholder password
@@ -48,10 +47,15 @@ public class CreateUserRequest {
     @Size(max = 255, message = "Email must not exceed 255 characters")
     private String email;
 
-    /*
-     * Restricted to non-branch-linked roles by the service layer.
-     * Today that means ADMIN or VIEWER.
-     */
     @NotBlank(message = "Role is required")
     private String role;
+
+    /**
+     * Required for MEMBER, SECRETARY, and BRANCH_LEADER standalone
+     * accounts. Optional for ADMIN and VIEWER.
+     */
+    private Long branchId;
+
+    /** Required only when role is VIEWER. */
+    private String viewerScope;
 }

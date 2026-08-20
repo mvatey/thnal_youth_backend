@@ -318,6 +318,8 @@ public class AuthServiceImpl implements AuthService {
                 .fullNameEn(user.getFullNameEn())
                 .profileImage(user.getProfileImage())
                 .role(roleCode)
+                .viewerScope(user.getViewerScope() != null ? user.getViewerScope().name() : null)
+                .branchId(user.getBranchId())
                 .build();
     }
 
@@ -558,6 +560,8 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .fullName(null)
                 .role(roleCode)
+                .viewerScope(user.getViewerScope() != null ? user.getViewerScope().name() : null)
+                .branchId(user.getBranchId())
                 .build();
     }
 

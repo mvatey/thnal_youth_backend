@@ -62,6 +62,8 @@ public class JwtServiceImpl implements JwtService {
                 .expiration(expiresAt)
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
+                .claim("viewerScope", user.getViewerScope() != null ? user.getViewerScope().name() : null)
+                .claim("branchId", user.getBranchId())
                 .claim("type", "ACCESS")
                 .signWith(getSigningKey())
                 .compact();

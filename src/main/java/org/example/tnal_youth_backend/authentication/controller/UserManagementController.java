@@ -24,7 +24,7 @@ import java.util.List;
  *
  * /api/admin/users is the single endpoint family for managing
  * login accounts. It lets ADMIN list every login account and
- * create standalone ADMIN/VIEWER accounts while member-linked
+ * create standalone accounts for any application role while member-linked
  * accounts continue to be provisioned by the Member flow.
  *
  * Security is enforced both by SecurityConfig (/api/admin/**)
@@ -35,7 +35,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(
         name = "A. User Administration",
-        description = "List all login accounts and create standalone ADMIN/VIEWER accounts"
+        description = "List all login accounts and create standalone accounts for any application role"
 )
 public class UserManagementController {
 
