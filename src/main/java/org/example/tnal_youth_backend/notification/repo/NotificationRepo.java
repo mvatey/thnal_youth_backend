@@ -206,22 +206,37 @@ public interface NotificationRepo {
     // is_read is the canonical unread flag; the partial index
     // idx_notification_recipients_unread (WHERE is_read = FALSE) backs these.
 
+    /**
+     * branchId is optional (see NotificationService.listMine/unreadCount): a
+     * notification with no branch_id (a purely personal one — "your document
+     * was issued", account activation, etc.) always counts/shows regardless
+     * of which branch is currently selected in the sidebar. A notification
+     * WITH a branch_id (an activity invite sent to a specific branch, etc.)
+     * only counts/shows while that same branch is selected. Passing NULL for
+     * branchId disables this filter entirely (the "all branches" view).
+     */
     @Select("""
         SELECT COUNT(*)
         FROM notification_recipients nr
+        JOIN notifications n ON n.id = nr.notification_id
         WHERE nr.user_id = #{userId}
           AND nr.is_read = FALSE
+          AND (#{branchId}::bigint IS NULL OR n.branch_id IS NULL OR n.branch_id = #{branchId}::bigint)
         """)
-    long countUnread(@Param("userId") Long userId);
+    long countUnread(@Param("userId") Long userId,
+                     @Param("branchId") Long branchId);
 
     @Select("""
         SELECT COUNT(*)
         FROM notification_recipients nr
+        JOIN notifications n ON n.id = nr.notification_id
         WHERE nr.user_id = #{userId}
           AND (#{onlyUnread}::boolean = FALSE OR nr.is_read = FALSE)
+          AND (#{branchId}::bigint IS NULL OR n.branch_id IS NULL OR n.branch_id = #{branchId}::bigint)
         """)
     long countForUser(@Param("userId") Long userId,
-                      @Param("onlyUnread") boolean onlyUnread);
+                      @Param("onlyUnread") boolean onlyUnread,
+                      @Param("branchId") Long branchId);
 
     @Select("""
         SELECT
@@ -242,11 +257,13 @@ public interface NotificationRepo {
         JOIN notification_types nt ON nt.id = n.type_id
         WHERE nr.user_id = #{userId}
           AND (#{onlyUnread}::boolean = FALSE OR nr.is_read = FALSE)
+          AND (#{branchId}::bigint IS NULL OR n.branch_id IS NULL OR n.branch_id = #{branchId}::bigint)
         ORDER BY nr.created_at DESC, n.id DESC
         LIMIT #{limit} OFFSET #{offset}
         """)
     List<NotificationDTO> listForUser(@Param("userId") Long userId,
                                       @Param("onlyUnread") boolean onlyUnread,
+                                      @Param("branchId") Long branchId,
                                       @Param("limit") int limit,
                                       @Param("offset") int offset);
 

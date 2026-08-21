@@ -34,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -756,21 +758,57 @@ public class ActivityInvitedBranchServiceImpl
         }
 
         try {
+            // The organizer/host branch — named explicitly in the body below
+            // so the invited branch's staff know who is asking, not just
+            // that "a" branch invited them. Best-effort: a missing/deleted
+            // host branch falls back to "-" rather than failing the whole
+            // notification.
+            String organizerBranchName =
+                    activity.getBranchId() == null
+                            ? "-"
+                            : branchRepository
+                                    .findById(activity.getBranchId())
+                                    .map(Branch::getNameKm)
+                                    .orElse("-");
+
+            String activityDate =
+                    activity.getStartsAt() == null
+                            ? null
+                            : activity.getStartsAt()
+                                    .atZoneSameInstant(ZoneOffset.ofHours(7))
+                                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+            StringBuilder body = new StringBuilder()
+                    .append("សាខា \"")
+                    .append(organizerBranchName)
+                    .append("\" បានអញ្ជើញសាខារបស់អ្នកឱ្យចូលរួមរៀបចំកម្មវិធី \"")
+                    .append(activity.getTitleKm())
+                    .append("\"");
+
+            if (activityDate != null) {
+                body.append(" នាថ្ងៃទី ").append(activityDate);
+            }
+
+            if (activity.getLocationName() != null
+                    && !activity.getLocationName().isBlank()) {
+                body.append(" ត្រង់ ").append(activity.getLocationName());
+            }
+
             NotificationCreateDTO notification =
                     new NotificationCreateDTO();
             notification.setTypeId(typeId);
             notification.setTitle(
                     "សាខារបស់អ្នកត្រូវបានអញ្ជើញចូលរួមកម្មវិធី"
             );
-            notification.setBody(
-                    "សាខារបស់អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួមរៀបចំកម្មវិធី \""
-                            + activity.getTitleKm()
-                            + "\""
-            );
+            notification.setBody(body.toString());
             notification.setActionUrl(
                     "/activity/" + activity.getId()
             );
             notification.setActivityId(activity.getId());
+            // The INVITED branch — not the organizer — so this shows up
+            // when a multi-branch secretary/branch_leader has that branch
+            // selected in the sidebar (see NotificationService.listMine).
+            notification.setBranchId(branch.getId());
             notification.setTarget(
                     NotificationCreateDTO.TargetMode.USERS
             );

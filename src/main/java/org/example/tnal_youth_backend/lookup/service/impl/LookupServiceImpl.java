@@ -61,6 +61,9 @@ public class LookupServiceImpl
     private final EthnicityRepository
             ethnicityRepository;
 
+    private final org.example.tnal_youth_backend.member.position.repository.PositionRepository
+            positionRepository;
+
     private final ReligionRepository
             religionRepository;
 
@@ -439,6 +442,26 @@ public class LookupServiceImpl
                                 ethnicity.getCode(),
                                 ethnicity.getLabelKm(),
                                 ethnicity.getLabelEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PositionOptionResponse>
+    getPositionOptions() {
+
+        return positionRepository
+                .findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
+                .stream()
+                .map(position ->
+                        new PositionOptionResponse(
+                                position.getId(),
+                                position.getCode(),
+                                position.getLabelKm(),
+                                position.getLabelEn(),
+                                position.getMappedRole()
                         )
                 )
                 .toList();

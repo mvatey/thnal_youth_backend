@@ -47,6 +47,9 @@ import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
 
+import org.example.tnal_youth_backend.member.position.entity.Position;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
+
 import org.example.tnal_youth_backend.member.religion.entity.Religion;
 import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
 
@@ -138,6 +141,9 @@ public class MemberServiceImpl implements MemberService {
 
     private final BranchStaffRepository
             branchStaffRepository;
+
+    private final PositionRepository
+            positionRepository;
 
     private final ActivityParticipantRepository
             activityParticipantRepository;
@@ -550,10 +556,24 @@ public class MemberServiceImpl implements MemberService {
         User currentUser =
                 getCurrentUser();
 
+        Position position =
+                request.positionId() == null
+                        ? null
+                        : positionRepository
+                                .findById(
+                                        request.positionId()
+                                )
+                                .orElseThrow(() ->
+                                        new ResourceNotFoundException(
+                                                "Position not found"
+                                        )
+                                );
+
         UserRole requestedRole =
-                request.role() == null
-                        ? UserRole.MEMBER
-                        : request.role();
+                resolveRequestedRole(
+                        position,
+                        request.role()
+                );
 
         validateAssignableRole(
                 currentUser.getRole(),
@@ -642,6 +662,23 @@ public class MemberServiceImpl implements MemberService {
                     savedMember,
                     requestedRole
             );
+
+            if (position != null) {
+
+                branchStaffRepository
+                        .assignPosition(
+                                savedMember
+                                        .getBranchId(),
+                                savedMember
+                                        .getId(),
+                                position
+                                        .getId(),
+                                request
+                                        .joinedOn(),
+                                currentUser
+                                        .getId()
+                        );
+            }
 
             Member detailedMember =
                     findDetailedMember(
@@ -1482,6 +1519,33 @@ public class MemberServiceImpl implements MemberService {
      * ROLE ASSIGNMENT
      * ==========================================================
      */
+
+    /**
+     * A position with a mapped role (BRANCH_LEADER / SECRETARY / MEMBER)
+     * always drives the assigned role, overriding any explicitly requested
+     * role — this is the "auto load the role" behavior the position picker
+     * provides. Falls back to the requested role, or MEMBER, when the
+     * position has no mapped role (e.g. "Support") or no position was
+     * chosen at all.
+     */
+    private UserRole resolveRequestedRole(
+            Position position,
+            UserRole requestedRole
+    ) {
+
+        if (position != null
+                && position.getMappedRole() != null) {
+
+            return UserRole.valueOf(
+                    position.getMappedRole()
+            );
+        }
+
+        return requestedRole == null
+                ? UserRole.MEMBER
+                : requestedRole;
+    }
+
 
     private void validateAssignableRole(
             UserRole actorRole,

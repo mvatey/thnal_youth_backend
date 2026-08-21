@@ -528,7 +528,6 @@ public class ActivityMediaServiceImpl implements ActivityMediaService {
                                     : uploadedFile.getOriginalName()
                     )
                     .description(savedAttachment.getDescription())
-                    .branchId(activity.getBranchId())
                     .activityId(activity.getId())
                     .uploadedById(currentUserId)
                     .build();

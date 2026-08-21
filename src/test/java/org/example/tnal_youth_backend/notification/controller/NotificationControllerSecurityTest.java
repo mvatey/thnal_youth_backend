@@ -124,7 +124,7 @@ class NotificationControllerSecurityTest {
     @Test
     @WithMockUser(roles = "MEMBER")
     void listMine_authenticated_isAllowed() throws Exception {
-        when(service.listMine(anyBoolean(), anyInt(), anyInt()))
+        when(service.listMine(any(), anyBoolean(), anyInt(), anyInt()))
                 .thenReturn(new NotificationPageDTO(List.of(), 0L, 0, 20));
 
         mvc.perform(get("/api/notifications/me"))
@@ -137,7 +137,7 @@ class NotificationControllerSecurityTest {
         mvc.perform(get("/api/notifications/me"))
                 .andExpect(status().is4xxClientError());
 
-        verify(service, never()).listMine(anyBoolean(), anyInt(), anyInt());
+        verify(service, never()).listMine(any(), anyBoolean(), anyInt(), anyInt());
     }
 
     @Test

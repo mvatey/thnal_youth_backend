@@ -75,6 +75,12 @@ public enum LookupCategory {
             "payment-methods",
             "វិធីបង់ប្រាក់",
             "Payment Method"
+    ),
+
+    POSITION(
+            "positions",
+            "តួនាទី",
+            "Position"
     );
 
     private final String path;

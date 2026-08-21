@@ -37,6 +37,9 @@ import org.example.tnal_youth_backend.member.level.repository.MemberLevelReposit
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
 
+import org.example.tnal_youth_backend.member.position.entity.Position;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
+
 import org.example.tnal_youth_backend.member.proficiency.entity.ProficiencyLevel;
 import org.example.tnal_youth_backend.member.proficiency.repository.ProficiencyLevelRepository;
 
@@ -96,8 +99,14 @@ public class AdminLookupServiceImpl
     private final PaymentMethodRepository
             paymentMethodRepository;
 
+    private final PositionRepository
+            positionRepository;
+
     private static final java.util.Set<String> PAYMENT_METHOD_CATEGORIES =
             java.util.Set.of("CASH", "BANK", "OTHER");
+
+    private static final java.util.Set<String> POSITION_MAPPED_ROLES =
+            java.util.Set.of("BRANCH_LEADER", "SECRETARY", "MEMBER");
 
 
     /*
@@ -170,6 +179,11 @@ public class AdminLookupServiceImpl
                 categoryResponse(
                         LookupCategory.PAYMENT_METHOD,
                         paymentMethodRepository.count()
+                ),
+
+                categoryResponse(
+                        LookupCategory.POSITION,
+                        positionRepository.count()
                 )
         );
     }
@@ -289,6 +303,13 @@ public class AdminLookupServiceImpl
 
                     case PAYMENT_METHOD ->
                             paymentMethodRepository
+                                    .findAllByOrderBySortOrderAscIdAsc()
+                                    .stream()
+                                    .map(this::toResponse)
+                                    .toList();
+
+                    case POSITION ->
+                            positionRepository
                                     .findAllByOrderBySortOrderAscIdAsc()
                                     .stream()
                                     .map(this::toResponse)
@@ -662,6 +683,35 @@ public class AdminLookupServiceImpl
 
                 yield toResponse(
                         paymentMethodRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case POSITION -> {
+
+                Position entity =
+                        Position.builder()
+                                .code(code)
+                                .labelKm(labelKm)
+                                .labelEn(labelEn)
+                                .description(description)
+                                .mappedRole(
+                                        normalizeMappedRole(
+                                                request.mappedRole()
+                                        )
+                                )
+                                .isActive(active)
+                                .sortOrder(
+                                        nextSortOrder(
+                                                resolvedCategory
+                                        )
+                                )
+                                .build();
+
+                yield toResponse(
+                        positionRepository
                                 .saveAndFlush(
                                         entity
                                 )
@@ -1101,6 +1151,44 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case POSITION -> {
+                Position entity =
+                        positionRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setLabelKm(
+                        labelKm
+                );
+
+                entity.setLabelEn(
+                        labelEn
+                );
+
+                entity.setDescription(
+                        description
+                );
+
+                entity.setMappedRole(
+                        normalizeMappedRole(
+                                request.mappedRole()
+                        )
+                );
+
+                yield toResponse(
+                        positionRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1421,6 +1509,30 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case POSITION -> {
+                Position entity =
+                        positionRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setIsActive(
+                        active
+                );
+
+                yield toResponse(
+                        positionRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1467,6 +1579,7 @@ public class AdminLookupServiceImpl
                 entity.getActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1485,6 +1598,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
@@ -1505,6 +1619,7 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1523,6 +1638,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getDisplayOrder(),
+                null,
                 null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
@@ -1543,6 +1659,7 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1561,6 +1678,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
@@ -1581,6 +1699,7 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1599,6 +1718,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
@@ -1619,6 +1739,7 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1638,6 +1759,7 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1655,6 +1777,7 @@ public class AdminLookupServiceImpl
                 entity.getLabelEn(),
                 null,
                 entity.getIsActive(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -1676,6 +1799,27 @@ public class AdminLookupServiceImpl
                 entity.getIsActive(),
                 entity.getSortOrder(),
                 entity.getCategory(),
+                null,
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+    }
+
+    private AdminLookupResponse
+    toResponse(
+            Position entity
+    ) {
+
+        return new AdminLookupResponse(
+                entity.getId(),
+                entity.getCode(),
+                entity.getLabelKm(),
+                entity.getLabelEn(),
+                entity.getDescription(),
+                entity.getIsActive(),
+                entity.getSortOrder(),
+                null,
+                entity.getMappedRole(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1903,6 +2047,12 @@ public class AdminLookupServiceImpl
                             .existsByCodeIgnoreCase(
                                     code
                             );
+
+            case POSITION ->
+                    positionRepository
+                            .existsByCodeIgnoreCase(
+                                    code
+                            );
         };
     }
 
@@ -2090,6 +2240,52 @@ public class AdminLookupServiceImpl
                             + String.join(
                                     ", ",
                                     PAYMENT_METHOD_CATEGORIES
+                            )
+            );
+        }
+
+        return normalized;
+    }
+
+
+    /*
+     * ==========================================================
+     * POSITION MAPPED ROLE
+     * ==========================================================
+     */
+
+    private String normalizeMappedRole(
+            String mappedRole
+    ) {
+
+        String normalized =
+                trimToNull(
+                        mappedRole
+                );
+
+        if (normalized == null) {
+
+            return null;
+        }
+
+        normalized =
+                normalized
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                !POSITION_MAPPED_ROLES.contains(
+                        normalized
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "mappedRole must be one of: "
+                            + String.join(
+                                    ", ",
+                                    POSITION_MAPPED_ROLES
                             )
             );
         }

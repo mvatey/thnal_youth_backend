@@ -33,6 +33,9 @@ public record CreateMemberRequest(
 
         UserRole role,
 
+        @JsonProperty("position_id")
+        Short positionId,
+
         @JsonProperty("joined_on")
         LocalDate joinedOn,
 

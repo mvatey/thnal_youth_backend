@@ -240,6 +240,35 @@ public class BranchStaffRepository {
     }
 
     /**
+     * Inserts a new active, non-primary branch_staff assignment for a
+     * freshly created member. Always non-primary: primary is reserved for
+     * the single branch-leader assignment managed by
+     * {@link #assignLeader}, and {@code uq_branch_staff_member_single_primary}
+     * allows at most one active primary assignment per member across the
+     * whole system.
+     */
+    public void assignPosition(
+            Long branchId,
+            Long memberId,
+            Short positionId,
+            LocalDate startedOn,
+            Long appointedBy
+    ) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO branch_staff(branch_id, member_id, position_id, started_on, is_primary, appointed_by)
+                VALUES (:branchId, :memberId, :positionId, :startedOn, FALSE, :appointedBy)
+                """,
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId)
+                        .addValue("memberId", memberId)
+                        .addValue("positionId", positionId)
+                        .addValue("startedOn", startedOn != null ? startedOn : LocalDate.now())
+                        .addValue("appointedBy", appointedBy)
+        );
+    }
+
+    /**
      * Checks whether a member currently has access
      * to a specific branch.
      */

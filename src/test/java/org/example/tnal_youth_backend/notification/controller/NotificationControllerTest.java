@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -236,7 +237,7 @@ class NotificationControllerTest {
                 .id(1L).typeCode("ANNOUNCEMENT").title("Hello").body("Body")
                 .isRead(false).build();
         var page = new NotificationPageDTO(List.of(item), 1L, 0, 20);
-        when(service.listMine(true, 0, 20)).thenReturn(page);
+        when(service.listMine(isNull(), eq(true), eq(0), eq(20))).thenReturn(page);
 
         mvc.perform(get("/api/notifications/me")
                         .param("onlyUnread", "true")
@@ -247,26 +248,26 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.data.items[0].typeCode").value("ANNOUNCEMENT"))
                 .andExpect(jsonPath("$.data.items[0].isRead").value(false));
 
-        verify(service).listMine(true, 0, 20);
+        verify(service).listMine(isNull(), eq(true), eq(0), eq(20));
     }
 
     @Test
     @WithMockUser
     void listMine_usesDefaults_whenParamsOmitted() throws Exception {
-        when(service.listMine(anyBoolean(), anyInt(), anyInt()))
+        when(service.listMine(any(), anyBoolean(), anyInt(), anyInt()))
                 .thenReturn(new NotificationPageDTO(List.of(), 0L, 0, 20));
 
         mvc.perform(get("/api/notifications/me"))
                 .andExpect(status().isOk());
 
-        // controller defaults: onlyUnread=false, page=0, size=20
-        verify(service).listMine(eq(false), eq(0), eq(20));
+        // controller defaults: branchId=null, onlyUnread=false, page=0, size=20
+        verify(service).listMine(isNull(), eq(false), eq(0), eq(20));
     }
 
     @Test
     @WithMockUser
     void unreadCount_returns200AndCount() throws Exception {
-        when(service.unreadCount()).thenReturn(5L);
+        when(service.unreadCount(isNull())).thenReturn(5L);
 
         mvc.perform(get("/api/notifications/me/unread-count"))
                 .andExpect(status().isOk())

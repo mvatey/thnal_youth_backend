@@ -112,7 +112,7 @@ class NotificationRepoIT {
         assertThat(again).isZero();
 
         Long recipient = activeUserIds.get(0);
-        List<NotificationDTO> inbox = repo.listForUser(recipient, false, 20, 0);
+        List<NotificationDTO> inbox = repo.listForUser(recipient, false, null, 20, 0);
         assertThat(inbox).extracting(NotificationDTO::getId).contains(nid);
 
         NotificationDTO row = inbox.stream().filter(d -> d.getId().equals(nid)).findFirst().orElseThrow();
@@ -129,7 +129,7 @@ class NotificationRepoIT {
         Long recipient = activeUserIds.get(0);
         repo.fanOutUsers(nid, List.of(recipient));
 
-        assertThat(repo.countUnread(recipient)).isGreaterThanOrEqualTo(1);
+        assertThat(repo.countUnread(recipient, null)).isGreaterThanOrEqualTo(1);
 
         int firstMark = repo.markOneRead(recipient, nid);
         assertThat(firstMark).isEqualTo(1);
@@ -161,12 +161,12 @@ class NotificationRepoIT {
         repo.insertNotification(b);
         repo.fanOutUsers(b.getId(), List.of(recipient));
 
-        long unreadBefore = repo.countUnread(recipient);
+        long unreadBefore = repo.countUnread(recipient, null);
         assertThat(unreadBefore).isGreaterThanOrEqualTo(2);
 
         int marked = repo.markAllRead(recipient);
         assertThat(marked).isEqualTo((int) unreadBefore);
-        assertThat(repo.countUnread(recipient)).isZero();
+        assertThat(repo.countUnread(recipient, null)).isZero();
     }
 
     @Test
@@ -177,14 +177,52 @@ class NotificationRepoIT {
         repo.insertNotification(n);
         repo.fanOutUsers(n.getId(), List.of(recipient));
 
-        long allBefore = repo.countForUser(recipient, false);
-        long unreadBefore = repo.countForUser(recipient, true);
+        long allBefore = repo.countForUser(recipient, false, null);
+        long unreadBefore = repo.countForUser(recipient, true, null);
         assertThat(allBefore).isGreaterThanOrEqualTo(unreadBefore);
 
         repo.markOneRead(recipient, n.getId());
 
-        assertThat(repo.countForUser(recipient, true)).isEqualTo(unreadBefore - 1);
-        assertThat(repo.countForUser(recipient, false)).isEqualTo(allBefore);
+        assertThat(repo.countForUser(recipient, true, null)).isEqualTo(unreadBefore - 1);
+        assertThat(repo.countForUser(recipient, false, null)).isEqualTo(allBefore);
+    }
+
+    @Test
+    void branchIdFilter_showsUnscopedAndMatchingBranch_hidesOtherBranch() {
+        Long recipient = activeUserIds.get(0);
+
+        List<Long> branchIds = jdbc.queryForList(
+                "SELECT id FROM branches ORDER BY id LIMIT 2", Long.class);
+        assertThat(branchIds)
+                .as("migrations must seed at least 2 branches for this assertion")
+                .hasSizeGreaterThanOrEqualTo(2);
+        Long branchA = branchIds.get(0);
+        Long branchB = branchIds.get(1);
+
+        NotificationModel personal = baseNotification().build();
+        repo.insertNotification(personal);
+        repo.fanOutUsers(personal.getId(), List.of(recipient));
+
+        NotificationModel forBranchA = baseNotification().branchId(branchA).build();
+        repo.insertNotification(forBranchA);
+        repo.fanOutUsers(forBranchA.getId(), List.of(recipient));
+
+        NotificationModel forBranchB = baseNotification().branchId(branchB).build();
+        repo.insertNotification(forBranchB);
+        repo.fanOutUsers(forBranchB.getId(), List.of(recipient));
+
+        List<Long> idsForBranchA = repo.listForUser(recipient, false, branchA, 100, 0)
+                .stream().map(NotificationDTO::getId).toList();
+
+        // Branch-less (personal) and branch A's own notification both show;
+        // branch B's does not.
+        assertThat(idsForBranchA).contains(personal.getId(), forBranchA.getId());
+        assertThat(idsForBranchA).doesNotContain(forBranchB.getId());
+
+        // No branchId filter (the "all branches" view) sees everything.
+        List<Long> idsUnfiltered = repo.listForUser(recipient, false, null, 100, 0)
+                .stream().map(NotificationDTO::getId).toList();
+        assertThat(idsUnfiltered).contains(personal.getId(), forBranchA.getId(), forBranchB.getId());
     }
 
     // ------------------------------------------------------------ idempotency (V22)

@@ -583,13 +583,19 @@ public class ActivityExpenseServiceImpl
                         .trim()
                         .toUpperCase(Locale.ROOT);
 
-        if ("COMPLETED".equals(statusCode)
-                || "CANCELLED".equals(statusCode)) {
+        /*
+         * COMPLETED is deliberately still editable -- an activity's actual
+         * spending is often only known/corrected after it's over, so
+         * locking expenses the moment an activity is marked complete would
+         * make that normal case impossible. Only CANCELLED (an activity
+         * that never happened) stays blocked.
+         */
+        if ("CANCELLED".equals(statusCode)) {
 
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Expenses cannot be modified for a "
-                            + "completed or cancelled activity"
+                            + "cancelled activity"
             );
         }
     }

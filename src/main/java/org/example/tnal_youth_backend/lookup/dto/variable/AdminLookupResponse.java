@@ -24,6 +24,13 @@ public record AdminLookupResponse(
          */
         String category,
 
+        /*
+         * Only meaningful for POSITION (BRANCH_LEADER / SECRETARY /
+         * MEMBER). Null for every other category, and for a position with
+         * no auto-assigned role.
+         */
+        String mappedRole,
+
         OffsetDateTime createdAt,
 
         OffsetDateTime updatedAt

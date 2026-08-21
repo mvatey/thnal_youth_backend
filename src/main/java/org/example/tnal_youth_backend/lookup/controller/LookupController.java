@@ -228,6 +228,16 @@ public class LookupController {
         );
     }
 
+    @GetMapping("/positions")
+    public ResponseEntity<List<PositionOptionResponse>>
+    getPositionOptions() {
+
+        return ResponseEntity.ok(
+                lookupService
+                        .getPositionOptions()
+        );
+    }
+
     @GetMapping("/tshirt-sizes")
     public ResponseEntity<
             List<LookupOptionResponse<String>>

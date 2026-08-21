@@ -34,15 +34,17 @@ public class NotificationController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<NotificationPageDTO>> listMine(
+            @RequestParam(required = false) Long branchId,
             @RequestParam(defaultValue = "false") boolean onlyUnread,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listMine(onlyUnread, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok(service.listMine(branchId, onlyUnread, page, size)));
     }
 
     @GetMapping("/me/unread-count")
-    public ResponseEntity<ApiResponse<NotificationCountDTO>> unreadCount() {
-        return ResponseEntity.ok(ApiResponse.ok(new NotificationCountDTO(service.unreadCount())));
+    public ResponseEntity<ApiResponse<NotificationCountDTO>> unreadCount(
+            @RequestParam(required = false) Long branchId) {
+        return ResponseEntity.ok(ApiResponse.ok(new NotificationCountDTO(service.unreadCount(branchId))));
     }
 
     @PostMapping("/me/{id}/read")

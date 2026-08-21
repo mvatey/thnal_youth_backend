@@ -6,13 +6,16 @@ import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
@@ -262,6 +265,76 @@ public class GlobalExceptionHandler {
                         ApiResponse.error(
                                 "FORBIDDEN",
                                 "You do not have permission to perform this action"
+                        )
+                );
+    }
+
+
+    /*
+     * ==========================================================
+     * UPLOAD TOO LARGE
+     * ==========================================================
+     *
+     * Thrown by the servlet multipart layer itself -- BEFORE the request
+     * ever reaches a controller method -- whenever a file exceeds
+     * spring.servlet.multipart.max-file-size/max-request-size (see
+     * application.properties). Without this handler it fell through to
+     * the generic 500 below, which is exactly the "Something went wrong"
+     * a user hitting an oversized upload would see instead of a message
+     * telling them the file was too big.
+     */
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>>
+    handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(
+                        ApiResponse.error(
+                                "PAYLOAD_TOO_LARGE",
+                                "The uploaded file is too large"
+                        )
+                );
+    }
+
+
+    /*
+     * ==========================================================
+     * UNSUPPORTED HTTP METHOD / UNREADABLE REQUEST BODY
+     * ==========================================================
+     *
+     * Framework-level request problems that also used to fall through to
+     * the generic 500 handler below instead of a proper 4xx.
+     */
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>>
+    handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(
+                        ApiResponse.error(
+                                "METHOD_NOT_ALLOWED",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>>
+    handleMessageNotReadable(
+            HttpMessageNotReadableException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        ApiResponse.error(
+                                "MALFORMED_REQUEST_BODY",
+                                "The request body could not be read"
                         )
                 );
     }

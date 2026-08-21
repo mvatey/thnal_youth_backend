@@ -23,7 +23,14 @@ public record CreateLookupRequest(
          * (defaults to OTHER when blank). Ignored for every other
          * category.
          */
-        String category
+        String category,
+
+        /*
+         * Only used for POSITION. Must be BRANCH_LEADER, SECRETARY, or
+         * MEMBER when provided; left null/blank means this position has
+         * no auto-assigned role. Ignored for every other category.
+         */
+        String mappedRole
 
 ) {
 }

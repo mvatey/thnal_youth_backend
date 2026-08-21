@@ -20,7 +20,14 @@ public record UpdateLookupRequest(
          * Only used for PAYMENT_METHOD. Must be CASH, BANK, or OTHER
          * when provided. Ignored for every other category.
          */
-        String category
+        String category,
+
+        /*
+         * Only used for POSITION. Must be BRANCH_LEADER, SECRETARY, or
+         * MEMBER when provided, or blank/null to clear the mapping.
+         * Ignored for every other category.
+         */
+        String mappedRole
 
 ) {
 }

@@ -57,6 +57,9 @@ public interface LookupService {
     List<LookupOptionResponse<Short>>
     getEthnicityOptions();
 
+    List<PositionOptionResponse>
+    getPositionOptions();
+
     List<LookupOptionResponse<Short>>
     getReligionOptions();
 

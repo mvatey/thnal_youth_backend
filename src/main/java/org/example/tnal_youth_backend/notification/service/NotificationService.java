@@ -139,9 +139,15 @@ public class NotificationService {
         return (s == null || s.isBlank()) ? null : s.strip();
     }
 
+    /**
+     * branchId is optional — see NotificationRepo.countUnread's doc. Passing
+     * null (the "all branches" view, or any role that never scopes to a
+     * single branch) counts every notification the caller can see, exactly
+     * as before this parameter was added.
+     */
     @Transactional(readOnly = true)
-    public long unreadCount() {
-        return repo.countUnread(SecurityUtils.getCurrentUserId());
+    public long unreadCount(Long branchId) {
+        return repo.countUnread(SecurityUtils.getCurrentUserId(), branchId);
     }
 
     /**
@@ -156,14 +162,20 @@ public class NotificationService {
         return repo.findActiveTypeIdByCode(code);
     }
 
+    /**
+     * branchId is optional — see NotificationRepo.listForUser's doc. Pass the
+     * sidebar's currently-selected branch for a secretary/branch_leader (or
+     * anyone who's narrowed to one specific branch); pass null for the "all
+     * branches" view.
+     */
     @Transactional(readOnly = true)
-    public NotificationPageDTO listMine(boolean onlyUnread, int page, int size) {
+    public NotificationPageDTO listMine(Long branchId, boolean onlyUnread, int page, int size) {
         int safeSize = Math.clamp(size, 1, 100);
         int safePage = Math.max(page, 0);
         Long userId = SecurityUtils.getCurrentUserId();
 
-        List<NotificationDTO> items = repo.listForUser(userId, onlyUnread, safeSize, safePage * safeSize);
-        long total = repo.countForUser(userId, onlyUnread);
+        List<NotificationDTO> items = repo.listForUser(userId, onlyUnread, branchId, safeSize, safePage * safeSize);
+        long total = repo.countForUser(userId, onlyUnread, branchId);
 
         return new NotificationPageDTO(items, total, safePage, safeSize);
     }
