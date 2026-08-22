@@ -72,7 +72,8 @@ public class ActivityParticipantViewService {
     public List<ActivityParticipantResponse>
     getParticipants(
             Long activityId,
-            Long currentUserId
+            Long currentUserId,
+            Long selectedBranchId
     ) {
 
         Activity activity =
@@ -127,7 +128,8 @@ public class ActivityParticipantViewService {
         Long scopedBranchId =
                 resolveScopedBranchId(
                         activity,
-                        currentUser
+                        currentUser,
+                        selectedBranchId
                 );
 
         return allParticipants
@@ -169,7 +171,8 @@ public class ActivityParticipantViewService {
     public ActivityParticipantSummaryResponse
     getSummary(
             Long activityId,
-            Long currentUserId
+            Long currentUserId,
+            Long selectedBranchId
     ) {
 
         Activity activity =
@@ -207,7 +210,8 @@ public class ActivityParticipantViewService {
 
             resolveScopedBranchId(
                     activity,
-                    currentUser
+                    currentUser,
+                    selectedBranchId
             );
         }
 
@@ -291,7 +295,8 @@ public class ActivityParticipantViewService {
 
     private Long resolveScopedBranchId(
             Activity activity,
-            User currentUser
+            User currentUser,
+            Long selectedBranchId
     ) {
 
         if (
@@ -316,6 +321,39 @@ public class ActivityParticipantViewService {
 
         Long hostBranchId =
                 activity.getBranchId();
+
+        // Prefer the branch selected in the sidebar. Without this check a
+        // multi-branch secretary can be host staff in one branch and invited
+        // staff in another, but the host branch would always win.
+        if (selectedBranchId != null) {
+            if (!staffBranchIds.contains(selectedBranchId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You do not have access to the selected branch"
+                );
+            }
+
+            if (hostBranchId != null && hostBranchId.equals(selectedBranchId)) {
+                return selectedBranchId;
+            }
+
+            boolean accepted = invitedBranchRepository
+                    .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                            activity.getId(),
+                            selectedBranchId,
+                            ActivityInvitationStatus.ACCEPTED
+                    )
+                    .isPresent();
+
+            if (accepted) {
+                return selectedBranchId;
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You can only view participants for your selected activity branch"
+            );
+        }
 
         /*
          * Host staff.

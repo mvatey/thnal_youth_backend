@@ -16,6 +16,7 @@ public interface ActivityService {
 
     ActivityResponse getActivityById(
             Long activityId,
+            Long branchId,
             Long currentUserId
     );
 

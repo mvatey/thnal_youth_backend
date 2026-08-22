@@ -118,6 +118,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional(readOnly = true)
     public ActivityResponse getActivityById(
             Long activityId,
+            Long branchId,
             Long currentUserId
     ) {
         Activity activity = getActivity(activityId);
@@ -187,20 +188,48 @@ public class ActivityServiceImpl implements ActivityService {
 
         resolveCreatedByDisplay(activity, response);
 
-        boolean canManage = computeCanManage(currentUser, activity);
-        response.setCanManage(canManage);
+        boolean canManage;
+        Long invitedBranchId = null;
 
-        if (!canManage) {
-            Long invitedBranchId =
-                    resolveManagedInvitedBranchId(currentUser, activity);
+        if (branchId != null
+                && (currentUser.getRole() == UserRole.SECRETARY
+                || currentUser.getRole() == UserRole.BRANCH_LEADER)) {
+            // The sidebar-selected branch is the permission context.
+            // Being staff of another branch must not make the user an
+            // organizer while viewing an invited branch's activity.
+            validateExplicitBranchAccess(currentUser, branchId);
 
-            response.setCanManageAsInvitedBranch(
-                    invitedBranchId != null
-            );
-            response.setManagedInvitedBranchId(invitedBranchId);
+            boolean hostOfSelectedBranch =
+                    branchId.equals(activity.getBranchId());
+
+            canManage = hostOfSelectedBranch
+                    && computeCanManage(currentUser, activity);
+
+            if (!canManage) {
+                boolean acceptedInvitation =
+                        activityInvitedBranchRepository
+                                .findByActivity_IdAndBranch_IdAndInvitationStatus(
+                                        activity.getId(),
+                                        branchId,
+                                        ActivityInvitationStatus.ACCEPTED
+                                )
+                                .isPresent();
+
+                if (acceptedInvitation) {
+                    invitedBranchId = branchId;
+                }
+            }
         } else {
-            response.setCanManageAsInvitedBranch(false);
+            canManage = computeCanManage(currentUser, activity);
+            if (!canManage) {
+                invitedBranchId =
+                        resolveManagedInvitedBranchId(currentUser, activity);
+            }
         }
+
+        response.setCanManage(canManage);
+        response.setCanManageAsInvitedBranch(invitedBranchId != null);
+        response.setManagedInvitedBranchId(invitedBranchId);
 
         return response;
     }
@@ -269,13 +298,48 @@ public class ActivityServiceImpl implements ActivityService {
             Set<Long> branchIds = Set.of(branchId);
             ownBranchIdsForScope = branchIds;
 
-            Set<Long> invitedActivityIds = new LinkedHashSet<>(
+            // A selected sidebar branch must see both pending and accepted
+            // invitations. Pending invitations are needed on the Activity
+            // page so the user can Accept/Decline without relying only on
+            // the notification.
+            List<ActivityInvitedBranch> invitations =
                     activityInvitedBranchRepository
-                            .findActivityIdsByBranchIdInAndInvitationStatus(
+                            .findByBranchIdInAndInvitationStatusIn(
                                     branchIds,
-                                    ActivityInvitationStatus.ACCEPTED
-                            )
-            );
+                                    List.of(
+                                            ActivityInvitationStatus.PENDING,
+                                            ActivityInvitationStatus.ACCEPTED
+                                    )
+                            );
+
+            Map<Long, ActivityInvitedBranch> invitedBranchByActivityIdLocal =
+                    new LinkedHashMap<>();
+
+            for (ActivityInvitedBranch invitation : invitations) {
+                Long invitationActivityId =
+                        invitation.getActivity().getId();
+                ActivityInvitedBranch existing =
+                        invitedBranchByActivityIdLocal.get(invitationActivityId);
+
+                boolean shouldReplace =
+                        existing == null
+                                || (existing.getInvitationStatus()
+                                != ActivityInvitationStatus.ACCEPTED
+                                && invitation.getInvitationStatus()
+                                == ActivityInvitationStatus.ACCEPTED);
+
+                if (shouldReplace) {
+                    invitedBranchByActivityIdLocal.put(
+                            invitationActivityId,
+                            invitation
+                    );
+                }
+            }
+
+            invitedBranchByActivityId = invitedBranchByActivityIdLocal;
+
+            Set<Long> invitedActivityIds =
+                    invitedBranchByActivityIdLocal.keySet();
 
             invitedActivityCountForResponse =
                     (long) invitedActivityIds.size();

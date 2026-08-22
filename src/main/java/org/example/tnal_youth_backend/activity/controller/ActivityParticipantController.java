@@ -92,6 +92,8 @@ public class ActivityParticipantController {
             @PathVariable
             Long activityId,
 
+            @RequestParam(required = false) Long branchId,
+
             Authentication authentication
     ) {
 
@@ -101,7 +103,8 @@ public class ActivityParticipantController {
                                 activityId,
                                 getCurrentUserId(
                                         authentication
-                                )
+                                ),
+                                branchId
                         )
         );
     }
@@ -117,6 +120,8 @@ public class ActivityParticipantController {
             @PathVariable
             Long activityId,
 
+            @RequestParam(required = false) Long branchId,
+
             Authentication authentication
     ) {
 
@@ -126,7 +131,8 @@ public class ActivityParticipantController {
                                 activityId,
                                 getCurrentUserId(
                                         authentication
-                                )
+                                ),
+                                branchId
                         )
         );
     }

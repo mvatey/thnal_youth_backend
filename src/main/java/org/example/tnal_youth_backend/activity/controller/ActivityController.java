@@ -75,10 +75,12 @@ public class ActivityController {
     @GetMapping("/{activityId}")
     public ActivityResponse getActivityById(
             @PathVariable Long activityId,
+            @RequestParam(required = false) Long branchId,
             Authentication authentication
     ) {
         return activityService.getActivityById(
                 activityId,
+                branchId,
                 extractCurrentUserId(authentication)
         );
     }
