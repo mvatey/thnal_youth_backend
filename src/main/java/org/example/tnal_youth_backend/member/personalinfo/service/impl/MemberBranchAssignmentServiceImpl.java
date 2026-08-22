@@ -57,8 +57,9 @@ public class MemberBranchAssignmentServiceImpl
         }
 
         memberAccessValidator
-                .validateCanManageSensitiveFields(
-                        memberId
+                .validateCanAssignBranch(
+                        memberId,
+                        branchId
                 );
 
         requireSecretaryAccount(memberId);
@@ -137,6 +138,10 @@ public class MemberBranchAssignmentServiceImpl
                     SELECT 1 FROM branch_staff
                     WHERE branch_id = :branchId
                       AND member_id = :memberId
+                      AND position_id = (
+                          SELECT id FROM positions
+                          WHERE code = 'SECRETARY'
+                      )
                       AND ended_on IS NULL
                 )
                 """,
@@ -178,8 +183,9 @@ public class MemberBranchAssignmentServiceImpl
         }
 
         memberAccessValidator
-                .validateCanManageSensitiveFields(
-                        memberId
+                .validateCanAssignBranch(
+                        memberId,
+                        branchId
                 );
 
         requireSecretaryAccount(memberId);
@@ -255,6 +261,10 @@ public class MemberBranchAssignmentServiceImpl
                     updated_at = NOW()
                 WHERE branch_id = :branchId
                   AND member_id = :memberId
+                  AND position_id = (
+                      SELECT id FROM positions
+                      WHERE code = 'SECRETARY'
+                  )
                   AND ended_on IS NULL
                 """,
                 params

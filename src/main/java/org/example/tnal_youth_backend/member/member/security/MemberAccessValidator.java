@@ -304,6 +304,78 @@ public class MemberAccessValidator {
         );
     }
 
+    /**
+     * Validates an explicit branch assignment/removal operation.
+     *
+     * This is intentionally different from validateCanManageSensitiveFields():
+     * assigning the first branch to a secretary is valid even when the
+     * secretary currently has no primary branch, so validation cannot depend
+     * on targetMember.branchId being non-null.
+     */
+    public void validateCanAssignBranch(
+            Long memberId,
+            Long branchId
+    ) {
+        if (branchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID is required"
+            );
+        }
+
+        Member targetMember = findMember(memberId);
+        User currentUser = getCurrentUser();
+        UserRole actorRole = currentUser.getRole();
+
+        if (actorRole == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        User targetUser = userRepository
+                .findByMemberId(memberId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "This member does not have a user account"
+                ));
+
+        if (targetUser.getRole() != UserRole.SECRETARY) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only secretary accounts can be assigned to additional branches"
+            );
+        }
+
+        if (actorRole == UserRole.ADMIN) {
+            return;
+        }
+
+        if (actorRole != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only an admin or branch leader can assign branches"
+            );
+        }
+
+        // A branch leader can assign/remove only within their own branch scope.
+        staffBranchScopeService.requireStaffBranchAccess(
+                currentUser,
+                branchId
+        );
+
+        // If the secretary already has a primary branch, the branch leader
+        // must also be able to manage that member. A secretary with no primary
+        // branch is intentionally allowed so the first assignment can create it.
+        if (targetMember.getBranchId() != null) {
+            validateManagementBranchAccess(
+                    currentUser,
+                    targetMember.getBranchId()
+            );
+        }
+    }
+
     public boolean isCurrentUserAdmin() {
         return getCurrentUser().getRole() == UserRole.ADMIN;
     }
