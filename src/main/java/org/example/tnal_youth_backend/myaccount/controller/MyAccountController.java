@@ -19,6 +19,7 @@ import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillReques
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
@@ -73,6 +74,33 @@ public class MyAccountController {
         return ResponseEntity.ok(
                 myAccountService
                         .uploadMyProfilePhoto(
+                                file
+                        )
+        );
+    }
+
+    /*
+     * Uploads the authenticated login account's own profile picture,
+     * stored directly on the account (not a member record) -- open to
+     * every role, including ADMIN and VIEWER, same reasoning as
+     * changeMyPassword/changeMyEmail below.
+     *
+     * POST /api/my-account/profile-image
+     */
+    @PostMapping(
+            value = "/profile-image",
+            consumes =
+                    MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserProfileResponse>
+    uploadMyProfileImage(
+            @RequestPart("file")
+            MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                myAccountService
+                        .uploadMyProfileImage(
                                 file
                         )
         );

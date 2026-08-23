@@ -52,6 +52,20 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                     .build();
         }
 
+        // Standalone accounts (ADMIN, VIEWER, or any role created without a
+        // linked member record) never receive a notification through any
+        // channel — every notification-creation call site resolves
+        // recipients via the member link (findByMemberId or a join through
+        // members), never a bare user id. No point minting a token or
+        // showing the connect-Telegram reminder for an account that could
+        // never actually use it.
+        if (user.getMemberId() == null) {
+            return TelegramConnectInfoResponse.builder()
+                    .connected(false)
+                    .deepLink(null)
+                    .build();
+        }
+
         String token = getOrCreateLinkToken(user);
 
         return TelegramConnectInfoResponse.builder()

@@ -3,9 +3,12 @@ package org.example.tnal_youth_backend.myaccount.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.file.entity.FileEntity;
+import org.example.tnal_youth_backend.file.service.FileService;
 import org.example.tnal_youth_backend.member.education.dto.request.MemberEducationRequest;
 import org.example.tnal_youth_backend.member.education.dto.response.MemberEducationResponse;
 import org.example.tnal_youth_backend.member.education.service.MemberEducationService;
@@ -86,6 +89,8 @@ public class MyAccountServiceImpl
 
     private final UserRepository userRepository;
 
+    private final FileService fileService;
+
     private final PasswordEncoder passwordEncoder;
 
     private final RefreshTokenRepository refreshTokenRepository;
@@ -145,6 +150,47 @@ public class MyAccountServiceImpl
                         memberId,
                         file
                 );
+    }
+
+    /*
+     * Same idea as changeMyPassword/changeMyEmail: operates on the User
+     * entity directly rather than through a member record, so it works
+     * for an account with no linked member row too.
+     *
+     * Uses uploadImage(file, uploaderId) rather than uploadFileEntity(file)
+     * -- the latter always passes a null uploader, which is fine when the
+     * caller immediately links the file to a member (FileAccessService
+     * grants read access via that link instead), but there's no member
+     * row here for a standalone/VIEWER account, so uploadedById is the
+     * only thing that lets the account read its own uploaded photo back.
+     */
+    @Override
+    @Transactional
+    public UserProfileResponse uploadMyProfileImage(
+            MultipartFile file
+    ) {
+        User currentUser = getCurrentUserEntity();
+
+        FileEntity uploadedFile = fileService.uploadImage(file, currentUser.getId());
+
+        currentUser.setProfileImage(
+                "/api/files/" + uploadedFile.getId() + "/content"
+        );
+
+        User savedUser = userRepository.saveAndFlush(currentUser);
+
+        return UserProfileResponse.builder()
+                .id(savedUser.getId())
+                .memberId(savedUser.getMemberId())
+                .phone(savedUser.getPhone())
+                .email(savedUser.getEmail())
+                .fullNameKm(savedUser.getFullNameKm())
+                .fullNameEn(savedUser.getFullNameEn())
+                .profileImage(savedUser.getProfileImage())
+                .role(savedUser.getRole() != null ? savedUser.getRole().name() : null)
+                .viewerScope(savedUser.getViewerScope() != null ? savedUser.getViewerScope().name() : null)
+                .branchId(savedUser.getBranchId())
+                .build();
     }
 
 

@@ -16,6 +16,7 @@ import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillReques
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
+import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
@@ -33,6 +34,17 @@ public interface MyAccountService {
      * by staff editing a member's photo is reused here.
      */
     MemberDetailResponse uploadMyProfilePhoto(
+            MultipartFile file
+    );
+
+    /*
+     * Uploads the authenticated login account's own profile picture,
+     * stored directly on `users.profile_image` -- for an account with no
+     * linked member record (ADMIN, a standalone secretary/branch-leader/
+     * member account, or any VIEWER), there's no member row to attach a
+     * photo to via uploadMyProfilePhoto above.
+     */
+    UserProfileResponse uploadMyProfileImage(
             MultipartFile file
     );
 

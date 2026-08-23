@@ -82,6 +82,19 @@ public class SecurityConfig {
                         .permitAll()
 
                         /*
+                         * Telegram's own webhook callback (production only —
+                         * local dev uses TelegramPollingScheduler instead,
+                         * which needs no inbound route at all). Validated by
+                         * the X-Telegram-Bot-Api-Secret-Token header, not a
+                         * session.
+                         */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/telegram/webhook"
+                        )
+                        .permitAll()
+
+                        /*
                          * Current authenticated user.
                          */
                         .requestMatchers(

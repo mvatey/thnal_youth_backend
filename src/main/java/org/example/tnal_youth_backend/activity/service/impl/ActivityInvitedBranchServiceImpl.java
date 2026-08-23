@@ -18,6 +18,7 @@ import org.example.tnal_youth_backend.activity.service.ActivityInvitedBranchServ
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.BranchLabels;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -778,10 +779,17 @@ public class ActivityInvitedBranchServiceImpl
                                     .atZoneSameInstant(ZoneOffset.ofHours(7))
                                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
+            // Named explicitly (not just "your branch") so the recipient —
+            // who may be staff at more than one branch — knows exactly
+            // which of their branches this invitation is for.
+            String invitedBranchLabel = BranchLabels.withBranchPrefixKm(branch.getNameKm());
+
             StringBuilder body = new StringBuilder()
                     .append("សាខា \"")
                     .append(organizerBranchName)
-                    .append("\" បានអញ្ជើញសាខារបស់អ្នកឱ្យចូលរួមរៀបចំកម្មវិធី \"")
+                    .append("\" បានអញ្ជើញ")
+                    .append(invitedBranchLabel.isBlank() ? "សាខារបស់អ្នក" : invitedBranchLabel)
+                    .append("ឱ្យចូលរួមរៀបចំកម្មវិធី \"")
                     .append(activity.getTitleKm())
                     .append("\"");
 

@@ -76,18 +76,20 @@ public interface NotificationRepo {
      */
     @Select("""
         SELECT
-            id             AS id,
-            type_id        AS typeId,
-            title          AS title,
-            body           AS body,
-            action_url     AS actionUrl,
-            activity_id    AS activityId,
-            branch_id      AS branchId,
-            created_by     AS createdBy,
-            client_request_id AS clientRequestId,
-            created_at     AS createdAt
-        FROM notifications
-        WHERE id = #{nid}
+            n.id             AS id,
+            n.type_id        AS typeId,
+            nt.code          AS typeCode,
+            n.title          AS title,
+            n.body           AS body,
+            n.action_url     AS actionUrl,
+            n.activity_id    AS activityId,
+            n.branch_id      AS branchId,
+            n.created_by     AS createdBy,
+            n.client_request_id AS clientRequestId,
+            n.created_at     AS createdAt
+        FROM notifications n
+        JOIN notification_types nt ON nt.id = n.type_id
+        WHERE n.id = #{nid}
         """)
     NotificationModel findById(@Param("nid") Long notificationId);
 

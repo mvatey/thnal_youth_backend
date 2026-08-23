@@ -37,6 +37,9 @@ import org.example.tnal_youth_backend.member.level.repository.MemberLevelReposit
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
 
+import org.example.tnal_youth_backend.member.politicalaffiliation.entity.PoliticalParty;
+import org.example.tnal_youth_backend.member.politicalaffiliation.repository.PoliticalPartyRepository;
+
 import org.example.tnal_youth_backend.member.position.entity.Position;
 import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 
@@ -101,6 +104,9 @@ public class AdminLookupServiceImpl
 
     private final PositionRepository
             positionRepository;
+
+    private final PoliticalPartyRepository
+            politicalPartyRepository;
 
     private static final java.util.Set<String> PAYMENT_METHOD_CATEGORIES =
             java.util.Set.of("CASH", "BANK", "OTHER");
@@ -184,6 +190,11 @@ public class AdminLookupServiceImpl
                 categoryResponse(
                         LookupCategory.POSITION,
                         positionRepository.count()
+                ),
+
+                categoryResponse(
+                        LookupCategory.POLITICAL_PARTY,
+                        politicalPartyRepository.count()
                 )
         );
     }
@@ -310,6 +321,13 @@ public class AdminLookupServiceImpl
 
                     case POSITION ->
                             positionRepository
+                                    .findAllByOrderBySortOrderAscIdAsc()
+                                    .stream()
+                                    .map(this::toResponse)
+                                    .toList();
+
+                    case POLITICAL_PARTY ->
+                            politicalPartyRepository
                                     .findAllByOrderBySortOrderAscIdAsc()
                                     .stream()
                                     .map(this::toResponse)
@@ -712,6 +730,34 @@ public class AdminLookupServiceImpl
 
                 yield toResponse(
                         positionRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
+
+            case POLITICAL_PARTY -> {
+
+                PoliticalParty entity =
+                        PoliticalParty.builder()
+                                .code(code)
+                                .labelKm(labelKm)
+                                .labelEn(
+                                        Objects.requireNonNullElse(
+                                                labelEn,
+                                                labelKm
+                                        )
+                                )
+                                .isActive(active)
+                                .sortOrder(
+                                        nextSortOrder(
+                                                resolvedCategory
+                                        )
+                                )
+                                .build();
+
+                yield toResponse(
+                        politicalPartyRepository
                                 .saveAndFlush(
                                         entity
                                 )
@@ -1189,6 +1235,37 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case POLITICAL_PARTY -> {
+                PoliticalParty entity =
+                        politicalPartyRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setLabelKm(
+                        labelKm
+                );
+
+                entity.setLabelEn(
+                        Objects.requireNonNullElse(
+                                labelEn,
+                                labelKm
+                        )
+                );
+
+                yield toResponse(
+                        politicalPartyRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1533,6 +1610,30 @@ public class AdminLookupServiceImpl
                                 )
                 );
             }
+
+            case POLITICAL_PARTY -> {
+                PoliticalParty entity =
+                        politicalPartyRepository
+                                .findById(id)
+                                .orElseThrow(
+                                        () ->
+                                                notFound(
+                                                        resolvedCategory,
+                                                        id
+                                                )
+                                );
+
+                entity.setIsActive(
+                        active
+                );
+
+                yield toResponse(
+                        politicalPartyRepository
+                                .saveAndFlush(
+                                        entity
+                                )
+                );
+            }
         };
     }
 
@@ -1825,6 +1926,26 @@ public class AdminLookupServiceImpl
         );
     }
 
+    private AdminLookupResponse
+    toResponse(
+            PoliticalParty entity
+    ) {
+
+        return new AdminLookupResponse(
+                entity.getId(),
+                entity.getCode(),
+                entity.getLabelKm(),
+                entity.getLabelEn(),
+                null,
+                entity.getIsActive(),
+                entity.getSortOrder(),
+                null,
+                null,
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+    }
+
 
     /*
      * ==========================================================
@@ -2050,6 +2171,12 @@ public class AdminLookupServiceImpl
 
             case POSITION ->
                     positionRepository
+                            .existsByCodeIgnoreCase(
+                                    code
+                            );
+
+            case POLITICAL_PARTY ->
+                    politicalPartyRepository
                             .existsByCodeIgnoreCase(
                                     code
                             );

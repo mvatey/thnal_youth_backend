@@ -45,6 +45,22 @@ public class ViewerWriteBlockFilter extends OncePerRequestFilter {
             return;
         }
 
+        // A viewer is otherwise read-only everywhere, but their own login
+        // credentials (and profile picture) aren't "data" in that sense --
+        // they still need to be able to change these, same as every other
+        // role (see MyAccountController#changeMyPassword/#changeMyEmail/
+        // #uploadMyProfileImage).
+        if ("PATCH".equals(request.getMethod())
+                && (uri.equals("/api/my-account/password") || uri.equals("/api/my-account/email"))) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if ("POST".equals(request.getMethod()) && uri.equals("/api/my-account/profile-image")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication != null

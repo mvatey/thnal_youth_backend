@@ -14,6 +14,13 @@ public interface PoliticalPartyRepository
             Short partyId
     );
 
+    boolean existsByCodeIgnoreCase(
+            String code
+    );
+
     List<PoliticalParty>
     findAllByIsActiveTrueOrderBySortOrderAscIdAsc();
+
+    List<PoliticalParty>
+    findAllByOrderBySortOrderAscIdAsc();
 }

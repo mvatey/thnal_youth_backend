@@ -20,6 +20,8 @@ import java.time.OffsetDateTime;
 public class NotificationModel {
     private Long id;
     private Short typeId;
+    /** notification_types.code, e.g. "ACTIVITY_INVITATION" — joined in by NotificationRepo#findById. */
+    private String typeCode;
     private String title;
     private String body;
     private String actionUrl;

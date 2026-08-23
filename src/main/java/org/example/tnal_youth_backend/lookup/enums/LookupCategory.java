@@ -81,6 +81,12 @@ public enum LookupCategory {
             "positions",
             "តំណែង",
             "Position"
+    ),
+
+    POLITICAL_PARTY(
+            "political-parties",
+            "គណបក្សនយោបាយ",
+            "Political Party"
     );
 
     private final String path;

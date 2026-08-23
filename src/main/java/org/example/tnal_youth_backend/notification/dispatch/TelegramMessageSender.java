@@ -1,7 +1,11 @@
 package org.example.tnal_youth_backend.notification.dispatch;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -18,9 +22,15 @@ import java.util.Map;
 /**
  * Sends a notification's title/body as a Telegram message to a linked
  * {@code users.telegram_chat_id} via the Bot API's {@code sendMessage}
- * endpoint (plain REST call — this is NOT where the bot's own chat logic
- * lives; that's on the user's separately-hosted chatbot server, which only
- * calls INTO this backend via {@code POST /api/telegram/link}).
+ * endpoint (plain REST call). The bot's own inbound chat handling — reading
+ * {@code /start} commands sent back by users — lives in
+ * {@code TelegramUpdateHandler}, reached via either the webhook controller
+ * or {@code TelegramPollingScheduler}, both in this same package.
+ *
+ * <p>Activity-invitation notifications get the richer bilingual formatted
+ * message from {@link ActivityInvitationTelegramBuilder} (Telegram
+ * {@code HTML} parse mode); every other notification type keeps the plain
+ * Markdown message it already had.
  */
 @Component
 @Slf4j
@@ -29,13 +39,26 @@ public class TelegramMessageSender {
     private static final String SEND_MESSAGE_URL_TEMPLATE =
             "https://api.telegram.org/bot%s/sendMessage";
 
-    private final RestTemplate restTemplate;
+    private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
 
-    public TelegramMessageSender(RestTemplateBuilder restTemplateBuilder) {
+    private final RestTemplate restTemplate;
+    private final ActivityRepository activityRepository;
+    private final BranchRepository branchRepository;
+    private final ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder;
+
+    public TelegramMessageSender(
+            RestTemplateBuilder restTemplateBuilder,
+            ActivityRepository activityRepository,
+            BranchRepository branchRepository,
+            ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder
+    ) {
         this.restTemplate = restTemplateBuilder
                 .connectTimeout(Duration.ofSeconds(5))
                 .readTimeout(Duration.ofSeconds(10))
                 .build();
+        this.activityRepository = activityRepository;
+        this.branchRepository = branchRepository;
+        this.activityInvitationTelegramBuilder = activityInvitationTelegramBuilder;
     }
 
     /**
@@ -50,6 +73,25 @@ public class TelegramMessageSender {
     private String baseUrl;
 
     public void send(User user, NotificationModel notification) {
+        String activityInvitationText = ACTIVITY_INVITATION_TYPE_CODE.equals(notification.getTypeCode())
+                && notification.getActivityId() != null
+                ? buildActivityInvitationText(notification.getActivityId(), user.getFullNameKm())
+                : null;
+
+        sendRaw(
+                user.getTelegramChatId(),
+                activityInvitationText != null ? activityInvitationText : buildText(notification),
+                activityInvitationText != null ? "HTML" : "Markdown"
+        );
+    }
+
+    /**
+     * Low-level {@code sendMessage} call, shared by the notification
+     * fan-out above and {@code TelegramUpdateHandler}'s replies to incoming
+     * {@code /start} messages. {@code parseMode} may be {@code null} for
+     * plain, unformatted text.
+     */
+    public void sendRaw(Long chatId, String text, String parseMode) {
         if (botToken == null || botToken.isBlank()) {
             throw new IllegalStateException(
                     "Telegram delivery is not configured"
@@ -59,14 +101,38 @@ public class TelegramMessageSender {
         String url = String.format(SEND_MESSAGE_URL_TEMPLATE, botToken);
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("chat_id", user.getTelegramChatId());
-        body.put("text", buildText(notification));
-        body.put("parse_mode", "Markdown");
+        body.put("chat_id", chatId);
+        body.put("text", text);
+
+        if (parseMode != null) {
+            body.put("parse_mode", parseMode);
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
+    }
+
+    public String getBotToken() {
+        return botToken;
+    }
+
+    /**
+     * @return the formatted invitation text, or {@code null} if the
+     * activity can no longer be found — the caller falls back to the plain
+     * Markdown message instead of sending nothing.
+     */
+    private String buildActivityInvitationText(Long activityId, String recipientNameKm) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+
+        if (activity == null) {
+            return null;
+        }
+
+        Branch branch = branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        return activityInvitationTelegramBuilder.build(activity, branch, recipientNameKm);
     }
 
     private String buildText(NotificationModel notification) {
