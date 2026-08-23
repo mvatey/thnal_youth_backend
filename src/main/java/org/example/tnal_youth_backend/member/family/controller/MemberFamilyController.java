@@ -30,7 +30,8 @@ public class MemberFamilyController {
                 'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER',
-                'MEMBER'
+                'MEMBER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<MemberFamilyInfoResponse>

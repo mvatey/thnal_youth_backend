@@ -42,7 +42,8 @@ public class MemberCredentialController {
             'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER',
-            'MEMBER'
+            'MEMBER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<MemberCredentialTabResponse>
@@ -72,7 +73,8 @@ public class MemberCredentialController {
             'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER',
-            'MEMBER'
+            'MEMBER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<MemberCredentialResponse>

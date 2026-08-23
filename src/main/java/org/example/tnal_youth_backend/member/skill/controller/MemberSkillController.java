@@ -32,7 +32,8 @@ public class MemberSkillController {
                 'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER',
-                'MEMBER'
+                'MEMBER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<List<MemberSkillResponse>>

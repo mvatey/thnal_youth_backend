@@ -4,13 +4,16 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBranchResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationListItemResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationRowResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationSummaryResponse;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Mapper
@@ -332,6 +335,47 @@ public interface MonthlyDonationRepository {
         """)
     Long findMonthlyDonationBranchId(
             @Param("donationId") Long donationId
+    );
+
+    @Select("""
+        SELECT paid_at
+        FROM donations d
+        JOIN donation_types dt
+          ON dt.id = d.donation_type_id
+        WHERE d.id = #{donationId}
+          AND dt.code = 'MONTHLY_DONATION'
+        """)
+    OffsetDateTime findMonthlyDonationPaidAt(
+            @Param("donationId") Long donationId
+    );
+
+    @Update("""
+        UPDATE donations
+        SET amount_khr = #{amountKhr},
+            amount_usd = #{amountUsd},
+            exchange_rate_khr_per_usd = #{exchangeRateKhrPerUsd},
+            total_amount_usd = #{totalAmountUsd},
+            payment_method_id = #{paymentMethodId},
+            receipt_file_id = #{receiptFileId},
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE id = #{donationId}
+          AND donation_type_id = (
+              SELECT id
+              FROM donation_types
+              WHERE code = 'MONTHLY_DONATION'
+              LIMIT 1
+          )
+        """)
+    int updateMonthlyDonation(
+            @Param("donationId") Long donationId,
+            @Param("amountKhr") BigDecimal amountKhr,
+            @Param("amountUsd") BigDecimal amountUsd,
+            @Param("exchangeRateKhrPerUsd") BigDecimal exchangeRateKhrPerUsd,
+            @Param("totalAmountUsd") BigDecimal totalAmountUsd,
+            @Param("paymentMethodId") Short paymentMethodId,
+            @Param("receiptFileId") Long receiptFileId,
+            @Param("updatedBy") Long updatedBy
     );
 
     @Delete("""

@@ -47,7 +47,8 @@ public class MemberPersonalInfoController {
                 'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER',
-                'MEMBER'
+                'MEMBER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<MemberPersonalInfoResponse>
@@ -100,7 +101,8 @@ public class MemberPersonalInfoController {
             hasAnyRole(
                 'ADMIN',
                 'SECRETARY',
-                'BRANCH_LEADER'
+                'BRANCH_LEADER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<MemberPasswordStatusResponse>

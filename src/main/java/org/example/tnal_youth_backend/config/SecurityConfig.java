@@ -17,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ViewerWriteBlockFilter viewerWriteBlockFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -236,6 +237,10 @@ public class SecurityConfig {
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
+                )
+                .addFilterAfter(
+                        viewerWriteBlockFilter,
+                        JwtAuthenticationFilter.class
                 );
 
         return http.build();

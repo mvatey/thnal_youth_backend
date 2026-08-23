@@ -56,7 +56,8 @@ public class LookupController {
         hasAnyRole(
             'ADMIN',
             'SECRETARY',
-            'BRANCH_LEADER'
+            'BRANCH_LEADER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<List<ProvinceOptionResponse>>
@@ -68,7 +69,7 @@ public class LookupController {
     }
 
     @GetMapping("/activity-invitable-branches")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER','VIEWER')")
     public ResponseEntity<List<LookupOptionResponse<Long>>>
     getActivityInvitableBranchOptions() {
         return ResponseEntity.ok(

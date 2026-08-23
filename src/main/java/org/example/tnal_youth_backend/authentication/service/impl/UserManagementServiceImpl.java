@@ -64,15 +64,25 @@ public class UserManagementServiceImpl
     @Override
     @Transactional(readOnly = true)
     public UserSummaryResponse getSummary() {
-        long total = userRepository.count();
+        /*
+         * Keep the summary cards consistent with the status displayed
+         * in the Users table and used by its status filter.
+         *
+         * Member-linked account -> linked Member status.
+         * Standalone account    -> users.status.
+         */
+        List<User> users =
+                userRepository.findAllByOrderByCreatedAtDescIdDesc();
 
-        long active = userRepository
-                .countByStatus(UserStatus.ACTIVE);
+        long total = users.size();
 
-        long inactive = Math.max(
-                total - active,
-                0
-        );
+        long active = users.stream()
+                .filter(user -> matchesVisibleStatus(user, "ACTIVE"))
+                .count();
+
+        long inactive = users.stream()
+                .filter(user -> matchesVisibleStatus(user, "INACTIVE"))
+                .count();
 
         return UserSummaryResponse.builder()
                 .totalUsers(total)

@@ -20,6 +20,7 @@ import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -47,6 +48,7 @@ public class BranchServiceImpl implements BranchService {
     private final BranchStaffRepository branchStaffRepository;
     private final ActivityRepository activityRepository;
     private final StaffBranchScopeService staffBranchScopeService;
+    private final ViewerAccessService viewerAccessService;
 
 
     @Override
@@ -76,7 +78,7 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -663,7 +665,7 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         /*
          * Admin can select any valid branch. VIEWER has the same viewing
@@ -672,7 +674,7 @@ public class BranchServiceImpl implements BranchService {
          * method never mutates anything, it only resolves which branch
          * the caller may look at.
          */
-        if (role == UserRole.ADMIN || role == UserRole.VIEWER) {
+        if (role == UserRole.ADMIN) {
             return branch;
         }
 
@@ -686,45 +688,9 @@ public class BranchServiceImpl implements BranchService {
             );
         }
 
-        Long currentMemberId =
-                currentUser.getMemberId();
-
-        if (currentMemberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
         Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentMemberId
-                                )
-                );
-
-        /*
-         * Fallback to the staff member's current branch when
-         * branch_staff does not contain an active assignment.
-         */
-        if (accessibleBranchIds.isEmpty()) {
-            Member currentMember =
-                    memberRepository
-                            .findById(currentMemberId)
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (currentMember.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
-                );
-            }
-        }
+                staffBranchScopeService
+                        .staffBranchIds(currentUser);
 
         if (!accessibleBranchIds.contains(branchId)) {
             throw new ResponseStatusException(
@@ -765,7 +731,7 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -810,46 +776,9 @@ public class BranchServiceImpl implements BranchService {
             );
         }
 
-        Long memberId =
-                currentUser.getMemberId();
-
-        if (memberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
         Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        memberId
-                                )
-                );
-
-        /*
-         * Fallback to the member's primary branch.
-         */
-        if (accessibleBranchIds.isEmpty()) {
-            Member currentMember =
-                    memberRepository
-                            .findById(
-                                    memberId
-                            )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (currentMember.getBranchId() != null) {
-                accessibleBranchIds.add(
-                        currentMember.getBranchId()
-                );
-            }
-        }
+                staffBranchScopeService
+                        .staffBranchIds(currentUser);
 
         if (accessibleBranchIds.isEmpty()) {
             return new BranchSummaryResponse(
@@ -979,7 +908,7 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1009,46 +938,9 @@ public class BranchServiceImpl implements BranchService {
                 role == UserRole.SECRETARY
                         || role == UserRole.BRANCH_LEADER
         ) {
-            Long memberId =
-                    currentUser.getMemberId();
-
-            if (memberId == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Your account is not linked to a member record"
-                );
-            }
-
             Set<Long> accessibleBranchIds =
-                    new LinkedHashSet<>(
-                            branchStaffRepository
-                                    .findActiveBranchIdsByMemberId(
-                                            memberId
-                                    )
-                    );
-
-            /*
-             * Fallback to the member's primary branch.
-             */
-            if (accessibleBranchIds.isEmpty()) {
-                Member currentMember =
-                        memberRepository
-                                .findById(
-                                        memberId
-                                )
-                                .orElseThrow(() ->
-                                        new ResponseStatusException(
-                                                HttpStatus.FORBIDDEN,
-                                                "Linked member record was not found"
-                                        )
-                                );
-
-                if (currentMember.getBranchId() != null) {
-                    accessibleBranchIds.add(
-                            currentMember.getBranchId()
-                    );
-                }
-            }
+                    staffBranchScopeService
+                            .staffBranchIds(currentUser);
 
             /*
              * Avoid calling an IN query with an empty collection.
@@ -1484,7 +1376,7 @@ public class BranchServiceImpl implements BranchService {
                         );
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1502,7 +1394,7 @@ public class BranchServiceImpl implements BranchService {
          * paths (e.g. DocumentServiceImpl.getDocuments), so widening it
          * to VIEWER cannot expose any mutating capability.
          */
-        if (role == UserRole.ADMIN || role == UserRole.VIEWER) {
+        if (role == UserRole.ADMIN) {
             return branchRepository
                     .findAll()
                     .stream()

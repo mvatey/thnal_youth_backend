@@ -36,7 +36,8 @@ public class MemberWorkHistoryController {
                 'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER',
-                'MEMBER'
+                'MEMBER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<List<MemberWorkHistoryResponse>>

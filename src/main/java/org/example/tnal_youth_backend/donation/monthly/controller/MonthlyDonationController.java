@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
+import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationUpdateRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationMemberPageResponse;
@@ -97,6 +98,17 @@ public class MonthlyDonationController {
         );
     }
 
+
+
+    @PatchMapping("/{donationId}")
+    @PreAuthorize(DONATION_ENTRY)
+    public ApiResponse<Boolean> updateMonthlyDonation(
+            @PathVariable Long donationId,
+            @Valid @RequestBody MonthlyDonationUpdateRequest request
+    ) {
+        monthlyDonationService.updateMonthlyDonation(donationId, request);
+        return ApiResponse.ok(Boolean.TRUE);
+    }
 
     @DeleteMapping("/{donationId}")
     @PreAuthorize(DONATION_ENTRY)

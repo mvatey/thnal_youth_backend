@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +26,8 @@ public class MemberAccessValidator {
 
     private final StaffBranchScopeService staffBranchScopeService;
 
+    private final ViewerAccessService viewerAccessService;
+
     public Member validateAccessibleMember(
             Long memberId
     ) {
@@ -35,7 +38,7 @@ public class MemberAccessValidator {
                 getCurrentUser();
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -88,7 +91,7 @@ public class MemberAccessValidator {
                 getCurrentUser();
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -142,7 +145,7 @@ public class MemberAccessValidator {
             );
         }
 
-        UserRole role = currentUser.getRole();
+        UserRole role = viewerAccessService.effectiveReadRole(currentUser);
 
         if (role != UserRole.SECRETARY
                 && role != UserRole.BRANCH_LEADER) {
@@ -223,7 +226,7 @@ public class MemberAccessValidator {
                 getCurrentUser();
 
         UserRole actorRole =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (actorRole == null) {
             throw new ResponseStatusException(

@@ -44,6 +44,7 @@ import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
@@ -160,6 +161,9 @@ public class MemberServiceImpl implements MemberService {
 
     private final StaffBranchScopeService
             staffBranchScopeService;
+
+    private final ViewerAccessService
+            viewerAccessService;
 
 
     /*
@@ -1726,7 +1730,7 @@ public class MemberServiceImpl implements MemberService {
                 getCurrentUser();
 
         UserRole role =
-                currentUser.getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1769,8 +1773,7 @@ public class MemberServiceImpl implements MemberService {
                 getCurrentUser();
 
         UserRole role =
-                currentUser
-                        .getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -2479,8 +2482,7 @@ public class MemberServiceImpl implements MemberService {
                 getCurrentUser();
 
         UserRole role =
-                currentUser
-                        .getRole();
+                viewerAccessService.effectiveReadRole(currentUser);
 
         if (role == null) {
             throw new ResponseStatusException(

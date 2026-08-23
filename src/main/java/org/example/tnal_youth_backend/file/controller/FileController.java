@@ -62,7 +62,7 @@ public class FileController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','VIEWER')")
     public ResponseEntity<List<FileResponse>> getAllFiles() {
 
         return ResponseEntity.ok(

@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.donation.dto.request.DonationCreateRequest
 import org.example.tnal_youth_backend.donation.dto.response.DonationCreateResultResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationBatchRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationItemRequest;
+import org.example.tnal_youth_backend.donation.monthly.dto.request.MonthlyDonationUpdateRequest;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBatchResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationBranchResponse;
 import org.example.tnal_youth_backend.donation.monthly.dto.response.MonthlyDonationDetailResponse;
@@ -19,13 +20,18 @@ import org.example.tnal_youth_backend.donation.monthly.service.MonthlyDonationSe
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.exchangerate.dto.response.ExchangeRateResponse;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
-import org.example.tnal_youth_backend.security.SecurityUtils;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +48,7 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
 
     private final MonthlyDonationRepository monthlyDonationRepository;
     private final StaffBranchScopeService staffBranchScopeService;
+    private final ViewerAccessService viewerAccessService;
     private final DonationService donationService;
     private final ExchangeRateService exchangeRateService;
 
@@ -279,6 +286,88 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
 
     @Override
     @Transactional
+    public void updateMonthlyDonation(
+            Long donationId,
+            MonthlyDonationUpdateRequest request
+    ) {
+        if (donationId == null || donationId < 1) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_INVALID_ID",
+                    "donationId must be a positive number"
+            );
+        }
+
+        Long branchId =
+                monthlyDonationRepository.findMonthlyDonationBranchId(donationId);
+
+        if (branchId == null) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_NOT_FOUND",
+                    "Monthly donation " + donationId + " was not found"
+            );
+        }
+
+        enforceBranchAccess(branchId);
+
+        BigDecimal amountKhr = zeroIfNull(request.getAmountKhr());
+        BigDecimal amountUsd = zeroIfNull(request.getAmountUsd());
+
+        if (amountKhr.signum() <= 0 && amountUsd.signum() <= 0) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_AMOUNT_REQUIRED",
+                    "At least one donation amount must be greater than zero"
+            );
+        }
+
+        OffsetDateTime paidAt =
+                monthlyDonationRepository.findMonthlyDonationPaidAt(donationId);
+
+        if (paidAt == null) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_NOT_FOUND",
+                    "Monthly donation " + donationId + " was not found"
+            );
+        }
+
+        BigDecimal exchangeRate = null;
+        if (amountKhr.signum() > 0) {
+            ExchangeRateResponse rate = exchangeRateService.getRateForDate(
+                    USD,
+                    KHR,
+                    paidAt.toLocalDate()
+            );
+            exchangeRate = rate.getRate();
+        }
+
+        BigDecimal totalAmountUsd = amountUsd;
+        if (amountKhr.signum() > 0) {
+            totalAmountUsd = totalAmountUsd.add(
+                    amountKhr.divide(exchangeRate, 2, RoundingMode.HALF_UP)
+            );
+        }
+        totalAmountUsd = totalAmountUsd.setScale(2, RoundingMode.HALF_UP);
+
+        int updatedRows = monthlyDonationRepository.updateMonthlyDonation(
+                donationId,
+                amountKhr,
+                amountUsd,
+                exchangeRate,
+                totalAmountUsd,
+                request.getPaymentMethodId(),
+                request.getReceiptFileId(),
+                SecurityUtil.getCurrentUser().getId()
+        );
+
+        if (updatedRows == 0) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_UPDATE_FAILED",
+                    "Monthly donation " + donationId + " could not be updated"
+            );
+        }
+    }
+
+    @Override
+    @Transactional
     public void deleteMonthlyDonation(Long donationId) {
         if (donationId == null || donationId < 1) {
             throw new BusinessException(
@@ -392,13 +481,19 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
     private Long effectiveBranchFilter(
             Long requestedBranchId
     ) {
-        String role = SecurityUtils.getCurrentUserRole();
-        if (!ROLE_BRANCH_LEADER.equals(role)
-                && !ROLE_SECRETARY.equals(role)) {
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole != UserRole.BRANCH_LEADER
+                && effectiveRole != UserRole.SECRETARY) {
             return requestedBranchId;
         }
 
-        Set<Long> allowed = staffBranchScopeService.currentStaffBranchIds();
+        Set<Long> allowed = staffBranchScopeService.staffBranchIds(currentUser);
+
+        // A VIEWER scoped as SECRETARY/BRANCH_LEADER is permanently tied to
+        // one branch by StaffBranchScopeService. Even if the client omits
+        // branchId, never fall back to organization-wide donation data.
         if (requestedBranchId == null) {
             if (allowed.size() == 1) {
                 return allowed.iterator().next();
@@ -413,19 +508,22 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
                     "This branch is outside your permitted scope"
             );
         }
+
         return requestedBranchId;
     }
 
     private void enforceBranchAccess(
             Long requestedBranchId
     ) {
-        String role = SecurityUtils.getCurrentUserRole();
-        if (!ROLE_BRANCH_LEADER.equals(role)
-                && !ROLE_SECRETARY.equals(role)) {
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole != UserRole.BRANCH_LEADER
+                && effectiveRole != UserRole.SECRETARY) {
             return;
         }
 
-        if (!staffBranchScopeService.currentStaffBranchIds()
+        if (!staffBranchScopeService.staffBranchIds(currentUser)
                 .contains(requestedBranchId)) {
             throw new AccessDeniedException(
                     "This branch is outside your permitted scope"

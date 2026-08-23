@@ -40,7 +40,8 @@ public class MemberController {
         hasAnyRole(
             'ADMIN',
             'SECRETARY',
-            'BRANCH_LEADER'
+            'BRANCH_LEADER',
+            'VIEWER'
         )
         """)
     public ResponseEntity<MemberPageResponse>
@@ -84,7 +85,8 @@ public class MemberController {
             hasAnyRole(
                 'ADMIN',
                 'SECRETARY',
-                'BRANCH_LEADER'
+                'BRANCH_LEADER',
+                'VIEWER'
             )
             """)
     public ResponseEntity<MemberSummaryResponse>
