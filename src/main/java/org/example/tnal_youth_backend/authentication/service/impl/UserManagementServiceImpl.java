@@ -314,9 +314,38 @@ public class UserManagementServiceImpl
             );
         }
 
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            user.setStatus(parseAdminSettableStatus(request.getStatus()));
+        }
+
         User saved = userRepository.saveAndFlush(user);
 
         return toListItem(saved);
+    }
+
+    // Admin can only toggle between ACTIVE and INACTIVE — PENDING_ACTIVATION
+    // (awaiting first OTP) and LOCKED (failed-login lockout) are system
+    // states with their own flows, not something to hand-set here.
+    private UserStatus parseAdminSettableStatus(String rawStatus) {
+        UserStatus status;
+
+        try {
+            status = UserStatus.valueOf(rawStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Unknown status: " + rawStatus
+            );
+        }
+
+        if (status != UserStatus.ACTIVE && status != UserStatus.INACTIVE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "status must be ACTIVE or INACTIVE"
+            );
+        }
+
+        return status;
     }
 
     private UserRole parseRole(String rawRole) {

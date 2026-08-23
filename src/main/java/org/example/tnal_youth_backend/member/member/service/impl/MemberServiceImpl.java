@@ -498,16 +498,6 @@ public class MemberServiceImpl implements MemberService {
             CreateMemberRequest request
     ) {
 
-        Branch branch =
-                findBranch(
-                        request
-                                .branchId()
-                );
-
-        validateMemberBranchAccess(
-                branch.getId()
-        );
-
         String memberNo =
                 generateMemberNo();
 
@@ -569,6 +559,22 @@ public class MemberServiceImpl implements MemberService {
                 currentUser.getRole(),
                 requestedRole
         );
+
+        List<Long> effectiveBranchIds =
+                resolveEffectiveBranchIds(
+                        requestedRole,
+                        request.branchId(),
+                        request.branchIds()
+                );
+
+        for (Long branchIdToCheck : effectiveBranchIds) {
+            validateMemberBranchAccess(branchIdToCheck);
+        }
+
+        Branch branch =
+                findBranch(
+                        effectiveBranchIds.get(0)
+                );
 
         Member member =
                 Member.builder()
@@ -668,6 +674,31 @@ public class MemberServiceImpl implements MemberService {
                                 currentUser
                                         .getId()
                         );
+            }
+
+            if (effectiveBranchIds.size() > 1) {
+
+                Position secretaryPosition =
+                        position != null
+                                ? position
+                                : positionRepository
+                                        .findByCodeIgnoreCase("SECRETARY")
+                                        .orElse(null);
+
+                if (secretaryPosition != null) {
+
+                    for (Long extraBranchId : effectiveBranchIds.subList(1, effectiveBranchIds.size())) {
+
+                        branchStaffRepository
+                                .assignPosition(
+                                        extraBranchId,
+                                        savedMember.getId(),
+                                        secretaryPosition.getId(),
+                                        request.joinedOn(),
+                                        currentUser.getId()
+                                );
+                    }
+                }
             }
 
             Member detailedMember =
@@ -1632,6 +1663,45 @@ public class MemberServiceImpl implements MemberService {
 
         return getCurrentUser()
                 .getId();
+    }
+
+
+    /*
+     * A secretary can cover more than one branch: when the resolved role is
+     * SECRETARY and the caller supplied 2+ distinct branch ids, every one of
+     * them gets validated and staffed. Every other role (and a secretary
+     * given only one branch) stays single-branch via branchId, same as
+     * before this feature existed.
+     */
+    private List<Long> resolveEffectiveBranchIds(
+            UserRole requestedRole,
+            Long branchId,
+            List<Long> branchIds
+    ) {
+
+        List<Long> distinctBranchIds =
+                branchIds == null
+                        ? List.of()
+                        : branchIds.stream()
+                                .filter(id -> id != null)
+                                .distinct()
+                                .toList();
+
+        if (
+                requestedRole == UserRole.SECRETARY
+                        && distinctBranchIds.size() >= 2
+        ) {
+            return distinctBranchIds;
+        }
+
+        if (branchId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Branch ID is required"
+            );
+        }
+
+        return List.of(branchId);
     }
 
 

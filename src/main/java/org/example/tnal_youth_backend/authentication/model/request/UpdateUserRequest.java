@@ -54,4 +54,12 @@ public class UpdateUserRequest {
     /** Optional — leave blank to keep the current password unchanged. */
     @Size(min = 6, message = "Password must contain at least 6 characters")
     private String password;
+
+    /**
+     * Optional. Lets an admin activate/deactivate an account they're not
+     * currently using — ACTIVE or INACTIVE only. Leave blank to keep the
+     * account's current status unchanged (e.g. PENDING_ACTIVATION or LOCKED
+     * stay as-is, since those are system-managed, not admin-toggled).
+     */
+    private String status;
 }

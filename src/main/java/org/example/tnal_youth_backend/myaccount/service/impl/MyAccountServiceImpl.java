@@ -661,13 +661,22 @@ public class MyAccountServiceImpl
 
         return resetCurrentUserPassword(
                 currentUser,
+                request.oldPassword(),
                 request.newPassword(),
                 request.confirmPassword()
         );
     }
 
+    /*
+     * This is self-service: the account holder changing their own
+     * password, so the old password is always required to prove they
+     * still know it — unlike /members/{id}/account/password, where
+     * staff reset a DIFFERENT member's password and naturally can't
+     * supply their old one.
+     */
     private MemberPasswordStatusResponse resetCurrentUserPassword(
             User user,
+            String oldPassword,
             String newPassword,
             String confirmPassword
     ) {
@@ -682,6 +691,20 @@ public class MyAccountServiceImpl
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Only an active account can reset its password"
+            );
+        }
+
+        if (oldPassword == null || oldPassword.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is required"
+            );
+        }
+
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is incorrect"
             );
         }
 
