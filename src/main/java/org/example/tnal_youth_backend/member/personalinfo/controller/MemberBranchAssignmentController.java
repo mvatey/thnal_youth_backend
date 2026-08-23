@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.member.personalinfo.dto.request.AssignMemberBranchRequest;
+import org.example.tnal_youth_backend.member.personalinfo.dto.request.AssignMemberBranchesRequest;
 import org.example.tnal_youth_backend.member.personalinfo.dto.response.MemberPersonalInfoResponse;
 import org.example.tnal_youth_backend.member.personalinfo.service.MemberBranchAssignmentService;
 import org.example.tnal_youth_backend.member.personalinfo.service.MemberPersonalInfoService;
@@ -64,6 +65,28 @@ public class MemberBranchAssignmentController {
                         .getPersonalInfo(
                                 memberId
                         )
+        );
+    }
+
+    @PutMapping
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberPersonalInfoResponse>
+    replaceBranches(
+            @PathVariable Long memberId,
+            @Valid @RequestBody AssignMemberBranchesRequest request
+    ) {
+        memberBranchAssignmentService.replaceBranches(
+                memberId,
+                request.branchIds()
+        );
+
+        return ResponseEntity.ok(
+                memberPersonalInfoService.getPersonalInfo(memberId)
         );
     }
 

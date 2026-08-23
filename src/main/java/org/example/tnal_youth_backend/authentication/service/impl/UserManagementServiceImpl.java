@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
 import org.example.tnal_youth_backend.authentication.model.request.CreateUserRequest;
+import org.example.tnal_youth_backend.authentication.model.request.UpdateUserRequest;
 import org.example.tnal_youth_backend.authentication.model.response.UserListItemResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserSummaryResponse;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
@@ -207,17 +208,19 @@ public class UserManagementServiceImpl
             );
         }
 
-        String unusablePasswordHash =
-                passwordEncoder.encode(
-                        UUID.randomUUID().toString()
-                );
+        String requestedPassword = request.getPassword();
+
+        String passwordHash =
+                requestedPassword != null && !requestedPassword.isBlank()
+                        ? passwordEncoder.encode(requestedPassword)
+                        : passwordEncoder.encode(UUID.randomUUID().toString());
 
         User user = User.builder()
                 .memberId(null)
                 .branchId(branchId)
                 .phone(phone)
                 .email(email)
-                .passwordHash(unusablePasswordHash)
+                .passwordHash(passwordHash)
                 .role(role)
                 .viewerScope(viewerScope)
                 .status(UserStatus.PENDING_ACTIVATION)
@@ -230,6 +233,86 @@ public class UserManagementServiceImpl
                 )
                 .failedLoginCount(0)
                 .build();
+
+        User saved = userRepository.saveAndFlush(user);
+
+        return toListItem(saved);
+    }
+
+    // =========================================================
+    // UPDATE
+    // =========================================================
+
+    /*
+     * Edits an existing standalone login account (member_id IS NULL).
+     * A member-linked account is edited through the Member Page's own
+     * personal-info flow instead — this deliberately refuses to touch
+     * one, so the two edit paths never race or disagree about
+     * validation rules for the same account.
+     */
+    @Override
+    @Transactional
+    public UserListItemResponse updateUser(
+            Long id,
+            UpdateUserRequest request
+    ) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found with ID: " + id
+                ));
+
+        if (user.getMemberId() != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This account is linked to a member record — edit it "
+                            + "from that member's personal-info page instead"
+            );
+        }
+
+        UserRole role = parseRole(request.getRole());
+        ViewerScope viewerScope = validateViewerScope(role, request.getViewerScope());
+
+        Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
+
+        String phone = request.getPhone().trim();
+
+        if (userRepository.existsByPhoneAndIdNot(phone, id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This phone number is already used by another account"
+            );
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This email is already used by another account"
+            );
+        }
+
+        user.setFullNameKm(request.getFullNameKm().trim());
+        user.setFullNameEn(
+                request.getFullNameEn() != null
+                        && !request.getFullNameEn().isBlank()
+                        ? request.getFullNameEn().trim()
+                        : null
+        );
+        user.setPhone(phone);
+        user.setEmail(email);
+        user.setRole(role);
+        user.setViewerScope(viewerScope);
+        user.setBranchId(branchId);
+
+        String requestedPassword = request.getPassword();
+
+        if (requestedPassword != null && !requestedPassword.isBlank()) {
+            user.setPasswordHash(
+                    passwordEncoder.encode(requestedPassword)
+            );
+        }
 
         User saved = userRepository.saveAndFlush(user);
 

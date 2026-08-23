@@ -49,6 +49,18 @@ public interface ActivityInvitedBranchRepository
             Long branchId
     );
 
+    /*
+     * Every invitation still awaiting a response for one activity — used to
+     * auto-decline them once the activity concludes (see
+     * ActivityServiceImpl#declineStalePendingInvitations), since accepting
+     * an invitation to a completed/cancelled activity makes no sense.
+     */
+    List<ActivityInvitedBranch>
+    findAllByActivity_IdAndInvitationStatus(
+            Long activityId,
+            ActivityInvitationStatus invitationStatus
+    );
+
     Optional<ActivityInvitedBranch>
     findByActivity_IdAndBranch_IdAndInvitationStatus(
             Long activityId,

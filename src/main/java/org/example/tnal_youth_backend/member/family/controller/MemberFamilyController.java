@@ -50,6 +50,7 @@ public class MemberFamilyController {
     @PutMapping
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )

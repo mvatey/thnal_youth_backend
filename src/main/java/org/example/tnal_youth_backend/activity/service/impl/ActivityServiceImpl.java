@@ -308,7 +308,8 @@ public class ActivityServiceImpl implements ActivityService {
                                     branchIds,
                                     List.of(
                                             ActivityInvitationStatus.PENDING,
-                                            ActivityInvitationStatus.ACCEPTED
+                                            ActivityInvitationStatus.ACCEPTED,
+                                            ActivityInvitationStatus.DECLINED
                                     )
                             );
 
@@ -382,14 +383,17 @@ public class ActivityServiceImpl implements ActivityService {
              * PENDING is included too (not just ACCEPTED) so an invitation
              * that hasn't been responded to yet shows up here with an
              * Accept/Decline action, instead of only being reachable via
-             * the notification link. DECLINED/CANCELLED are excluded — the
-             * frontend shows a distinct action per status (see
-             * ActivityListItemResponse.invitationStatus), so only the two
-             * "still relevant" statuses are surfaced. This is deliberately
-             * broader than the explicit-branchId path above, which stays
-             * ACCEPTED-only — recording a donation against an activity your
-             * branch hasn't actually confirmed co-hosting yet doesn't make
-             * sense, so that path is not widened here.
+             * the notification link. DECLINED is also included — a declined
+             * invitation stays visible as a historical row (rendered in red
+             * on the frontend) instead of vanishing from the list, so staff
+             * can still see which invitations they turned down. CANCELLED
+             * (the host withdrawing the invitation) is the one status still
+             * excluded — the frontend shows a distinct action per status
+             * (see ActivityListItemResponse.invitationStatus). This is
+             * deliberately broader than the explicit-branchId path above,
+             * which stays ACCEPTED-only — recording a donation against an
+             * activity your branch hasn't actually confirmed co-hosting yet
+             * doesn't make sense, so that path is not widened here.
              */
             List<ActivityInvitedBranch> invitations =
                     activityInvitedBranchRepository
@@ -397,7 +401,8 @@ public class ActivityServiceImpl implements ActivityService {
                                     branchIds,
                                     List.of(
                                             ActivityInvitationStatus.PENDING,
-                                            ActivityInvitationStatus.ACCEPTED
+                                            ActivityInvitationStatus.ACCEPTED,
+                                            ActivityInvitationStatus.DECLINED
                                     )
                             );
 
@@ -762,6 +767,14 @@ public class ActivityServiceImpl implements ActivityService {
         Activity updatedActivity =
                 activityRepository.save(activity);
 
+        if (activityStatus.getCode() != null
+                && "CANCELLED".equalsIgnoreCase(
+                        activityStatus.getCode()
+                )) {
+
+            declineStalePendingInvitations(updatedActivity);
+        }
+
         ActivityResponse response = activityMapper.toResponse(updatedActivity);
         populateBranchName(response, updatedActivity.getBranchId());
         return response;
@@ -795,8 +808,50 @@ public class ActivityServiceImpl implements ActivityService {
 
         activity.setStatus(completedStatus);
 
+        Activity savedActivity =
+                activityRepository.save(activity);
+
+        declineStalePendingInvitations(savedActivity);
+
         return activityMapper.toResponse(
-                activityRepository.save(activity)
+                savedActivity
+        );
+    }
+
+    /**
+     * Auto-declines every still-PENDING branch invitation once an activity
+     * concludes (COMPLETED or CANCELLED) — accepting an invitation to an
+     * activity that already happened or was called off makes no sense, and
+     * leaving it PENDING would keep showing an actionable Accept/Decline
+     * control (both on the activity list and the invited branch's detail
+     * page banner) for something the invited branch can no longer act on.
+     */
+    private void declineStalePendingInvitations(
+            Activity activity
+    ) {
+        List<ActivityInvitedBranch> pendingInvitations =
+                activityInvitedBranchRepository
+                        .findAllByActivity_IdAndInvitationStatus(
+                                activity.getId(),
+                                ActivityInvitationStatus.PENDING
+                        );
+
+        if (pendingInvitations.isEmpty()) {
+            return;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (ActivityInvitedBranch invitation : pendingInvitations) {
+            invitation.setInvitationStatus(
+                    ActivityInvitationStatus.DECLINED
+            );
+
+            invitation.setRespondedAt(now);
+        }
+
+        activityInvitedBranchRepository.saveAll(
+                pendingInvitations
         );
     }
 

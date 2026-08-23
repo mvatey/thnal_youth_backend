@@ -134,7 +134,7 @@ public class MemberController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SECRETARY','BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     updateMember(
             @PathVariable
@@ -156,7 +156,7 @@ public class MemberController {
             value = "/{id}/profile-photo",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasAnyRole('SECRETARY','BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse> updateProfilePhoto(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file
@@ -189,7 +189,7 @@ public class MemberController {
     }
 
     @PatchMapping("/{id}/profile-photo")
-    @PreAuthorize("hasAnyRole('SECRETARY','BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     updateMemberProfilePhoto(
             @PathVariable Long id,
@@ -209,7 +209,7 @@ public class MemberController {
             value = "/{memberId}/profile-photo",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasAnyRole('SECRETARY','BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberDetailResponse>
     uploadMemberProfilePhoto(
             @PathVariable Long memberId,

@@ -77,6 +77,7 @@ public class MemberPoliticalAffiliationController {
     @PostMapping
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -104,6 +105,7 @@ public class MemberPoliticalAffiliationController {
     @PutMapping("/{affiliationId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -131,6 +133,7 @@ public class MemberPoliticalAffiliationController {
     @DeleteMapping("/{affiliationId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )

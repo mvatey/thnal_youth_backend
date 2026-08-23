@@ -19,6 +19,7 @@ import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillReques
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.service.MyAccountService;
@@ -578,7 +579,14 @@ public class MyAccountController {
      * ==========================================================
      */
 
+    /*
+     * Opened to ADMIN too (the class-level @PreAuthorize above excludes
+     * ADMIN) — a password is a plain account column, not member data, so
+     * there's no reason an admin can't change their own the same way
+     * every other role does. See MyAccountServiceImpl#changeMyPassword.
+     */
     @PatchMapping("/password")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberPasswordStatusResponse>
     changeMyPassword(
             @Valid
@@ -591,6 +599,26 @@ public class MyAccountController {
                                 request
                         )
         );
+    }
+
+    /*
+     * Same reasoning as changeMyPassword above — email is an account
+     * column, so ADMIN (and any standalone secretary/branch-leader/member
+     * account with no linked member record) can change their own here,
+     * where a linked account would instead change it through
+     * personal-info.
+     */
+    @PatchMapping("/email")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void>
+    changeMyEmail(
+            @Valid
+            @RequestBody
+            ChangeMyEmailRequest request
+    ) {
+        myAccountService.changeMyEmail(request);
+
+        return ResponseEntity.noContent().build();
     }
 
     /*

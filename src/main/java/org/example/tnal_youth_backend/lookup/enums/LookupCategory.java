@@ -79,7 +79,7 @@ public enum LookupCategory {
 
     POSITION(
             "positions",
-            "តួនាទី",
+            "តំណែង",
             "Position"
     );
 

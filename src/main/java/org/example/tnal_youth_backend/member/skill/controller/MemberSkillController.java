@@ -49,6 +49,7 @@ public class MemberSkillController {
     @PostMapping
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -74,6 +75,7 @@ public class MemberSkillController {
     @PutMapping("/{skillId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -99,6 +101,7 @@ public class MemberSkillController {
     @DeleteMapping("/{skillId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -124,6 +127,7 @@ public class MemberSkillController {
     )
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )
@@ -148,6 +152,7 @@ public class MemberSkillController {
     @DeleteMapping("/{skillId}/certificate")
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )

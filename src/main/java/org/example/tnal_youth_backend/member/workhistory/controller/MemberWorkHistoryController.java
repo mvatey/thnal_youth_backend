@@ -57,6 +57,7 @@ public class MemberWorkHistoryController {
     @PostMapping
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -88,6 +89,7 @@ public class MemberWorkHistoryController {
     @PutMapping("/{workId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -118,6 +120,7 @@ public class MemberWorkHistoryController {
     @DeleteMapping("/{workId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )

@@ -17,6 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 /*
  * Assigns/removes ADDITIONAL branches for a secretary account — the
  * member's primary/home branch stays driven by members.branch_id and
@@ -167,6 +173,136 @@ public class MemberBranchAssignmentServiceImpl
                 """,
                 params
         );
+    }
+
+    @Override
+    @Transactional
+    public void replaceBranches(
+            Long memberId,
+            List<Long> branchIds
+    ) {
+        if (branchIds == null || branchIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "At least one branch is required"
+            );
+        }
+
+        LinkedHashSet<Long> desiredBranchIds = new LinkedHashSet<>(branchIds);
+        if (desiredBranchIds.size() != branchIds.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Duplicate branch IDs are not allowed"
+            );
+        }
+
+        Member member = requireMember(memberId);
+        requireSecretaryAccount(memberId);
+
+        // Validate every requested destination against the ACTOR's scope.
+        // Admin is unrestricted; Branch Leader is restricted by
+        // StaffBranchScopeService through validateCanAssignBranch().
+        for (Long branchId : desiredBranchIds) {
+            if (branchId == null || branchId <= 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Branch ID must be greater than zero"
+                );
+            }
+
+            memberAccessValidator.validateCanAssignBranch(memberId, branchId);
+
+            if (!branchRepository.existsById(branchId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Branch not found with ID: " + branchId
+                );
+            }
+        }
+
+        /*
+         * Primary-branch rule:
+         * 1. Keep the existing primary branch if it is still selected.
+         * 2. If the secretary had no primary branch, the first selected
+         *    branch becomes primary.
+         * 3. If the old primary was removed, promote the first remaining
+         *    selected branch.
+         */
+        Long currentPrimary = member.getBranchId();
+        Long nextPrimary =
+                currentPrimary != null && desiredBranchIds.contains(currentPrimary)
+                        ? currentPrimary
+                        : desiredBranchIds.iterator().next();
+
+        Long actorId = currentUserId();
+
+        // Make the member's primary branch agree with the selected coverage.
+        if (!nextPrimary.equals(currentPrimary)) {
+            member.setBranchId(nextPrimary);
+            memberRepository.saveAndFlush(member);
+        }
+
+        MapSqlParameterSource commonParams =
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("appointedBy", actorId);
+
+        // End every currently-active SECRETARY assignment that is no longer selected.
+        jdbcTemplate.update(
+                """
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE,
+                    is_primary = FALSE,
+                    updated_at = NOW()
+                WHERE member_id = :memberId
+                  AND position_id = (SELECT id FROM positions WHERE code = 'SECRETARY')
+                  AND ended_on IS NULL
+                  AND branch_id NOT IN (:branchIds)
+                """,
+                new MapSqlParameterSource(commonParams.getValues())
+                        .addValue("branchIds", desiredBranchIds)
+        );
+
+        // Upsert every selected branch. The selected primary is the only primary row.
+        for (Long branchId : desiredBranchIds) {
+            boolean isPrimary = branchId.equals(nextPrimary);
+
+            MapSqlParameterSource params =
+                    new MapSqlParameterSource(commonParams.getValues())
+                            .addValue("branchId", branchId)
+                            .addValue("isPrimary", isPrimary);
+
+            int updated = jdbcTemplate.update(
+                    """
+                    UPDATE branch_staff
+                    SET ended_on = NULL,
+                        is_primary = :isPrimary,
+                        updated_at = NOW(),
+                        appointed_by = :appointedBy
+                    WHERE branch_id = :branchId
+                      AND member_id = :memberId
+                      AND position_id = (SELECT id FROM positions WHERE code = 'SECRETARY')
+                    """,
+                    params
+            );
+
+            if (updated == 0) {
+                jdbcTemplate.update(
+                        """
+                        INSERT INTO branch_staff(
+                            branch_id, member_id, position_id,
+                            started_on, is_primary, appointed_by
+                        )
+                        VALUES (
+                            :branchId, :memberId,
+                            (SELECT id FROM positions WHERE code = 'SECRETARY'),
+                            CURRENT_DATE, :isPrimary, :appointedBy
+                        )
+                        """,
+                        params
+                );
+            }
+        }
     }
 
     @Override

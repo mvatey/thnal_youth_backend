@@ -40,7 +40,7 @@ public class MemberEducationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<MemberEducationResponse>
     create(
             @PathVariable Long memberId,
@@ -60,7 +60,7 @@ public class MemberEducationController {
     }
 
     @PutMapping("/{educationId}")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<MemberEducationResponse>
     update(
             @PathVariable Long memberId,
@@ -80,7 +80,7 @@ public class MemberEducationController {
     }
 
     @DeleteMapping("/{educationId}")
-    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARY', 'BRANCH_LEADER')")
     public ResponseEntity<Void> delete(
             @PathVariable Long memberId,
             @PathVariable Long educationId
@@ -101,6 +101,7 @@ public class MemberEducationController {
     )
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )

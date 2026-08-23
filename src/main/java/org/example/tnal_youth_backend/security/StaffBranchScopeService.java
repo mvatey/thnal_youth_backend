@@ -90,17 +90,28 @@ public class StaffBranchScopeService {
     }
 
     private Set<Long> secretaryBranchIds(User user) {
-        if (user.getMemberId() == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Secretary account is not linked to a member record");
+        LinkedHashSet<Long> branchIds = new LinkedHashSet<>();
+
+        /*
+         * A standalone secretary account (created directly via admin user
+         * management, not linked to a member record) carries its own
+         * branch on users.branch_id — same as branchLeaderBranchId below
+         * already does. Only a member-linked secretary can additionally
+         * cover more branches through branch_staff, since that table is
+         * keyed by member_id.
+         */
+        if (user.getBranchId() != null) {
+            branchIds.add(user.getBranchId());
         }
 
-        LinkedHashSet<Long> branchIds = new LinkedHashSet<>(
-                branchStaffRepository.findActiveBranchIdsByMemberId(user.getMemberId()));
+        if (user.getMemberId() != null) {
+            branchIds.addAll(
+                    branchStaffRepository.findActiveBranchIdsByMemberId(user.getMemberId()));
 
-        memberRepository.findById(user.getMemberId())
-                .map(Member::getBranchId)
-                .ifPresent(branchIds::add);
+            memberRepository.findById(user.getMemberId())
+                    .map(Member::getBranchId)
+                    .ifPresent(branchIds::add);
+        }
 
         if (branchIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

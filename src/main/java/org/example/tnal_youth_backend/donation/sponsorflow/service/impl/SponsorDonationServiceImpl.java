@@ -35,7 +35,6 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
     private static final String DONOR_INDIVIDUAL = "INDIVIDUAL";
     private static final String DONOR_INSTITUTION = "INSTITUTION";
     private static final String DONOR_MEMBER = "MEMBER";
-
     private final SponsorDonationRepository repo;
     private final StaffBranchScopeService staffBranchScopeService;
 

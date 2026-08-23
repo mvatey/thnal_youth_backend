@@ -16,6 +16,7 @@ import org.example.tnal_youth_backend.member.skill.dto.request.MemberSkillReques
 import org.example.tnal_youth_backend.member.skill.dto.response.MemberSkillResponse;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.springframework.web.multipart.MultipartFile;
@@ -172,6 +173,17 @@ public interface MyAccountService {
 
     MemberPasswordStatusResponse changeMyPassword(
             ChangeMyPasswordRequest request
+    );
+
+    /**
+     * Changes the authenticated account's email directly — no OTP, since
+     * this requires being logged in already. Works whether or not the
+     * account is linked to a member record (standalone secretary/branch
+     * leader/member accounts and ADMIN included), since it operates on
+     * the login account's own email column, not a member field.
+     */
+    void changeMyEmail(
+            ChangeMyEmailRequest request
     );
 
     MemberParticipationPageResponse

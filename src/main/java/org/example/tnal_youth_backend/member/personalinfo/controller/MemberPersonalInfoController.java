@@ -189,6 +189,7 @@ public class MemberPersonalInfoController {
     )
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )

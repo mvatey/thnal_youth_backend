@@ -1,5 +1,7 @@
 package org.example.tnal_youth_backend.member.personalinfo.service;
 
+import java.util.List;
+
 /*
  * Manages a SECRETARY's ADDITIONAL branch coverage (branch_staff),
  * separate from the member's primary branch (members.branch_id,
@@ -17,5 +19,16 @@ public interface MemberBranchAssignmentService {
     void removeBranch(
             Long memberId,
             Long branchId
+    );
+
+    /**
+     * Atomically replaces the complete branch coverage of a secretary.
+     * The primary branch is kept when it remains selected; otherwise the
+     * first selected branch becomes primary. A secretary must always have
+     * at least one assigned branch.
+     */
+    void replaceBranches(
+            Long memberId,
+            List<Long> branchIds
     );
 }

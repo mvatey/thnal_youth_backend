@@ -1,6 +1,11 @@
 package org.example.tnal_youth_backend.myaccount.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.education.dto.request.MemberEducationRequest;
 import org.example.tnal_youth_backend.member.education.dto.response.MemberEducationResponse;
 import org.example.tnal_youth_backend.member.education.service.MemberEducationService;
@@ -22,6 +27,7 @@ import org.example.tnal_youth_backend.member.skill.service.MemberSkillService;
 import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkHistoryRequest;
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
 import org.example.tnal_youth_backend.member.workhistory.service.MemberWorkHistoryService;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
@@ -31,9 +37,12 @@ import org.example.tnal_youth_backend.member.family.dto.response.MemberFamilyInf
 import org.example.tnal_youth_backend.member.family.service.MemberFamilyService;
 import org.example.tnal_youth_backend.member.member.dto.response.MemberDetailResponse;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -74,6 +83,35 @@ public class MyAccountServiceImpl
 
     private final MemberParticipationService
             memberParticipationService;
+
+    private final UserRepository userRepository;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    /**
+     * The currently-authenticated login account, freshly loaded from the
+     * database. Used by the password/email self-service methods below,
+     * which operate on the account directly instead of through a member
+     * record — see changeMyPassword/changeMyEmail.
+     */
+    private User getCurrentUserEntity() {
+        var principal = SecurityUtil.getCurrentUser();
+
+        if (principal == null || principal.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Authenticated user was not found"
+                ));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -619,17 +657,144 @@ public class MyAccountServiceImpl
     public MemberPasswordStatusResponse changeMyPassword(
             ChangeMyPasswordRequest request
     ) {
-        Long memberId =
-                currentMemberResolver
-                        .getCurrentMemberId();
+        User currentUser = getCurrentUserEntity();
 
-        return memberPasswordService
-                .changeOwnPassword(
-                        memberId,
-                        request.oldPassword(),
-                        request.newPassword(),
-                        request.confirmPassword()
-                );
+        if (currentUser.getMemberId() != null) {
+            return memberPasswordService
+                    .changeOwnPassword(
+                            currentUser.getMemberId(),
+                            request.oldPassword(),
+                            request.newPassword(),
+                            request.confirmPassword()
+                    );
+        }
+
+        /*
+         * A standalone account (ADMIN, or a secretary/branch-leader/member
+         * account created directly by an admin with no linked member
+         * record) has no memberId to route through
+         * MemberPasswordService, but a password is still a plain column
+         * on this same users row — change it directly, mirroring
+         * MemberPasswordServiceImpl#changeOwnPassword's validation rules.
+         */
+        return changeStandalonePassword(
+                currentUser,
+                request.oldPassword(),
+                request.newPassword(),
+                request.confirmPassword()
+        );
+    }
+
+    private MemberPasswordStatusResponse changeStandalonePassword(
+            User user,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    ) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only an active account can change its password"
+            );
+        }
+
+        if (oldPassword == null || oldPassword.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is required"
+            );
+        }
+
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Old password is incorrect"
+            );
+        }
+
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password is required"
+            );
+        }
+
+        if (newPassword.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must contain at least 6 characters"
+            );
+        }
+
+        if (confirmPassword == null || confirmPassword.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation is required"
+            );
+        }
+
+        if (!newPassword.equals(confirmPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password confirmation does not match"
+            );
+        }
+
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password must be different from the old password"
+            );
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        User savedUser = userRepository.saveAndFlush(user);
+
+        refreshTokenRepository.deleteByUser(savedUser);
+
+        return new MemberPasswordStatusResponse(
+                savedUser.getMemberId(),
+                savedUser.getId(),
+                true,
+                savedUser.getActivatedAt() != null,
+                savedUser.getPhone(),
+                savedUser.getEmail(),
+                savedUser.getRole() != null ? savedUser.getRole().name() : null,
+                savedUser.getStatus() != null ? savedUser.getStatus().name() : null,
+                savedUser.getActivatedAt(),
+                savedUser.getLastLoginAt()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void changeMyEmail(
+            ChangeMyEmailRequest request
+    ) {
+        User currentUser = getCurrentUserEntity();
+
+        String newEmail = request.newEmail().trim().toLowerCase();
+
+        if (newEmail.equalsIgnoreCase(currentUser.getEmail())) {
+            return;
+        }
+
+        if (userRepository.existsByEmailIgnoreCaseAndIdNot(
+                newEmail,
+                currentUser.getId()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This email is already used by another account"
+            );
+        }
+
+        currentUser.setEmail(newEmail);
+
+        userRepository.saveAndFlush(currentUser);
     }
 
     @Override

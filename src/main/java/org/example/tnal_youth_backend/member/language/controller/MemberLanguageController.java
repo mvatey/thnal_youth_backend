@@ -49,6 +49,7 @@ public class MemberLanguageController {
     @PostMapping
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -74,6 +75,7 @@ public class MemberLanguageController {
     @PutMapping("/{languageId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -99,6 +101,7 @@ public class MemberLanguageController {
     @DeleteMapping("/{languageId}")
     @PreAuthorize("""
             hasAnyRole(
+                'ADMIN',
                 'SECRETARY',
                 'BRANCH_LEADER'
             )
@@ -124,6 +127,7 @@ public class MemberLanguageController {
     )
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )
@@ -148,6 +152,7 @@ public class MemberLanguageController {
     @DeleteMapping("/{languageId}/certificate")
     @PreAuthorize("""
         hasAnyRole(
+            'ADMIN',
             'SECRETARY',
             'BRANCH_LEADER'
         )

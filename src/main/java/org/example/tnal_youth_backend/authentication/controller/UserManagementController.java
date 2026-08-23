@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.example.tnal_youth_backend.authentication.model.request.CreateUserRequest;
+import org.example.tnal_youth_backend.authentication.model.request.UpdateUserRequest;
 import org.example.tnal_youth_backend.authentication.model.response.UserListItemResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserSummaryResponse;
 
@@ -113,5 +114,30 @@ public class UserManagementController {
                 .body(
                         userManagementService.createUser(request)
                 );
+    }
+
+
+    /*
+     * ==========================================================
+     * UPDATE USER
+     * ==========================================================
+     *
+     * PUT /api/admin/users/{id}
+     */
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserListItemResponse> updateUser(
+            @PathVariable
+            Long id,
+
+            @Valid
+            @RequestBody
+            UpdateUserRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                userManagementService.updateUser(id, request)
+        );
     }
 }

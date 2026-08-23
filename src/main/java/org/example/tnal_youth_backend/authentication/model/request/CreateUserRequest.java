@@ -16,13 +16,18 @@ import lombok.Setter;
  * The created user's member_id is always left NULL by the service
  * layer. Creating a login here never creates a Member record.
  *
- * No password is collected here. The account is created in
+ * password is optional. When omitted, the account is created in
  * PENDING_ACTIVATION status with an unusable placeholder password
  * hash, the same way MemberServiceImpl provisions member/branch-
- * staff logins — the new user sets their own first password
- * through the existing OTP-based activation flow
- * (/auth/activation/send-otp -> verify-otp -> set-password), which
- * is why email is required here: that's how the OTP is delivered.
+ * staff logins — the new user sets their own first password through
+ * the existing OTP-based activation flow (/auth/activation/send-otp
+ * -> verify-otp -> set-password). When an admin does supply a
+ * password here, it becomes the account's real password hash right
+ * away (so the admin can hand it to the person directly) — the
+ * account still starts PENDING_ACTIVATION and still requires the
+ * same OTP-based activation before it can log in; the person just
+ * already knows what to type at the "set password" step. Email is
+ * required either way: it's how the OTP is delivered.
  */
 @Getter
 @Setter
@@ -58,4 +63,12 @@ public class CreateUserRequest {
 
     /** Required only when role is VIEWER. */
     private String viewerScope;
+
+    /**
+     * Optional. When provided, becomes the account's real password
+     * immediately instead of the usual unusable placeholder — see the
+     * class-level note above.
+     */
+    @Size(min = 6, message = "Password must contain at least 6 characters")
+    private String password;
 }
