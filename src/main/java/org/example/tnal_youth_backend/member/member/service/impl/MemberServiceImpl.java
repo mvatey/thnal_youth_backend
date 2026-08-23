@@ -43,6 +43,7 @@ import org.example.tnal_youth_backend.member.member.repository.MemberDetailSumma
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.member.service.MemberService;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.service.NationalityService;
@@ -156,6 +157,9 @@ public class MemberServiceImpl implements MemberService {
 
     private final MemberAccessValidator
             memberAccessValidator;
+
+    private final StaffBranchScopeService
+            staffBranchScopeService;
 
 
     /*
@@ -333,25 +337,11 @@ public class MemberServiceImpl implements MemberService {
                         ? Set.of(-1L)
                         : accessibleBranchIds;
 
-        if (
-                branchId != null
-                        && !unrestrictedScope
-                        && !accessibleBranchIds
-                        .contains(
-                                branchId
-                        )
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "You do not have permission to access this branch"
-            );
-        }
-
         Page<Object[]> memberPage =
                 memberRepository
                         .findMemberPage(
                                 normalizedSearch,
-                                branchId,
+                                effectiveBranchId,
                                 queryBranchScope,
                                 unrestrictedScope,
                                 statusId,
@@ -1054,7 +1044,7 @@ public class MemberServiceImpl implements MemberService {
 
         MemberMonthlyDonationTotalResponse donationTotal =
                 memberDetailSummaryRepository
-                        .summarizeMonthlyDonationByMemberId(
+                        .summarizeTotalDonationByMemberId(
                                 memberId
                         );
 
@@ -1666,8 +1656,7 @@ public class MemberServiceImpl implements MemberService {
                 getCurrentUser();
 
         UserRole role =
-                currentUser
-                        .getRole();
+                currentUser.getRole();
 
         if (role == null) {
             throw new ResponseStatusException(
@@ -1676,9 +1665,7 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (
-                role == UserRole.ADMIN
-        ) {
+        if (role == UserRole.ADMIN) {
             return;
         }
 
@@ -1688,71 +1675,21 @@ public class MemberServiceImpl implements MemberService {
         ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "You are not allowed to manage members"
+                    "You are not allowed to view members"
             );
         }
 
-        Long currentMemberId =
-                currentUser
-                        .getMemberId();
-
-        if (currentMemberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentMemberId
-                                )
-                );
-
         if (
-                accessibleBranchIds
-                        .isEmpty()
-        ) {
-
-            Member currentMember =
-                    memberRepository
-                            .findById(
-                                    currentMemberId
-                            )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (
-                    currentMember
-                            .getBranchId() != null
-            ) {
-                accessibleBranchIds
-                        .add(
-                                currentMember
-                                        .getBranchId()
-                        );
-            }
-        }
-
-        if (
-                !accessibleBranchIds
-                        .contains(
-                                requestedBranchId
-                        )
+                !staffBranchScopeService
+                        .staffBranchIds(currentUser)
+                        .contains(requestedBranchId)
         ) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "You do not have permission to access this branch"
+                    "You do not have access to this member's branch"
             );
         }
     }
-
 
     private Long resolveMemberListBranchId(
             Long requestedBranchId
@@ -1765,9 +1702,14 @@ public class MemberServiceImpl implements MemberService {
                 currentUser
                         .getRole();
 
-        if (
-                role == UserRole.ADMIN
-        ) {
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        if (role == UserRole.ADMIN) {
             return requestedBranchId;
         }
 
@@ -1781,61 +1723,16 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (
-                currentUser
-                        .getMemberId() == null
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        Member currentMember =
-                memberRepository
-                        .findById(
-                                currentUser
-                                        .getMemberId()
-                        )
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN,
-                                        "Linked member record was not found"
-                                )
-                        );
-
-        Long homeBranchId =
-                currentMember
-                        .getBranchId();
-
         /*
-         * A secretary/branch-leader can be staff of MORE than one branch
-         * (see branch_staff) — not just their own member record's home
-         * branch. This previously only ever checked the home branch here,
-         * which incorrectly forbade a multi-branch staff member from
-         * listing members of their OTHER assigned branch (e.g. from the
-         * activity-donation module's branch picker). Mirrors
-         * validateMemberBranchAccess, which already resolves branch access
-         * this same branch_staff-plus-home-fallback way.
+         * IMPORTANT:
+         * Use the same branch-scope source as Dashboard, lookups, Activity,
+         * Donation, etc. This supports a secretary assigned to multiple
+         * branches and also supports standalone staff accounts whose scope
+         * lives on users.branch_id.
          */
         Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentUser.getMemberId()
-                                )
-                );
-
-        if (homeBranchId != null) {
-            accessibleBranchIds.add(homeBranchId);
-        }
-
-        if (accessibleBranchIds.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your member record is not assigned to a branch"
-            );
-        }
+                staffBranchScopeService
+                        .staffBranchIds(currentUser);
 
         if (requestedBranchId != null) {
             if (!accessibleBranchIds.contains(requestedBranchId)) {
@@ -1849,19 +1746,44 @@ public class MemberServiceImpl implements MemberService {
         }
 
         /*
-         * No explicit branchId requested — default to the home branch
-         * (a single-branch context), same as before. A caller that needs a
-         * specific non-home assigned branch's members must pass branchId
-         * explicitly.
+         * No explicit branch was requested. Prefer the member's home branch
+         * for a linked staff account, then users.branch_id for a standalone
+         * account, then fall back to any accessible branch.
+         *
+         * The frontend normally sends the active sidebar branch explicitly,
+         * so this is only a safe default.
          */
-        if (homeBranchId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your member record is not assigned to a branch"
-            );
+        if (currentUser.getMemberId() != null) {
+            Long homeBranchId =
+                    memberRepository
+                            .findById(currentUser.getMemberId())
+                            .map(Member::getBranchId)
+                            .orElse(null);
+
+            if (
+                    homeBranchId != null
+                            && accessibleBranchIds.contains(homeBranchId)
+            ) {
+                return homeBranchId;
+            }
         }
 
-        return homeBranchId;
+        if (
+                currentUser.getBranchId() != null
+                        && accessibleBranchIds.contains(currentUser.getBranchId())
+        ) {
+            return currentUser.getBranchId();
+        }
+
+        return accessibleBranchIds
+                .stream()
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.FORBIDDEN,
+                                "Your account is not assigned to a branch"
+                        )
+                );
     }
 
 
@@ -2497,12 +2419,8 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        /*
-         * Empty set means unrestricted for ADMIN.
-         */
-        if (
-                role == UserRole.ADMIN
-        ) {
+        /* Empty set means unrestricted for ADMIN. */
+        if (role == UserRole.ADMIN) {
             return Set.of();
         }
 
@@ -2516,54 +2434,11 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        Long currentMemberId =
-                currentUser
-                        .getMemberId();
-
-        if (currentMemberId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Your account is not linked to a member record"
-            );
-        }
-
-        Set<Long> accessibleBranchIds =
-                new LinkedHashSet<>(
-                        branchStaffRepository
-                                .findActiveBranchIdsByMemberId(
-                                        currentMemberId
-                                )
-                );
-
-        if (
-                accessibleBranchIds
-                        .isEmpty()
-        ) {
-
-            Member currentMember =
-                    memberRepository
-                            .findById(
-                                    currentMemberId
-                            )
-                            .orElseThrow(() ->
-                                    new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Linked member record was not found"
-                                    )
-                            );
-
-            if (
-                    currentMember
-                            .getBranchId() != null
-            ) {
-                accessibleBranchIds
-                        .add(
-                                currentMember
-                                        .getBranchId()
-                        );
-            }
-        }
-
-        return accessibleBranchIds;
+        /*
+         * Single source of truth. In particular, a member-linked secretary
+         * receives members.branch_id + every ACTIVE branch_staff assignment.
+         */
+        return staffBranchScopeService
+                .staffBranchIds(currentUser);
     }
 }

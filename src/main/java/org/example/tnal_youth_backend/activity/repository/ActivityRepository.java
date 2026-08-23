@@ -53,6 +53,7 @@ public interface ActivityRepository
                     FROM activity_invited_branches invited_branch
                     WHERE invited_branch.activity_id = activity.id
                       AND invited_branch.branch_id = member.branch_id
+                      AND invited_branch.invitation_status = 'ACCEPTED'
                 )
           )
           AND NOT EXISTS (

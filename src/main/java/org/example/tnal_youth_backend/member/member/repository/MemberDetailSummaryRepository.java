@@ -15,13 +15,10 @@ public interface MemberDetailSummaryRepository {
             COALESCE(SUM(d.amount_khr), 0) AS totalKhr,
             COALESCE(SUM(d.amount_usd), 0) AS totalUsd
         FROM donations d
-        JOIN donation_types dt
-          ON dt.id = d.donation_type_id
-        WHERE UPPER(dt.code) = 'MONTHLY_DONATION'
-          AND d.member_id = #{memberId}
+        WHERE d.member_id = #{memberId}
         """)
     MemberMonthlyDonationTotalResponse
-    summarizeMonthlyDonationByMemberId(
+    summarizeTotalDonationByMemberId(
             @Param("memberId")
             Long memberId
     );

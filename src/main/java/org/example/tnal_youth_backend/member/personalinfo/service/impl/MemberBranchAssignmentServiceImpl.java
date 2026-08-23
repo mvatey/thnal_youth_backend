@@ -96,6 +96,7 @@ public class MemberBranchAssignmentServiceImpl
 
             memberRepository
                     .saveAndFlush(member);
+            synchronizeLinkedUserPrimaryBranch(memberId, branchId);
         }
 
         MapSqlParameterSource params =
@@ -240,6 +241,7 @@ public class MemberBranchAssignmentServiceImpl
         if (!nextPrimary.equals(currentPrimary)) {
             member.setBranchId(nextPrimary);
             memberRepository.saveAndFlush(member);
+            synchronizeLinkedUserPrimaryBranch(memberId, nextPrimary);
         }
 
         MapSqlParameterSource commonParams =
@@ -388,6 +390,7 @@ public class MemberBranchAssignmentServiceImpl
 
             memberRepository
                     .saveAndFlush(member);
+            synchronizeLinkedUserPrimaryBranch(memberId, fallbackBranchId);
         }
 
         jdbcTemplate.update(
@@ -405,6 +408,19 @@ public class MemberBranchAssignmentServiceImpl
                 """,
                 params
         );
+    }
+
+    private void synchronizeLinkedUserPrimaryBranch(
+            Long memberId,
+            Long branchId
+    ) {
+        userRepository.findByMemberId(memberId)
+                .ifPresent(user -> {
+                    if (!java.util.Objects.equals(user.getBranchId(), branchId)) {
+                        user.setBranchId(branchId);
+                        userRepository.saveAndFlush(user);
+                    }
+                });
     }
 
     private User requireSecretaryAccount(

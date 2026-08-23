@@ -93,17 +93,15 @@ public class StaffBranchScopeService {
         LinkedHashSet<Long> branchIds = new LinkedHashSet<>();
 
         /*
-         * A standalone secretary account (created directly via admin user
-         * management, not linked to a member record) carries its own
-         * branch on users.branch_id — same as branchLeaderBranchId below
-         * already does. Only a member-linked secretary can additionally
-         * cover more branches through branch_staff, since that table is
-         * keyed by member_id.
+         * Member-linked secretary:
+         * members.branch_id is the home/primary branch and branch_staff
+         * contains every active additional assignment. Do NOT also trust
+         * users.branch_id here because it can become stale after a member
+         * branch change and would accidentally keep access to an old branch.
+         *
+         * Standalone secretary:
+         * there is no member row, so users.branch_id is the source of truth.
          */
-        if (user.getBranchId() != null) {
-            branchIds.add(user.getBranchId());
-        }
-
         if (user.getMemberId() != null) {
             branchIds.addAll(
                     branchStaffRepository.findActiveBranchIdsByMemberId(user.getMemberId()));
@@ -111,6 +109,8 @@ public class StaffBranchScopeService {
             memberRepository.findById(user.getMemberId())
                     .map(Member::getBranchId)
                     .ifPresent(branchIds::add);
+        } else if (user.getBranchId() != null) {
+            branchIds.add(user.getBranchId());
         }
 
         if (branchIds.isEmpty()) {

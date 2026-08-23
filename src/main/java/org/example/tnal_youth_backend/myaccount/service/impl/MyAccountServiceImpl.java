@@ -659,56 +659,29 @@ public class MyAccountServiceImpl
     ) {
         User currentUser = getCurrentUserEntity();
 
-        if (currentUser.getMemberId() != null) {
-            return memberPasswordService
-                    .changeOwnPassword(
-                            currentUser.getMemberId(),
-                            request.oldPassword(),
-                            request.newPassword(),
-                            request.confirmPassword()
-                    );
-        }
-
-        /*
-         * A standalone account (ADMIN, or a secretary/branch-leader/member
-         * account created directly by an admin with no linked member
-         * record) has no memberId to route through
-         * MemberPasswordService, but a password is still a plain column
-         * on this same users row — change it directly, mirroring
-         * MemberPasswordServiceImpl#changeOwnPassword's validation rules.
-         */
-        return changeStandalonePassword(
+        return resetCurrentUserPassword(
                 currentUser,
-                request.oldPassword(),
                 request.newPassword(),
                 request.confirmPassword()
         );
     }
 
-    private MemberPasswordStatusResponse changeStandalonePassword(
+    private MemberPasswordStatusResponse resetCurrentUserPassword(
             User user,
-            String oldPassword,
             String newPassword,
             String confirmPassword
     ) {
+        if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The account must complete activation before resetting its password"
+            );
+        }
+
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Only an active account can change its password"
-            );
-        }
-
-        if (oldPassword == null || oldPassword.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Old password is required"
-            );
-        }
-
-        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Old password is incorrect"
+                    "Only an active account can reset its password"
             );
         }
 
@@ -743,16 +716,22 @@ public class MyAccountServiceImpl
         if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "New password must be different from the old password"
+                    "New password must be different from the current password"
             );
         }
 
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordHash(
+                passwordEncoder.encode(newPassword)
+        );
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 
         User savedUser = userRepository.saveAndFlush(user);
 
+        /*
+         * Revoke existing refresh tokens after password reset.
+         * The current access token may remain valid until its normal expiry.
+         */
         refreshTokenRepository.deleteByUser(savedUser);
 
         return new MemberPasswordStatusResponse(

@@ -6,13 +6,6 @@ import jakarta.validation.constraints.Size;
 
 public record ChangeMyPasswordRequest(
 
-        @JsonProperty("old_password")
-        @NotBlank(
-                message =
-                        "Old password is required"
-        )
-        String oldPassword,
-
         @JsonProperty("new_password")
         @NotBlank(
                 message =
