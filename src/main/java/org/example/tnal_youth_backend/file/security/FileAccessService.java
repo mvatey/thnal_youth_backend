@@ -1,12 +1,14 @@
 package org.example.tnal_youth_backend.file.security;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,13 @@ import java.util.Set;
  */
 @Service("fileAccess")
 @RequiredArgsConstructor
+@Slf4j
 public class FileAccessService {
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final StaffBranchScopeService staffBranchScopeService;
+    private final ViewerAccessService viewerAccessService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public boolean canRead(Long fileId) {
@@ -47,7 +51,18 @@ public class FileAccessService {
             return false;
         }
 
-        if (user.getRole() == UserRole.ADMIN) {
+        /*
+         * A VIEWER account's real permission level lives in its
+         * viewerScope, not its bare role — same resolution
+         * MemberAccessValidator and StaffBranchScopeService already use.
+         * Without this, a VIEWER scoped as SECRETARY/BRANCH_LEADER/ADMIN
+         * could see a member's/branch's data everywhere else in the app
+         * but hit a hard 403 on every file (photo, certificate, receipt...)
+         * belonging to that same data.
+         */
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(user);
+
+        if (effectiveRole == UserRole.ADMIN) {
             return fileRepository.existsById(fileId);
         }
 
@@ -59,16 +74,17 @@ public class FileAccessService {
             return true;
         }
 
-        if (user.getRole() == UserRole.SECRETARY
-                || user.getRole() == UserRole.BRANCH_LEADER) {
+        if (effectiveRole == UserRole.SECRETARY || effectiveRole == UserRole.BRANCH_LEADER) {
             try {
                 return staffCanRead(fileId, staffBranchScopeService.staffBranchIds(user));
             } catch (RuntimeException exception) {
+                log.warn("FileAccessService.staffCanRead failed for userId={} fileId={}",
+                        userId, fileId, exception);
                 return false;
             }
         }
 
-        return user.getRole() == UserRole.VIEWER && activityMediaExists(fileId);
+        return false;
     }
 
     private boolean memberCanRead(Long fileId, Long memberId) {
@@ -164,10 +180,6 @@ public class FileAccessService {
                     UNION ALL
                     SELECT 1 FROM activity_expenses e JOIN activities a ON a.id = e.activity_id
                     WHERE a.branch_id IN (:branchIds) AND e.receipt_file_id = :fileId
-                    UNION ALL
-                    SELECT 1 FROM branches b
-                    WHERE b.id IN (:branchIds)
-                      AND (b.logo_file_id = :fileId OR b.cover_file_id = :fileId)
                 )
                 """;
 

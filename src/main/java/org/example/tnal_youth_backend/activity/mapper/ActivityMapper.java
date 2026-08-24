@@ -148,6 +148,8 @@ public class ActivityMapper {
                 .startsAt(activity.getStartsAt())
                 .endsAt(activity.getEndsAt())
                 .locationName(activity.getLocationName())
+                .address(activity.getAddress())
+                .provinceId(activity.getProvinceId())
                 .capacity(activity.getCapacity())
                 .build();
     }

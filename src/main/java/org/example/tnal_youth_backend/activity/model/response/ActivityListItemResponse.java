@@ -42,6 +42,14 @@ public class ActivityListItemResponse {
 
     private String locationName;
 
+    private String address;
+
+    private Short provinceId;
+
+    private String provinceNameKm;
+
+    private String provinceNameEn;
+
     private Integer capacity;
 
     /*

@@ -23,6 +23,7 @@ import org.example.tnal_youth_backend.activity.service.ActivityService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.lookup.repository.ProvinceRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -62,6 +63,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
     private final BranchRepository branchRepository;
+    private final ProvinceRepository provinceRepository;
     private final ActivityParticipantRepository activityParticipantRepository;
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
 
@@ -562,6 +564,7 @@ public class ActivityServiceImpl implements ActivityService {
                                     activityMapper.toListItemResponse(activity);
 
                             populateBranchName(item, activity.getBranchId());
+                            populateProvinceName(item, activity.getProvinceId());
 
                             if (ownBranchIdsForMapping != null) {
                                 boolean isOwn =
@@ -1364,6 +1367,20 @@ public class ActivityServiceImpl implements ActivityService {
         branchRepository.findById(branchId).ifPresent(branch -> {
             response.setBranchNameKm(branch.getNameKm());
             response.setBranchNameEn(branch.getNameEn());
+        });
+    }
+
+    private void populateProvinceName(
+            ActivityListItemResponse response,
+            Short provinceId
+    ) {
+        if (response == null || provinceId == null) {
+            return;
+        }
+
+        provinceRepository.findById(provinceId).ifPresent(province -> {
+            response.setProvinceNameKm(province.getNameKm());
+            response.setProvinceNameEn(province.getNameEn());
         });
     }
 

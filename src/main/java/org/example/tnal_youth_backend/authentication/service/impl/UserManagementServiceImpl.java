@@ -80,9 +80,13 @@ public class UserManagementServiceImpl
                 .filter(user -> matchesVisibleStatus(user, "ACTIVE"))
                 .count();
 
-        long inactive = users.stream()
-                .filter(user -> matchesVisibleStatus(user, "INACTIVE"))
-                .count();
+        /*
+         * "Inactive" here means every non-active account, not just the
+         * literal INACTIVE status — otherwise PENDING_ACTIVATION,
+         * SUSPENDED, LOCKED and RESIGNED accounts fell through both cards
+         * uncounted (total didn't equal active + inactive).
+         */
+        long inactive = total - active;
 
         return UserSummaryResponse.builder()
                 .totalUsers(total)
