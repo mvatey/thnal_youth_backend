@@ -4,6 +4,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.account.memberdonation.dto.response.MyDonationResponse;
 import org.example.tnal_youth_backend.account.memberdonation.service.MyDonationService;
+import org.example.tnal_youth_backend.common.response.ApiResponse;
+import org.example.tnal_youth_backend.donation.dto.response.DonationPageResponse;
+import org.example.tnal_youth_backend.donation.service.DonationService;
+import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +25,41 @@ import java.util.List;
 public class MyDonationController {
 
     private final MyDonationService myDonationService;
+    private final DonationService donationService;
+    private final CurrentMemberResolver currentMemberResolver;
+
+
+    /**
+     * Shared source of truth used by My Account donation tabs.
+     *
+     * This deliberately delegates to the same DonationService.list(...) used
+     * by Admin/Secretary/Branch Leader member-profile pages. The member id is
+     * always resolved from the authenticated account, never accepted from the
+     * browser, so My Account can only read its own linked member donations.
+     */
+    @GetMapping("/records")
+    public ResponseEntity<ApiResponse<DonationPageResponse>> getMyDonationRecords(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        Long memberId = currentMemberResolver.getCurrentMemberId();
+
+        DonationPageResponse result = donationService.list(
+                null,
+                null,
+                null,
+                memberId,
+                null,
+                null,
+                null,
+                null,
+                null,
+                page,
+                size
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
 
     /*
      * ==========================================================

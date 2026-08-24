@@ -17,13 +17,6 @@ import org.springframework.web.bind.annotation.*;
         "/api/members/{memberId}/participations"
 )
 @RequiredArgsConstructor
-@PreAuthorize("""
-        hasAnyRole(
-            'ADMIN',
-            'SECRETARY',
-            'BRANCH_LEADER'
-        )
-        """)
 @Tag(
         name = "3.2 Member Page - Participation",
         description = "Manage participation for a selected member"
@@ -43,6 +36,7 @@ public class MemberParticipationController {
      *     &typeId=1
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
     public ResponseEntity<MemberParticipationPageResponse>
     getParticipationsByMemberId(
             @PathVariable
@@ -77,6 +71,7 @@ public class MemberParticipationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberParticipationResponse>
     create(
             @PathVariable
@@ -98,6 +93,7 @@ public class MemberParticipationController {
     }
 
     @PutMapping("/{participationId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<MemberParticipationResponse>
     update(
             @PathVariable
@@ -121,6 +117,7 @@ public class MemberParticipationController {
     }
 
     @DeleteMapping("/{participationId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER')")
     public ResponseEntity<Void> delete(
             @PathVariable
             Long memberId,

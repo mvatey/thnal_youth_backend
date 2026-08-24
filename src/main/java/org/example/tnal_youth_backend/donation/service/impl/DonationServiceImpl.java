@@ -21,6 +21,7 @@ import org.example.tnal_youth_backend.donation.repository.BranchDonationTotalRow
 import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.exchangerate.service.ExchangeRateService;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.security.access.AccessDeniedException;
@@ -98,6 +99,7 @@ public class DonationServiceImpl implements DonationService {
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
     private final ActivityInvitedBranchService activityInvitedBranchService;
     private final StaffBranchScopeService staffBranchScopeService;
+    private final MemberAccessValidator memberAccessValidator;
     private final ExchangeRateService exchangeRateService;
 
     // ===================================================================
@@ -184,7 +186,7 @@ public class DonationServiceImpl implements DonationService {
         int safeSize = Math.clamp(size, 1, 100);
         int safePage = Math.max(page, 0);
         String safeSearch = normalizeSearch(search);
-        Long effectiveBranchId = effectiveBranchFilter(branchId);
+        Long effectiveBranchId = effectiveBranchFilterForRead(branchId, memberId);
 
         List<DonationResponse> items = repo.list(
                 effectiveBranchId, typeId, paymentMethodId, memberId, sponsorId, activityId,
@@ -202,7 +204,7 @@ public class DonationServiceImpl implements DonationService {
                                       Long memberId, Long sponsorId, Long activityId,
                                       OffsetDateTime paidFrom, OffsetDateTime paidTo, String search) {
         return repo.summary(
-                effectiveBranchFilter(branchId), typeId, paymentMethodId, memberId, sponsorId, activityId,
+                effectiveBranchFilterForRead(branchId, memberId), typeId, paymentMethodId, memberId, sponsorId, activityId,
                 paidFrom, paidTo, normalizeSearch(search));
     }
 
@@ -554,6 +556,25 @@ public class DonationServiceImpl implements DonationService {
                     "This branch is outside your permitted scope"
             );
         }
+    }
+
+    /**
+     * A member-profile donation read is already narrowed by donations.member_id.
+     * Validate that the current account may view that member, then do not add
+     * a separate branch filter. This keeps Admin/Secretary/Branch Leader/Viewer
+     * profile reads consistent and lets a normal MEMBER read only their own data
+     * through the My Account endpoint that delegates to this service.
+     */
+    private Long effectiveBranchFilterForRead(
+            Long requestedBranchId,
+            Long memberId
+    ) {
+        if (memberId != null) {
+            memberAccessValidator.validateAccessibleMember(memberId);
+            return null;
+        }
+
+        return effectiveBranchFilter(requestedBranchId);
     }
 
     private Long effectiveBranchFilter(Long requestedBranchId) {
