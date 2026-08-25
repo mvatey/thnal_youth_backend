@@ -24,7 +24,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/lookups")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(
         name = "A. Variable Administration",
         description = "Manage configurable lookup variables"
@@ -41,8 +40,13 @@ public class AdminLookupController {
      * ==========================================================
      *
      * GET /api/admin/lookups/categories
+     *
+     * A VIEWER scoped as ADMIN may read variable data even though they
+     * cannot edit it — the service layer still rejects any other
+     * effective role (viewer/secretary, viewer/branch_leader, viewer/member).
      */
 
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     @GetMapping("/categories")
     public ResponseEntity<
             List<LookupCategoryResponse>
@@ -70,6 +74,7 @@ public class AdminLookupController {
      *      &status=ACTIVE
      */
 
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
     @GetMapping("/{category}")
     public ResponseEntity<
             List<AdminLookupResponse>
@@ -108,6 +113,7 @@ public class AdminLookupController {
      * POST /api/admin/lookups/activity-types
      */
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{category}")
     public ResponseEntity<
             AdminLookupResponse
@@ -143,6 +149,7 @@ public class AdminLookupController {
      * PUT /api/admin/lookups/activity-types/1
      */
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(
             "/{category}/{id}"
     )
@@ -180,6 +187,7 @@ public class AdminLookupController {
      * PATCH /api/admin/lookups/activity-types/1/status
      */
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping(
             "/{category}/{id}/status"
     )

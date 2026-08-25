@@ -2,6 +2,11 @@ package org.example.tnal_youth_backend.lookup.service.impl;
 
 import lombok.RequiredArgsConstructor;
 
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
+
 import org.example.tnal_youth_backend.activity.model.entity.ActivitySector;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityType;
 import org.example.tnal_youth_backend.activity.repository.ActivitySectorRepository;
@@ -53,6 +58,7 @@ import org.example.tnal_youth_backend.member.skill.entity.Skill;
 import org.example.tnal_youth_backend.member.skill.repository.SkillRepository;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -108,6 +114,9 @@ public class AdminLookupServiceImpl
     private final PoliticalPartyRepository
             politicalPartyRepository;
 
+    private final ViewerAccessService
+            viewerAccessService;
+
     private static final java.util.Set<String> PAYMENT_METHOD_CATEGORIES =
             java.util.Set.of("CASH", "BANK", "OTHER");
 
@@ -125,6 +134,8 @@ public class AdminLookupServiceImpl
     @Transactional(readOnly = true)
     public List<LookupCategoryResponse>
     getCategories() {
+
+        requireAdminReadAccess();
 
         return List.of(
                 categoryResponse(
@@ -214,6 +225,8 @@ public class AdminLookupServiceImpl
             String search,
             String status
     ) {
+
+        requireAdminReadAccess();
 
         LookupCategory resolvedCategory =
                 resolveCategory(
@@ -2212,6 +2225,32 @@ public class AdminLookupServiceImpl
                 )
                 .orElse(0)
                 + 1;
+    }
+
+
+    /*
+     * ==========================================================
+     * ADMIN READ ACCESS
+     * ==========================================================
+     *
+     * The controller already lets ADMIN and VIEWER through; a VIEWER's
+     * real permission level lives in its viewerScope (effectiveReadRole),
+     * not its bare role. Variable/lookup management is admin-only data,
+     * so only a real ADMIN or a VIEWER scoped as ADMIN may read it here —
+     * viewer/secretary, viewer/branch_leader, and viewer/member are still
+     * rejected, matching the write endpoints staying admin-only.
+     */
+
+    private void requireAdminReadAccess() {
+
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole != UserRole.ADMIN) {
+            throw new AccessDeniedException(
+                    "You do not have permission to perform this action"
+            );
+        }
     }
 
 
