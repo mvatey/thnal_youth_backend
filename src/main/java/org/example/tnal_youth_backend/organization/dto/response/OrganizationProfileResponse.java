@@ -20,6 +20,18 @@ public record OrganizationProfileResponse(
         @JsonProperty("tagline_en")
         String taglineEn,
 
+        @JsonProperty("hero_headline_km")
+        String heroHeadlineKm,
+
+        @JsonProperty("hero_headline_en")
+        String heroHeadlineEn,
+
+        @JsonProperty("hero_description_km")
+        String heroDescriptionKm,
+
+        @JsonProperty("hero_description_en")
+        String heroDescriptionEn,
+
         @JsonProperty("about_km")
         String aboutKm,
 
@@ -65,6 +77,10 @@ public record OrganizationProfileResponse(
                 profile.getNameEn(),
                 profile.getTaglineKm(),
                 profile.getTaglineEn(),
+                profile.getHeroHeadlineKm(),
+                profile.getHeroHeadlineEn(),
+                profile.getHeroDescriptionKm(),
+                profile.getHeroDescriptionEn(),
                 profile.getAboutKm(),
                 profile.getAboutEn(),
                 profile.getAddress(),

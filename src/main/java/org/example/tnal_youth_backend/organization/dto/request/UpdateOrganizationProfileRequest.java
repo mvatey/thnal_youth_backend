@@ -22,6 +22,20 @@ public record UpdateOrganizationProfileRequest(
         @Size(max = 255, message = "Organization English subtitle must not exceed 255 characters")
         String taglineEn,
 
+        @JsonProperty("hero_headline_km")
+        @Size(max = 255, message = "Khmer hero headline must not exceed 255 characters")
+        String heroHeadlineKm,
+
+        @JsonProperty("hero_headline_en")
+        @Size(max = 255, message = "English hero headline must not exceed 255 characters")
+        String heroHeadlineEn,
+
+        @JsonProperty("hero_description_km")
+        String heroDescriptionKm,
+
+        @JsonProperty("hero_description_en")
+        String heroDescriptionEn,
+
         @JsonProperty("about_km")
         String aboutKm,
 

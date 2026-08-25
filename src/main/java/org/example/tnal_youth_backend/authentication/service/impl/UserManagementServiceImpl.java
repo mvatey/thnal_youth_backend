@@ -20,10 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /*
@@ -186,13 +186,11 @@ public class UserManagementServiceImpl
     // =========================================================
 
     /*
-     * No password is collected here. This mirrors how
-     * MemberServiceImpl provisions member/branch-staff logins:
-     * the account is created PENDING_ACTIVATION with an unusable
-     * placeholder password hash, and the new user sets their own
-     * first password through the existing OTP activation flow
-     * (send-otp -> verify-otp -> set-password), which is why an
-     * email is required — that's the OTP delivery channel.
+     * The admin supplies the password directly, so the account is
+     * created ACTIVE right away — no OTP-based activation. That flow
+     * stays reserved for member-linked accounts (see
+     * MemberServiceImpl.createPendingUserAccount), where the person
+     * setting up the login isn't the one creating it here.
      */
     @Override
     @Transactional
@@ -222,12 +220,9 @@ public class UserManagementServiceImpl
             );
         }
 
-        String requestedPassword = request.getPassword();
+        String passwordHash = passwordEncoder.encode(request.getPassword());
 
-        String passwordHash =
-                requestedPassword != null && !requestedPassword.isBlank()
-                        ? passwordEncoder.encode(requestedPassword)
-                        : passwordEncoder.encode(UUID.randomUUID().toString());
+        OffsetDateTime now = OffsetDateTime.now();
 
         User user = User.builder()
                 .memberId(null)
@@ -237,7 +232,8 @@ public class UserManagementServiceImpl
                 .passwordHash(passwordHash)
                 .role(role)
                 .viewerScope(viewerScope)
-                .status(UserStatus.PENDING_ACTIVATION)
+                .status(UserStatus.ACTIVE)
+                .activatedAt(now)
                 .fullNameKm(request.getFullNameKm().trim())
                 .fullNameEn(
                         request.getFullNameEn() != null

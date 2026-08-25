@@ -36,6 +36,18 @@ public class OrganizationProfile {
     @Column(name = "tagline_en", length = 255)
     private String taglineEn;
 
+    @Column(name = "hero_headline_km", length = 255)
+    private String heroHeadlineKm;
+
+    @Column(name = "hero_headline_en", length = 255)
+    private String heroHeadlineEn;
+
+    @Column(name = "hero_description_km", columnDefinition = "TEXT")
+    private String heroDescriptionKm;
+
+    @Column(name = "hero_description_en", columnDefinition = "TEXT")
+    private String heroDescriptionEn;
+
     @Column(name = "about_km", columnDefinition = "TEXT")
     private String aboutKm;
 

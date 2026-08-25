@@ -16,18 +16,15 @@ import lombok.Setter;
  * The created user's member_id is always left NULL by the service
  * layer. Creating a login here never creates a Member record.
  *
- * password is optional. When omitted, the account is created in
- * PENDING_ACTIVATION status with an unusable placeholder password
- * hash, the same way MemberServiceImpl provisions member/branch-
- * staff logins — the new user sets their own first password through
- * the existing OTP-based activation flow (/auth/activation/send-otp
- * -> verify-otp -> set-password). When an admin does supply a
- * password here, it becomes the account's real password hash right
- * away (so the admin can hand it to the person directly) — the
- * account still starts PENDING_ACTIVATION and still requires the
- * same OTP-based activation before it can log in; the person just
- * already knows what to type at the "set password" step. Email is
- * required either way: it's how the OTP is delivered.
+ * password is required and becomes the account's real password hash
+ * immediately — the account is created ACTIVE and can log in right
+ * away with phone/email + this password. Unlike member-linked
+ * accounts (see MemberServiceImpl.createPendingUserAccount), a
+ * standalone account created here never goes through OTP-based
+ * activation: the admin already knows the password, so there's
+ * nothing left to verify. OTP activation stays reserved for accounts
+ * with a memberId, where the person setting up the account is not
+ * the admin.
  */
 @Getter
 @Setter
@@ -65,10 +62,10 @@ public class CreateUserRequest {
     private String viewerScope;
 
     /**
-     * Optional. When provided, becomes the account's real password
-     * immediately instead of the usual unusable placeholder — see the
-     * class-level note above.
+     * Required — becomes the account's real password immediately.
+     * See the class-level note above.
      */
+    @NotBlank(message = "Password is required")
     @Size(min = 6, message = "Password must contain at least 6 characters")
     private String password;
 }

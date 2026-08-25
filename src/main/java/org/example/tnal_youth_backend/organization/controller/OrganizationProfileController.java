@@ -44,6 +44,10 @@ public class OrganizationProfileController {
         profile.setNameEn(clean(request.nameEn()));
         profile.setTaglineKm(clean(request.taglineKm()));
         profile.setTaglineEn(clean(request.taglineEn()));
+        profile.setHeroHeadlineKm(clean(request.heroHeadlineKm()));
+        profile.setHeroHeadlineEn(clean(request.heroHeadlineEn()));
+        profile.setHeroDescriptionKm(clean(request.heroDescriptionKm()));
+        profile.setHeroDescriptionEn(clean(request.heroDescriptionEn()));
         profile.setAboutKm(clean(request.aboutKm()));
         profile.setAboutEn(clean(request.aboutEn()));
         profile.setAddress(clean(request.address()));
@@ -78,6 +82,12 @@ public class OrganizationProfileController {
                     profile.setId(SINGLE_PROFILE_ID);
                     profile.setNameKm("សមាគមថ្នាលយុវជនកម្ពុជា");
                     profile.setNameEn("Cambodian Youth Nursery Association");
+                    profile.setTaglineKm("ការគ្រប់គ្រងប្រព័ន្ធយុវជន");
+                    profile.setTaglineEn("Youth management system");
+                    profile.setHeroHeadlineKm("សមាជិក · សកម្មភាព · វិភាគទាន");
+                    profile.setHeroHeadlineEn("Members · Activities · Donations");
+                    profile.setHeroDescriptionKm("គ្រប់គ្រងទិន្នន័យសមាជិក ការបង់វិភាគទាន និងសកម្មភាពទាំងនៅទីនេះដោយពួកគេ");
+                    profile.setHeroDescriptionEn("Manage member data, donations, and activities in one place.");
                     return repository.save(profile);
                 });
     }
