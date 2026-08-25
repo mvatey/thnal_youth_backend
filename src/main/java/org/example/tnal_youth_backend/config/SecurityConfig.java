@@ -95,6 +95,16 @@ public class SecurityConfig {
                         .permitAll()
 
                         /*
+                         * Public organization branding used on the login
+                         * screen before a user has an access token.
+                         */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/organization-profile"
+                        )
+                        .permitAll()
+
+                        /*
                          * Current authenticated user.
                          */
                         .requestMatchers(
