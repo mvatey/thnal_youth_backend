@@ -189,21 +189,4 @@ public class FileAccessService {
 
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, parameters, Boolean.class));
     }
-
-    private boolean activityMediaExists(Long fileId) {
-        String sql = """
-                SELECT EXISTS (
-                    SELECT 1 FROM activities a WHERE a.cover_image_id = :fileId
-                    UNION ALL
-                    SELECT 1 FROM activity_photos p WHERE p.file_id = :fileId
-                    UNION ALL
-                    SELECT 1 FROM activity_attachments a WHERE a.file_id = :fileId
-                )
-                """;
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
-                sql,
-                new MapSqlParameterSource("fileId", fileId),
-                Boolean.class
-        ));
-    }
 }
