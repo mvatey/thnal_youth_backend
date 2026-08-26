@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -40,6 +41,8 @@ public class ActivityResponse {
     private OffsetDateTime startsAt;
 
     private OffsetDateTime endsAt;
+
+    private List<ActivityDailyScheduleResponse> dailySchedules;
 
     private Short provinceId;
 

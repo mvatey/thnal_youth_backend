@@ -7,6 +7,7 @@ import org.example.tnal_youth_backend.activity.model.entity.ActivityType;
 import org.example.tnal_youth_backend.activity.model.request.CreateActivityRequest;
 import org.example.tnal_youth_backend.activity.model.response.ActivityListItemResponse;
 import org.example.tnal_youth_backend.activity.model.response.ActivityResponse;
+import org.example.tnal_youth_backend.activity.model.response.ActivityDailyScheduleResponse;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -56,6 +57,8 @@ public class ActivityMapper {
                 .publicActivity(activity.getPublicActivity())
                 .startsAt(activity.getStartsAt())
                 .endsAt(activity.getEndsAt())
+                .dailySchedules(activity.getDailySchedules().stream().map(schedule -> ActivityDailyScheduleResponse.builder()
+                        .scheduleDate(schedule.getScheduleDate()).startsAt(schedule.getStartsAt()).endsAt(schedule.getEndsAt()).build()).toList())
                 .provinceId(activity.getProvinceId())
                 .districtId(activity.getDistrictId())
                 .communeId(activity.getCommuneId())

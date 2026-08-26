@@ -39,6 +39,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
+
 /**
  * Donation recording + reporting service.
  *
@@ -101,6 +106,9 @@ public class DonationServiceImpl implements DonationService {
     private final StaffBranchScopeService staffBranchScopeService;
     private final MemberAccessValidator memberAccessValidator;
     private final ExchangeRateService exchangeRateService;
+
+
+    private final ViewerAccessService viewerAccessService;
 
     // ===================================================================
     // create
@@ -304,10 +312,15 @@ public class DonationServiceImpl implements DonationService {
         // recording a donation (validateActivityDonationBranchEligibility),
         // just checked against the viewer's own branch instead of a
         // request's branchId.
-        String role = SecurityUtils.getCurrentUserRole();
+        User currentUser = SecurityUtil.getCurrentUser();
+
+        UserRole effectiveRole =
+                viewerAccessService.effectiveReadRole(currentUser);
+
         java.util.Set<Long> staffScope =
-                ("SECRETARY".equals(role) || "BRANCH_LEADER".equals(role))
-                        ? staffBranchScopeService.currentStaffBranchIds()
+                (effectiveRole == UserRole.SECRETARY
+                        || effectiveRole == UserRole.BRANCH_LEADER)
+                        ? staffBranchScopeService.staffBranchIds(currentUser)
                         : null;
 
         List<ActivityBranchResponse> eligibleBranches = activityInvitedBranchService
@@ -547,11 +560,18 @@ public class DonationServiceImpl implements DonationService {
      * assigned fails closed with 403 — we will not silently widen their scope.
      */
     private void enforceStaffBranchAccess(Long branchId) {
-        String role = SecurityUtils.getCurrentUserRole();
-        if (!"SECRETARY".equals(role) && !"BRANCH_LEADER".equals(role)) {
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole =
+                viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole != UserRole.SECRETARY
+                && effectiveRole != UserRole.BRANCH_LEADER) {
             return;
         }
-        if (!staffBranchScopeService.currentStaffBranchIds().contains(branchId)) {
+
+        if (!staffBranchScopeService
+                .staffBranchIds(currentUser)
+                .contains(branchId)) {
             throw new AccessDeniedException(
                     "This branch is outside your permitted scope"
             );
@@ -578,26 +598,34 @@ public class DonationServiceImpl implements DonationService {
     }
 
     private Long effectiveBranchFilter(Long requestedBranchId) {
-        String role = SecurityUtils.getCurrentUserRole();
-        if (!"SECRETARY".equals(role) && !"BRANCH_LEADER".equals(role)) {
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole =
+                viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole != UserRole.SECRETARY
+                && effectiveRole != UserRole.BRANCH_LEADER) {
             return requestedBranchId;
         }
 
-        var allowed = staffBranchScopeService.currentStaffBranchIds();
+        var allowedBranches =
+                staffBranchScopeService.staffBranchIds(currentUser);
+
         if (requestedBranchId == null) {
-            if (allowed.size() == 1) {
-                return allowed.iterator().next();
+            if (allowedBranches.size() == 1) {
+                return allowedBranches.iterator().next();
             }
+
             throw new AccessDeniedException(
                     "Select one of your assigned branches"
             );
         }
 
-        if (!allowed.contains(requestedBranchId)) {
+        if (!allowedBranches.contains(requestedBranchId)) {
             throw new AccessDeniedException(
                     "This branch is outside your permitted scope"
             );
         }
+
         return requestedBranchId;
     }
 

@@ -3,6 +3,8 @@ package org.example.tnal_youth_backend.activity.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.mapper.ActivityMapper;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
+import org.example.tnal_youth_backend.activity.model.entity.ActivityDailySchedule;
+import org.example.tnal_youth_backend.activity.model.request.ActivityDailyScheduleRequest;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
 import org.example.tnal_youth_backend.activity.model.entity.ActivitySector;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityStatus;
@@ -40,7 +42,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -110,6 +117,9 @@ public class ActivityServiceImpl implements ActivityService {
 
         Activity savedActivity =
                 activityRepository.save(activity);
+
+        replaceDailySchedules(savedActivity, request.getDailySchedules());
+        savedActivity = activityRepository.save(savedActivity);
 
         ActivityResponse response = activityMapper.toResponse(savedActivity);
         populateBranchName(response, savedActivity.getBranchId());
@@ -734,6 +744,7 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setEndsAt(
                 request.getEndsAt()
         );
+        replaceDailySchedules(activity, request.getDailySchedules());
 
         activity.setProvinceId(
                 request.getProvinceId()
@@ -781,6 +792,86 @@ public class ActivityServiceImpl implements ActivityService {
         ActivityResponse response = activityMapper.toResponse(updatedActivity);
         populateBranchName(response, updatedActivity.getBranchId());
         return response;
+    }
+
+    private void replaceDailySchedules(
+            Activity activity,
+            List<ActivityDailyScheduleRequest> schedules
+    ) {
+        // null means the client did not send this field, so leave the
+        // existing schedules untouched. An explicit empty list means clear
+        // all schedules.
+        if (schedules == null) {
+            return;
+        }
+
+        Map<LocalDate, ActivityDailyScheduleRequest> requestedByDate =
+                new LinkedHashMap<>();
+
+        for (ActivityDailyScheduleRequest item : schedules) {
+            if (item == null
+                    || item.getScheduleDate() == null
+                    || item.getStartsAt() == null
+                    || item.getEndsAt() == null
+                    || !item.getEndsAt().isAfter(item.getStartsAt())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Each daily schedule needs a valid date, start time and end time"
+                );
+            }
+
+            ActivityDailyScheduleRequest previous = requestedByDate.put(
+                    item.getScheduleDate(),
+                    item
+            );
+
+            if (previous != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Only one daily schedule is allowed for each date"
+                );
+            }
+        }
+
+        Map<LocalDate, ActivityDailySchedule> existingByDate =
+                activity.getDailySchedules()
+                        .stream()
+                        .collect(Collectors.toMap(
+                                ActivityDailySchedule::getScheduleDate,
+                                Function.identity(),
+                                (left, right) -> left,
+                                LinkedHashMap::new
+                        ));
+
+        // Remove only schedules that are no longer requested. Keeping rows
+        // that still have the same date and updating them in place avoids a
+        // PostgreSQL unique-constraint conflict on
+        // (activity_id, schedule_date) during Hibernate flush.
+        activity.getDailySchedules().removeIf(existing ->
+                !requestedByDate.containsKey(existing.getScheduleDate())
+        );
+
+        for (Map.Entry<LocalDate, ActivityDailyScheduleRequest> entry
+                : requestedByDate.entrySet()) {
+            LocalDate scheduleDate = entry.getKey();
+            ActivityDailyScheduleRequest request = entry.getValue();
+            ActivityDailySchedule existing = existingByDate.get(scheduleDate);
+
+            if (existing != null) {
+                existing.setStartsAt(request.getStartsAt());
+                existing.setEndsAt(request.getEndsAt());
+                continue;
+            }
+
+            activity.getDailySchedules().add(
+                    ActivityDailySchedule.builder()
+                            .activity(activity)
+                            .scheduleDate(scheduleDate)
+                            .startsAt(request.getStartsAt())
+                            .endsAt(request.getEndsAt())
+                            .build()
+            );
+        }
     }
 
     @Override

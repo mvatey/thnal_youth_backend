@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -38,6 +39,8 @@ public class UpdateActivityRequest {
 
     @NotNull(message = "Activity end time is required")
     private OffsetDateTime endsAt;
+
+    private List<ActivityDailyScheduleRequest> dailySchedules;
 
     private Short provinceId;
 

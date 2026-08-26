@@ -52,6 +52,16 @@ public class FileAccessService {
         }
 
         /*
+         * Organization branding is shared by every signed-in role. It is not
+         * owned by a member or a branch, so it cannot be found by
+         * memberCanRead() or staffCanRead(). This includes both the sidebar
+         * logo and the organization cover image.
+         */
+        if (isOrganizationBrandingFile(fileId)) {
+            return true;
+        }
+
+        /*
          * A VIEWER account's real permission level lives in its
          * viewerScope, not its bare role — same resolution
          * MemberAccessValidator and StaffBranchScopeService already use.
@@ -137,6 +147,22 @@ public class FileAccessService {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, parameters, Boolean.class));
     }
 
+    private boolean isOrganizationBrandingFile(Long fileId) {
+        String sql = """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM organization_profile
+                    WHERE logo_file_id = :fileId
+                       OR cover_file_id = :fileId
+                )
+                """;
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId);
+
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, parameters, Boolean.class));
+    }
+
     private boolean staffCanRead(Long fileId, Set<Long> branchIds) {
         if (branchIds == null || branchIds.isEmpty()) {
             return false;
@@ -164,19 +190,58 @@ public class FileAccessService {
                     LEFT JOIN members m ON m.id = d.member_id
                     LEFT JOIN activities a ON a.id = d.activity_id
                     WHERE d.file_id = :fileId
-                      AND COALESCE(d.branch_id, m.branch_id, a.branch_id) IN (:branchIds)
+                      AND (
+                          COALESCE(d.branch_id, m.branch_id, a.branch_id) IN (:branchIds)
+                          OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = d.activity_id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                          )
+                      )
                     UNION ALL
                     SELECT 1 FROM donations d
                     WHERE d.branch_id IN (:branchIds) AND d.receipt_file_id = :fileId
                     UNION ALL
                     SELECT 1 FROM activities a
-                    WHERE a.branch_id IN (:branchIds) AND a.cover_image_id = :fileId
+                    WHERE a.cover_image_id = :fileId
+                      AND (
+                          a.branch_id IN (:branchIds)
+                          OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                          )
+                      )
                     UNION ALL
                     SELECT 1 FROM activity_photos p JOIN activities a ON a.id = p.activity_id
-                    WHERE a.branch_id IN (:branchIds) AND p.file_id = :fileId
+                    WHERE p.file_id = :fileId
+                      AND (
+                          a.branch_id IN (:branchIds)
+                          OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                          )
+                      )
                     UNION ALL
                     SELECT 1 FROM activity_attachments x JOIN activities a ON a.id = x.activity_id
-                    WHERE a.branch_id IN (:branchIds) AND x.file_id = :fileId
+                    WHERE x.file_id = :fileId
+                      AND (
+                          a.branch_id IN (:branchIds)
+                          OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                          )
+                      )
                     UNION ALL
                     SELECT 1 FROM activity_expenses e JOIN activities a ON a.id = e.activity_id
                     WHERE a.branch_id IN (:branchIds) AND e.receipt_file_id = :fileId
