@@ -781,6 +781,10 @@ public class ActivityServiceImpl implements ActivityService {
                 trimToNull(request.getGoogleMapUrl())
         );
 
+        activity.setCancellationReason(
+                trimToNull(request.getCancellationReason())
+        );
+
         activity.setCapacity(
                 request.getCapacity()
         );
@@ -803,12 +807,18 @@ public class ActivityServiceImpl implements ActivityService {
             // re-saving an already-cancelled activity must not spam every
             // invitee again.
             if (!"CANCELLED".equalsIgnoreCase(previousStatusCode)) {
+                String cancelReason = updatedActivity.getCancellationReason();
+
                 notifyActivityParticipants(
                         updatedActivity,
                         "ACTIVITY_CANCELLED",
                         "កម្មវិធីត្រូវបានលុបចោល",
                         "កម្មវិធី \"" + updatedActivity.getTitleKm()
-                                + "\" ត្រូវបានលុបចោល។"
+                                + "\" ត្រូវបានលុបចោល"
+                                + (cancelReason != null && !cancelReason.isBlank()
+                                        ? " ដោយមូលហេតុ " + cancelReason
+                                        : "")
+                                + "។"
                 );
             }
         } else if ("UPCOMING".equalsIgnoreCase(previousStatusCode)

@@ -93,6 +93,9 @@ public class Activity {
     @Column(name = "google_map_url", columnDefinition = "TEXT")
     private String googleMapUrl;
 
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason;
+
     @Column
     private Integer capacity;
 

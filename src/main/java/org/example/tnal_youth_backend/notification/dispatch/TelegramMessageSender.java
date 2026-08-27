@@ -40,17 +40,23 @@ public class TelegramMessageSender {
             "https://api.telegram.org/bot%s/sendMessage";
 
     private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
+    private static final String ACTIVITY_UPDATED_TYPE_CODE = "ACTIVITY_UPDATED";
+    private static final String ACTIVITY_CANCELLED_TYPE_CODE = "ACTIVITY_CANCELLED";
 
     private final RestTemplate restTemplate;
     private final ActivityRepository activityRepository;
     private final BranchRepository branchRepository;
     private final ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder;
+    private final ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder;
+    private final ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder;
 
     public TelegramMessageSender(
             RestTemplateBuilder restTemplateBuilder,
             ActivityRepository activityRepository,
             BranchRepository branchRepository,
-            ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder
+            ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder,
+            ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder,
+            ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder
     ) {
         this.restTemplate = restTemplateBuilder
                 .connectTimeout(Duration.ofSeconds(5))
@@ -59,6 +65,8 @@ public class TelegramMessageSender {
         this.activityRepository = activityRepository;
         this.branchRepository = branchRepository;
         this.activityInvitationTelegramBuilder = activityInvitationTelegramBuilder;
+        this.activityRescheduledTelegramBuilder = activityRescheduledTelegramBuilder;
+        this.activityCancelledTelegramBuilder = activityCancelledTelegramBuilder;
     }
 
     /**
@@ -73,16 +81,41 @@ public class TelegramMessageSender {
     private String baseUrl;
 
     public void send(User user, NotificationModel notification) {
-        String activityInvitationText = ACTIVITY_INVITATION_TYPE_CODE.equals(notification.getTypeCode())
-                && notification.getActivityId() != null
-                ? buildActivityInvitationText(notification.getActivityId(), user.getFullNameKm())
-                : null;
+        String richText = buildRichText(user, notification);
 
         sendRaw(
                 user.getTelegramChatId(),
-                activityInvitationText != null ? activityInvitationText : buildText(notification),
-                activityInvitationText != null ? "HTML" : "Markdown"
+                richText != null ? richText : buildText(notification),
+                richText != null ? "HTML" : "Markdown"
         );
+    }
+
+    /**
+     * @return the type-specific bilingual HTML message for activity
+     * invitation/reschedule/cancellation notifications, or {@code null} for
+     * every other type (or if the activity can no longer be found) -- the
+     * caller falls back to the plain Markdown message instead.
+     */
+    private String buildRichText(User user, NotificationModel notification) {
+        if (notification.getActivityId() == null) {
+            return null;
+        }
+
+        String typeCode = notification.getTypeCode();
+
+        if (ACTIVITY_INVITATION_TYPE_CODE.equals(typeCode)) {
+            return buildActivityInvitationText(notification.getActivityId(), user.getFullNameKm());
+        }
+
+        if (ACTIVITY_UPDATED_TYPE_CODE.equals(typeCode)) {
+            return buildActivityRescheduledText(notification.getActivityId(), user.getFullNameKm());
+        }
+
+        if (ACTIVITY_CANCELLED_TYPE_CODE.equals(typeCode)) {
+            return buildActivityCancelledText(notification.getActivityId(), user.getFullNameKm());
+        }
+
+        return null;
     }
 
     /**
@@ -133,6 +166,30 @@ public class TelegramMessageSender {
         Branch branch = branchRepository.findById(activity.getBranchId()).orElse(null);
 
         return activityInvitationTelegramBuilder.build(activity, branch, recipientNameKm);
+    }
+
+    private String buildActivityRescheduledText(Long activityId, String recipientNameKm) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+
+        if (activity == null) {
+            return null;
+        }
+
+        Branch branch = branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        return activityRescheduledTelegramBuilder.build(activity, branch, recipientNameKm);
+    }
+
+    private String buildActivityCancelledText(Long activityId, String recipientNameKm) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+
+        if (activity == null) {
+            return null;
+        }
+
+        Branch branch = branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        return activityCancelledTelegramBuilder.build(activity, branch, recipientNameKm);
     }
 
     private String buildText(NotificationModel notification) {

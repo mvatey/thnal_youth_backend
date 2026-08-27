@@ -56,6 +56,8 @@ public class ActivityResponse {
 
     private String googleMapUrl;
 
+    private String cancellationReason;
+
     private Integer capacity;
 
     /** Number of invited members who have actually joined/attended. */

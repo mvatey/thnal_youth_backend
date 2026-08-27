@@ -54,6 +54,14 @@ public class UpdateActivityRequest {
 
     private String googleMapUrl;
 
+    /**
+     * Optional note explaining why the activity was cancelled -- only
+     * meaningful when {@link #statusId} resolves to CANCELLED, but accepted
+     * unconditionally here and left for the service layer to decide what
+     * to do with it.
+     */
+    private String cancellationReason;
+
     @Positive(message = "Capacity must be greater than zero")
     private Integer capacity;
 

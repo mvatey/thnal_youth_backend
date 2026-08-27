@@ -65,6 +65,7 @@ public class ActivityMapper {
                 .locationName(activity.getLocationName())
                 .address(activity.getAddress())
                 .googleMapUrl(activity.getGoogleMapUrl())
+                .cancellationReason(activity.getCancellationReason())
                 .capacity(activity.getCapacity())
                 .coverImageId(activity.getCoverImageId())
                 .createdBy(activity.getCreatedBy())
