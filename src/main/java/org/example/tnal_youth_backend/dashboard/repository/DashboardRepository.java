@@ -124,6 +124,49 @@ public class DashboardRepository {
         return queryCount(sql, parameters);
     }
 
+    public long countAllBranchesBefore(
+            OffsetDateTime exclusiveEnd
+    ) {
+        String sql = """
+                SELECT COUNT(*)
+                FROM branches b
+                WHERE b.created_at < :exclusiveEnd
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue(
+                                "exclusiveEnd",
+                                exclusiveEnd
+                        );
+
+        return queryCount(sql, parameters);
+    }
+
+    public long countBranchesByIdsBefore(
+            Collection<Long> branchIds,
+            OffsetDateTime exclusiveEnd
+    ) {
+        requireBranchIds(branchIds);
+
+        String sql = """
+                SELECT COUNT(*)
+                FROM branches b
+                WHERE b.id IN (:branchIds)
+                  AND b.created_at < :exclusiveEnd
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchIds", branchIds)
+                        .addValue(
+                                "exclusiveEnd",
+                                exclusiveEnd
+                        );
+
+        return queryCount(sql, parameters);
+    }
+
     // =========================================================
     // ACTIVITY SUMMARY
     // =========================================================

@@ -139,6 +139,26 @@ public class DonationServiceImpl implements DonationService {
                 req.getAmountKhr(), req.getAmountUsd(), resolveExchangeRate(req.getAmountKhr(), req.getPaidAt()),
                 req.getPaymentMethodId(), req.getReceiptFileId());
 
+        // ---- one donation per member per (branch, type, activity-or-period) ----
+        // The member-facing UIs (monthly donation table, activity donation
+        // table) are built entirely around ONE editable row per member —
+        // typing a new amount and saving again is meant to overwrite that
+        // member's existing donation, not create a second one. The frontend
+        // already tries to track this itself (it remembers the donationId
+        // from the first save and PUTs on the next one), but that's only a
+        // convention — a race (e.g. a double-click before the first save's
+        // response updates local state) can still slip a second POST through.
+        // Checking here, server-side, closes that gap: a matching donation
+        // gets updated in place instead of a duplicate accumulating.
+        if (req.getMemberId() != null) {
+            Long existingId = repo.findExistingMemberDonationId(
+                    req.getMemberId(), req.getBranchId(), req.getDonationTypeId(),
+                    req.getActivityId(), req.getDonationPeriod());
+            if (existingId != null) {
+                return overwriteExistingMemberDonation(existingId, req, p, actorId);
+            }
+        }
+
         Donation d = Donation.builder()
                 .donationNo(mintDonationNo())
                 .donationTypeId(req.getDonationTypeId())
@@ -503,6 +523,45 @@ public class DonationServiceImpl implements DonationService {
     }
 
     /** Rebuilds a create-result for an idempotent replay of an existing donation. */
+    /**
+     * Folds a create() call into an update of the member's existing donation
+     * for this (branch, type, activity-or-period) instead of inserting a
+     * duplicate row — see the "one donation per member" check in create().
+     * Mirrors update()'s full-replace shape exactly, minus the optimistic-
+     * lock token: this is an internal upsert, not a client-supplied edit, so
+     * last-writer-wins is the right behavior here, same as a plain re-save.
+     */
+    private DonationCreateResultResponse overwriteExistingMemberDonation(
+            Long id, DonationCreateRequest req, Prepared p, Long actorId) {
+
+        Donation d = Donation.builder()
+                .id(id)
+                .donationTypeId(req.getDonationTypeId())
+                .memberId(req.getMemberId())
+                .sponsorId(req.getSponsorId())
+                .donorName(p.donorName())
+                .activityId(req.getActivityId())
+                .branchId(req.getBranchId())
+                .donationPeriod(req.getDonationPeriod())
+                .amountKhr(p.amountKhr())
+                .amountUsd(p.amountUsd())
+                .exchangeRateKhrPerUsd(p.exchangeRate())
+                .totalAmountUsd(p.totalAmountUsd())
+                .paymentMethodId(req.getPaymentMethodId())
+                .paidAt(req.getPaidAt())
+                .paymentReference(normalizeToNull(req.getPaymentReference()))
+                .receiptFileId(req.getReceiptFileId())
+                .note(normalizeToNull(req.getNote()))
+                .updatedBy(actorId)
+                .build();
+
+        int rows = repo.updateDonation(d);
+        if (rows == 0) {
+            throw new BusinessException("DONATION_NOT_FOUND", "Donation " + id + " does not exist");
+        }
+        return buildResult(id);
+    }
+
     private DonationCreateResultResponse buildResult(Long id) {
         DonationResponse d = repo.findById(id);
         if (d == null) {

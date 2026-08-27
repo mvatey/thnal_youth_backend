@@ -63,6 +63,7 @@ public class DashboardServiceImpl implements DashboardService {
         long previousMembers;
 
         long totalBranches;
+        long previousBranches;
 
         long currentActivities;
         long previousActivities;
@@ -107,6 +108,12 @@ public class DashboardServiceImpl implements DashboardService {
              */
             totalBranches =
                     branchRepository.count();
+
+            previousBranches =
+                    dashboardRepository
+                            .countAllBranchesBefore(
+                                    range.selectedMonthStart()
+                            );
 
             currentActivities =
                     dashboardRepository
@@ -171,6 +178,13 @@ public class DashboardServiceImpl implements DashboardService {
                                     branchIds
                             );
 
+            previousBranches =
+                    dashboardRepository
+                            .countBranchesByIdsBefore(
+                                    branchIds,
+                                    range.selectedMonthStart()
+                            );
+
             currentActivities =
                     dashboardRepository
                             .countActivitiesByBranchesBefore(
@@ -229,7 +243,11 @@ public class DashboardServiceImpl implements DashboardService {
                                                 totalBranches
                                         )
                                         .changePercent(
-                                                null
+                                                percentageCalculator
+                                                        .calculate(
+                                                                totalBranches,
+                                                                previousBranches
+                                                        )
                                         )
                                         .build()
                         )

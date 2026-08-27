@@ -233,11 +233,32 @@ public class ActivityParticipantViewService {
                         )
                         .count();
 
+        /*
+         * Attendance is only "wrapped up" once the activity is COMPLETED.
+         * Before that (DRAFT/UPCOMING/ONGOING), a participant who simply
+         * hasn't checked in yet is NOT absent -- only count participants
+         * a staff member has explicitly marked ABSENT. Once COMPLETED,
+         * finalize: everyone who never checked in counts as absent.
+         */
+        boolean completed =
+                activity.getStatus() != null
+                        && "COMPLETED".equals(
+                                activity.getStatus().getCode()
+                        );
+
         long notAttended =
-                Math.max(
-                        0,
-                        total - attended
-                );
+                completed
+                        ? Math.max(0, total - attended)
+                        : participants
+                                .stream()
+                                .filter(
+                                        participant ->
+                                                participant.getAttendanceStatus() != null
+                                                        && "ABSENT".equalsIgnoreCase(
+                                                                participant.getAttendanceStatus().getCode()
+                                                        )
+                                )
+                                .count();
 
         long invitedBranchParticipants =
                 participants

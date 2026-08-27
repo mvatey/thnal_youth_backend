@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityDailySchedule;
 import org.example.tnal_youth_backend.activity.model.request.ActivityDailyScheduleRequest;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityInvitedBranch;
+import org.example.tnal_youth_backend.activity.model.entity.ActivityParticipant;
 import org.example.tnal_youth_backend.activity.model.entity.ActivitySector;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityStatus;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityType;
@@ -31,6 +32,9 @@ import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
+import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -42,17 +46,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -73,6 +74,8 @@ public class ActivityServiceImpl implements ActivityService {
     private final ProvinceRepository provinceRepository;
     private final ActivityParticipantRepository activityParticipantRepository;
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
+    private final NotificationRepo notificationRepo;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -697,6 +700,14 @@ public class ActivityServiceImpl implements ActivityService {
                 currentUserId
         );
 
+        String previousStatusCode =
+                activity.getStatus() != null
+                        ? activity.getStatus().getCode()
+                        : null;
+
+        OffsetDateTime previousStartsAt =
+                activity.getStartsAt();
+
         ActivityType activityType =
                 getActiveActivityType(request.getTypeId());
 
@@ -781,12 +792,41 @@ public class ActivityServiceImpl implements ActivityService {
         Activity updatedActivity =
                 activityRepository.save(activity);
 
-        if (activityStatus.getCode() != null
-                && "CANCELLED".equalsIgnoreCase(
-                        activityStatus.getCode()
-                )) {
+        String newStatusCode = activityStatus.getCode();
+
+        if (newStatusCode != null
+                && "CANCELLED".equalsIgnoreCase(newStatusCode)) {
 
             declineStalePendingInvitations(updatedActivity);
+
+            // Only notify the first time an activity flips to CANCELLED --
+            // re-saving an already-cancelled activity must not spam every
+            // invitee again.
+            if (!"CANCELLED".equalsIgnoreCase(previousStatusCode)) {
+                notifyActivityParticipants(
+                        updatedActivity,
+                        "ACTIVITY_CANCELLED",
+                        "កម្មវិធីត្រូវបានលុបចោល",
+                        "កម្មវិធី \"" + updatedActivity.getTitleKm()
+                                + "\" ត្រូវបានលុបចោល។"
+                );
+            }
+        } else if ("UPCOMING".equalsIgnoreCase(previousStatusCode)
+                && "UPCOMING".equalsIgnoreCase(newStatusCode)
+                && previousStartsAt != null
+                && updatedActivity.getStartsAt() != null
+                && updatedActivity.getStartsAt().isAfter(previousStartsAt)) {
+
+            // Still upcoming, but pushed further out -- let existing
+            // invitees know the date moved so they don't show up expecting
+            // the original schedule.
+            notifyActivityParticipants(
+                    updatedActivity,
+                    "ACTIVITY_UPDATED",
+                    "កាលបរិច្ឆេទកម្មវិធីត្រូវបានផ្លាស់ប្តូរ",
+                    "កាលបរិច្ឆេទកម្មវិធី \"" + updatedActivity.getTitleKm()
+                            + "\" ត្រូវបានផ្លាស់ប្តូរទៅជាកាលបរិច្ឆេទថ្មី។"
+            );
         }
 
         ActivityResponse response = activityMapper.toResponse(updatedActivity);
@@ -910,6 +950,76 @@ public class ActivityServiceImpl implements ActivityService {
         return activityMapper.toResponse(
                 savedActivity
         );
+    }
+
+    /**
+     * Sends an in-app (+ email/Telegram fan-out) notification to every
+     * member currently on this activity's participant roster -- which
+     * already covers both the host branch's own invited members AND any
+     * accepted invited branch's invited members, since both land in the
+     * same {@code activity_participants} table regardless of which branch
+     * added them. Members without a linked user account are silently
+     * skipped, and any notification failure is swallowed so it can never
+     * roll back the activity change that already succeeded.
+     */
+    private void notifyActivityParticipants(
+            Activity activity,
+            String typeCode,
+            String title,
+            String body
+    ) {
+        List<ActivityParticipant> participants =
+                activityParticipantRepository
+                        .findAllByActivity_IdOrderByRegisteredAtDesc(
+                                activity.getId()
+                        );
+
+        if (participants.isEmpty()) {
+            return;
+        }
+
+        List<Long> userIds = new ArrayList<>();
+
+        for (ActivityParticipant participant : participants) {
+            Member member = participant.getMember();
+
+            if (member == null || member.getId() == null) {
+                continue;
+            }
+
+            userRepository
+                    .findByMemberId(member.getId())
+                    .ifPresent(user -> userIds.add(user.getId()));
+        }
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        Short typeId =
+                notificationRepo.findActiveTypeIdByCode(typeCode);
+
+        if (typeId == null) {
+            return;
+        }
+
+        try {
+            NotificationCreateDTO notification = new NotificationCreateDTO();
+            notification.setTypeId(typeId);
+            notification.setTitle(title);
+            notification.setBody(body);
+            notification.setActionUrl("/activity/" + activity.getId());
+            notification.setActivityId(activity.getId());
+            notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
+            notification.setTargetUserIds(userIds);
+
+            notificationService.create(notification);
+        } catch (RuntimeException ignored) {
+            /*
+             * A notification failure must not fail the activity update that
+             * already succeeded and was flushed to the database.
+             */
+        }
     }
 
     /**
@@ -1273,18 +1383,37 @@ public class ActivityServiceImpl implements ActivityService {
         }
 
         userRepository.findById(activity.getCreatedBy())
-                .map(User::getMemberId)
-                .filter(memberId -> memberId != null)
-                .flatMap(memberRepository::findById)
-                .ifPresent(creatorMember -> {
-                    String name = creatorMember.getFullNameKm();
+                .ifPresent(creator -> {
+                    // Prefer the linked member's name/phone (kept in sync with
+                    // the member record), but standalone accounts (no
+                    // memberId -- e.g. ADMIN/SECRETARY created without a
+                    // member profile) have no member to resolve, so fall
+                    // back to the user account's own name/phone instead of
+                    // leaving the frontend to show the raw numeric id.
+                    Member creatorMember =
+                            creator.getMemberId() != null
+                                    ? memberRepository.findById(creator.getMemberId()).orElse(null)
+                                    : null;
+
+                    String name =
+                            creatorMember != null
+                                    ? creatorMember.getFullNameKm()
+                                    : creator.getFullNameKm();
 
                     if (name == null || name.isBlank()) {
-                        name = creatorMember.getFullNameEn();
+                        name =
+                                creatorMember != null
+                                        ? creatorMember.getFullNameEn()
+                                        : creator.getFullNameEn();
                     }
 
+                    String phone =
+                            creatorMember != null
+                                    ? creatorMember.getPhone()
+                                    : creator.getPhone();
+
                     response.setCreatedByName(name);
-                    response.setCreatedByPhone(creatorMember.getPhone());
+                    response.setCreatedByPhone(phone);
                 });
     }
 

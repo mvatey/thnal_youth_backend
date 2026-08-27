@@ -141,6 +141,33 @@ public interface DonationRepository {
     Long findIdByRecorderAndClientRequestId(@Param("recordedBy") Long recordedBy,
                                             @Param("clientRequestId") String clientRequestId);
 
+    /**
+     * A member is only ever meant to have ONE donation for a given
+     * (branch, type, activity-or-period) combination — the UI is built
+     * entirely around editing that single row in place (see
+     * EventDonationDetailForm.js / monthlydonation AddDonationForm.js).
+     * IS NOT DISTINCT FROM is null-safe equality (Postgres): a monthly
+     * donation has activity_id = NULL and a real donation_period, an
+     * activity donation is the reverse, so exactly one of the two NULL
+     * comparisons is the one that actually matters per call.
+     */
+    @Select("""
+        SELECT id
+        FROM donations
+        WHERE member_id = #{memberId}
+          AND branch_id = #{branchId}
+          AND donation_type_id = #{donationTypeId}
+          AND activity_id IS NOT DISTINCT FROM #{activityId}
+          AND donation_period IS NOT DISTINCT FROM #{donationPeriod}
+        ORDER BY id
+        LIMIT 1
+        """)
+    Long findExistingMemberDonationId(@Param("memberId") Long memberId,
+                                       @Param("branchId") Long branchId,
+                                       @Param("donationTypeId") Short donationTypeId,
+                                       @Param("activityId") Long activityId,
+                                       @Param("donationPeriod") java.time.LocalDate donationPeriod);
+
     // ===================== writes =====================
 
     @Insert("""
