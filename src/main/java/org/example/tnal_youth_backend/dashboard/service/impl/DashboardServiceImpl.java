@@ -129,15 +129,13 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentDonations =
                     dashboardRepository
-                            .sumAllDonationsBetween(
-                                    range.selectedMonthStart(),
+                            .sumAllDonationsBefore(
                                     range.nextMonthStart()
                             );
 
             previousDonations =
                     dashboardRepository
-                            .sumAllDonationsBetween(
-                                    range.previousMonthStart(),
+                            .sumAllDonationsBefore(
                                     range.selectedMonthStart()
                             );
 
@@ -201,17 +199,15 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentDonations =
                     dashboardRepository
-                            .sumDonationsByBranchesBetween(
+                            .sumDonationsByBranchesBefore(
                                     branchIds,
-                                    range.selectedMonthStart(),
                                     range.nextMonthStart()
                             );
 
             previousDonations =
                     dashboardRepository
-                            .sumDonationsByBranchesBetween(
+                            .sumDonationsByBranchesBefore(
                                     branchIds,
-                                    range.previousMonthStart(),
                                     range.selectedMonthStart()
                             );
         }
@@ -271,30 +267,17 @@ public class DashboardServiceImpl implements DashboardService {
                         .donations(
                                 DonationMetricResponse
                                         .builder()
-                                        .amountKhr(
-                                                currentDonations
-                                                        .amountKhr()
-                                        )
                                         .amountUsd(
                                                 currentDonations
-                                                        .amountUsd()
+                                                        .totalAmountUsd()
                                         )
-                                        .changePercentKhr(
+                                        .changePercent(
                                                 percentageCalculator
                                                         .calculate(
                                                                 currentDonations
-                                                                        .amountKhr(),
+                                                                        .totalAmountUsd(),
                                                                 previousDonations
-                                                                        .amountKhr()
-                                                        )
-                                        )
-                                        .changePercentUsd(
-                                                percentageCalculator
-                                                        .calculate(
-                                                                currentDonations
-                                                                        .amountUsd(),
-                                                                previousDonations
-                                                                        .amountUsd()
+                                                                        .totalAmountUsd()
                                                         )
                                         )
                                         .build()
@@ -736,15 +719,13 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentDonations =
                     dashboardRepository
-                            .sumAllDonationsBetween(
-                                    range.selectedMonthStart(),
+                            .sumAllDonationsBefore(
                                     range.nextMonthStart()
                             );
 
             previousDonations =
                     dashboardRepository
-                            .sumAllDonationsBetween(
-                                    range.previousMonthStart(),
+                            .sumAllDonationsBefore(
                                     range.selectedMonthStart()
                             );
 
@@ -782,17 +763,15 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentDonations =
                     dashboardRepository
-                            .sumDonationsByBranchesBetween(
+                            .sumDonationsByBranchesBefore(
                                     selectedBranchIds,
-                                    range.selectedMonthStart(),
                                     range.nextMonthStart()
                             );
 
             previousDonations =
                     dashboardRepository
-                            .sumDonationsByBranchesBetween(
+                            .sumDonationsByBranchesBefore(
                                     selectedBranchIds,
-                                    range.previousMonthStart(),
                                     range.selectedMonthStart()
                             );
         }
@@ -818,22 +797,13 @@ public class DashboardServiceImpl implements DashboardService {
                 )
                 .donations(
                         DonationMetricResponse.builder()
-                                .amountKhr(
-                                        currentDonations.amountKhr()
-                                )
                                 .amountUsd(
-                                        currentDonations.amountUsd()
+                                        currentDonations.totalAmountUsd()
                                 )
-                                .changePercentKhr(
+                                .changePercent(
                                         percentageCalculator.calculate(
-                                                currentDonations.amountKhr(),
-                                                previousDonations.amountKhr()
-                                        )
-                                )
-                                .changePercentUsd(
-                                        percentageCalculator.calculate(
-                                                currentDonations.amountUsd(),
-                                                previousDonations.amountUsd()
+                                                currentDonations.totalAmountUsd(),
+                                                previousDonations.totalAmountUsd()
                                         )
                                 )
                                 .build()

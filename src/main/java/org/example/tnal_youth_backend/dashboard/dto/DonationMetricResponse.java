@@ -6,9 +6,7 @@ import java.math.BigDecimal;
 
 @Builder
 public record DonationMetricResponse(
-        BigDecimal amountKhr,
         BigDecimal amountUsd,
-        BigDecimal changePercentKhr,
-        BigDecimal changePercentUsd
+        BigDecimal changePercent
 ) {
 }

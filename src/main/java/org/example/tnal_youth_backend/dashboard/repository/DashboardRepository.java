@@ -218,34 +218,39 @@ public class DashboardRepository {
     // DONATION SUMMARY
     // =========================================================
 
-    public DonationTotals sumAllDonationsBetween(
-            OffsetDateTime startInclusive,
-            OffsetDateTime endExclusive
+    public DonationTotals sumAllDonationsBefore(
+            OffsetDateTime exclusiveEnd
     ) {
+        // Cumulative, same shape as countAllActivitiesBefore() /
+        // countAllActiveMembersBefore() -- the donation card is the
+        // all-time running total as of the selected month, not a
+        // month-only window like the other cards never were either.
+        //
+        // total_amount_usd is the USD-normalised grand total already used
+        // everywhere else in the donation module (branch totals, sponsor
+        // flow, monthly summaries) -- summing amount_khr/amount_usd
+        // separately here would silently drop KHR-only donations from a
+        // USD-only display. It is also already a per-row total, so summing
+        // it directly across every donation type (monthly/activity/sponsor)
+        // in one pass can never double-count: a sponsor donation earmarked
+        // for a specific activity is still exactly one row in this table,
+        // counted once, regardless of which tab (activity or sponsor) also
+        // surfaces it.
         String sql = """
                 SELECT
                     COALESCE(
-                        SUM(d.amount_khr),
+                        SUM(d.total_amount_usd),
                         0
-                    ) AS amount_khr,
-                    COALESCE(
-                        SUM(d.amount_usd),
-                        0
-                    ) AS amount_usd
+                    ) AS total_amount_usd
                 FROM donations d
-                WHERE d.paid_at >= :startInclusive
-                  AND d.paid_at < :endExclusive
+                WHERE d.paid_at < :exclusiveEnd
                 """;
 
         MapSqlParameterSource parameters =
                 new MapSqlParameterSource()
                         .addValue(
-                                "startInclusive",
-                                startInclusive
-                        )
-                        .addValue(
-                                "endExclusive",
-                                endExclusive
+                                "exclusiveEnd",
+                                exclusiveEnd
                         );
 
         return queryDonationTotals(
@@ -254,39 +259,31 @@ public class DashboardRepository {
         );
     }
 
-    public DonationTotals sumDonationsByBranchesBetween(
+    public DonationTotals sumDonationsByBranchesBefore(
             Collection<Long> branchIds,
-            OffsetDateTime startInclusive,
-            OffsetDateTime endExclusive
+            OffsetDateTime exclusiveEnd
     ) {
         requireBranchIds(branchIds);
 
+        // Same cumulative / total_amount_usd rules as
+        // sumAllDonationsBefore() above.
         String sql = """
                 SELECT
                     COALESCE(
-                        SUM(d.amount_khr),
+                        SUM(d.total_amount_usd),
                         0
-                    ) AS amount_khr,
-                    COALESCE(
-                        SUM(d.amount_usd),
-                        0
-                    ) AS amount_usd
+                    ) AS total_amount_usd
                 FROM donations d
                 WHERE d.branch_id IN (:branchIds)
-                  AND d.paid_at >= :startInclusive
-                  AND d.paid_at < :endExclusive
+                  AND d.paid_at < :exclusiveEnd
                 """;
 
         MapSqlParameterSource parameters =
                 new MapSqlParameterSource()
                         .addValue("branchIds", branchIds)
                         .addValue(
-                                "startInclusive",
-                                startInclusive
-                        )
-                        .addValue(
-                                "endExclusive",
-                                endExclusive
+                                "exclusiveEnd",
+                                exclusiveEnd
                         );
 
         return queryDonationTotals(
@@ -601,6 +598,10 @@ public class DashboardRepository {
             OffsetDateTime start,
             OffsetDateTime end
     ) {
+        // Only count participants actually PRESENT -- a participant with no
+        // explicit attendance status yet falls back to checked_in_at, same
+        // rule as ActivityParticipantViewService.isPresent(). This must stay
+        // in sync with that method's definition of "attended".
         String sql = """
                 SELECT
                     EXTRACT(
@@ -610,8 +611,17 @@ public class DashboardRepository {
                 FROM activities a
                 JOIN activity_participants ap
                     ON ap.activity_id = a.id
+                LEFT JOIN attendance_statuses ast
+                    ON ast.id = ap.attendance_status_id
                 WHERE a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND (
+                        ast.code = 'PRESENT'
+                        OR (
+                            ap.attendance_status_id IS NULL
+                            AND ap.checked_in_at IS NOT NULL
+                        )
+                      )
                 GROUP BY month
                 ORDER BY month
                 """;
@@ -636,6 +646,7 @@ public class DashboardRepository {
     ) {
         requireBranchIds(branchIds);
 
+        // Same PRESENT-only rule as findParticipationTrend() above.
         String sql = """
                 SELECT
                     EXTRACT(
@@ -645,9 +656,18 @@ public class DashboardRepository {
                 FROM activities a
                 JOIN activity_participants ap
                     ON ap.activity_id = a.id
+                LEFT JOIN attendance_statuses ast
+                    ON ast.id = ap.attendance_status_id
                 WHERE a.branch_id IN (:branchIds)
                   AND a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND (
+                        ast.code = 'PRESENT'
+                        OR (
+                            ap.attendance_status_id IS NULL
+                            AND ap.checked_in_at IS NOT NULL
+                        )
+                      )
                 GROUP BY month
                 ORDER BY month
                 """;
@@ -700,12 +720,7 @@ public class DashboardRepository {
                                 new DonationTotals(
                                         safeDecimal(
                                                 resultSet.getBigDecimal(
-                                                        "amount_khr"
-                                                )
-                                        ),
-                                        safeDecimal(
-                                                resultSet.getBigDecimal(
-                                                        "amount_usd"
+                                                        "total_amount_usd"
                                                 )
                                         )
                                 )
