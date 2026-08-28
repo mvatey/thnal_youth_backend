@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -241,10 +242,14 @@ public class ActivityParticipantViewService {
          * finalize: everyone who never checked in counts as absent.
          */
         boolean completed =
-                activity.getStatus() != null
-                        && "COMPLETED".equals(
+                (activity.getStatus() != null
+                        && "COMPLETED".equalsIgnoreCase(
                                 activity.getStatus().getCode()
-                        );
+                        ))
+                        || (activity.getEndsAt() != null
+                        && !activity.getEndsAt().isAfter(
+                                OffsetDateTime.now()
+                        ));
 
         long notAttended =
                 completed

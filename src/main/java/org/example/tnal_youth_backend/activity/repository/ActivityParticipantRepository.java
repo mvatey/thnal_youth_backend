@@ -264,9 +264,10 @@ public interface ActivityParticipantRepository
     );
 
     /*
-     * One row per activity containing the two values shown in the activity
-     * table: member_joined / invited. The query is activity-wide so every
-     * role sees the same values.
+     * One row per activity containing the activity attendance ratio shown
+     * in the list and detail: joined / attendance members. The denominator
+     * includes invited members and any extra member staff later marks as
+     * joined (a walk-in), so the ratio matches the attendance cards.
      */
     @Query(
             value = """
@@ -276,11 +277,7 @@ public interface ActivityParticipantRepository
                                       OR ap.checked_in_at IS NOT NULL
                                  THEN 1 ELSE 0
                                END) AS joinedCount,
-                           SUM(CASE
-                                 WHEN ap.registration_source IS NULL
-                                      OR ap.registration_source NOT IN ('WALK_IN', 'SELF_REGISTERED')
-                                 THEN 1 ELSE 0
-                               END) AS invitedCount
+                           COUNT(ap.id) AS invitedCount
                     FROM activity_participants ap
                     LEFT JOIN attendance_statuses ast
                            ON ast.id = ap.attendance_status_id

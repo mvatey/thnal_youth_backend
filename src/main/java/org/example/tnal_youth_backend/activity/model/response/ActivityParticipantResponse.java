@@ -49,6 +49,10 @@ public class ActivityParticipantResponse {
     @JsonProperty("attendance_status_id")
     private Short attendanceStatusId;
 
+    /** PRESENT or ABSENT, returned so every attendance view uses one source. */
+    @JsonProperty("attendance_status")
+    private String attendanceStatus;
+
     @JsonProperty("registration_source")
     private ParticipantRegistrationSource registrationSource;
 

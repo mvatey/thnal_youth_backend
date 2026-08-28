@@ -1,6 +1,8 @@
 package org.example.tnal_youth_backend.activity.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatus;
+import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
 import org.example.tnal_youth_backend.activity.mapper.ActivityMapper;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.model.entity.ActivityDailySchedule;
@@ -66,6 +68,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivityTypeRepository activityTypeRepository;
     private final ActivitySectorRepository activitySectorRepository;
     private final ActivityStatusRepository activityStatusRepository;
+    private final AttendanceStatusRepository attendanceStatusRepository;
     private final ActivityMapper activityMapper;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
@@ -798,6 +801,15 @@ public class ActivityServiceImpl implements ActivityService {
 
         String newStatusCode = activityStatus.getCode();
 
+        /*
+         * A completed activity always has a finalized attendance register.
+         * Re-saving a completed activity is safe: existing PRESENT/ABSENT
+         * choices are preserved, while old unmarked records become ABSENT.
+         */
+        if ("COMPLETED".equalsIgnoreCase(newStatusCode)) {
+            finalizeAttendance(updatedActivity);
+        }
+
         if (newStatusCode != null
                 && "CANCELLED".equalsIgnoreCase(newStatusCode)) {
 
@@ -955,11 +967,74 @@ public class ActivityServiceImpl implements ActivityService {
         Activity savedActivity =
                 activityRepository.save(activity);
 
+        finalizeAttendance(savedActivity);
+
         declineStalePendingInvitations(savedActivity);
 
         return activityMapper.toResponse(
                 savedActivity
         );
+    }
+
+    /**
+     * On completion, make the attendance result explicit for every invited
+     * participant. Existing PRESENT records are preserved. A legacy record
+     * with a check-in but no status is normalized to PRESENT; all other
+     * unmarked participants become ABSENT ("Did not join").
+     */
+    private void finalizeAttendance(
+            Activity activity
+    ) {
+        AttendanceStatus presentStatus =
+                attendanceStatusRepository
+                        .findByCodeIgnoreCase("PRESENT")
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.INTERNAL_SERVER_ERROR,
+                                        "PRESENT attendance status is not configured"
+                                )
+                        );
+
+        AttendanceStatus absentStatus =
+                attendanceStatusRepository
+                        .findByCodeIgnoreCase("ABSENT")
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.INTERNAL_SERVER_ERROR,
+                                        "ABSENT attendance status is not configured"
+                                )
+                        );
+
+        List<ActivityParticipant> participants =
+                activityParticipantRepository
+                        .findAllByActivity_IdOrderByRegisteredAtDesc(
+                                activity.getId()
+                        );
+
+        for (ActivityParticipant participant : participants) {
+            boolean isPresent =
+                    participant.getCheckedInAt() != null
+                            || (participant.getAttendanceStatus() != null
+                            && "PRESENT".equalsIgnoreCase(
+                                    participant.getAttendanceStatus().getCode()
+                            ));
+
+            if (isPresent) {
+                participant.setAttendanceStatusId(
+                        presentStatus.getId()
+                );
+                participant.setCheckedOutAt(null);
+            } else {
+                participant.setAttendanceStatusId(
+                        absentStatus.getId()
+                );
+                participant.setCheckedInAt(null);
+                participant.setCheckedOutAt(null);
+            }
+        }
+
+        activityParticipantRepository.saveAll(participants);
+        activityParticipantRepository.flush();
     }
 
     /**
