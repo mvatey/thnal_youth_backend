@@ -35,7 +35,7 @@ public class FileServiceImpl implements FileService {
             5L * 1024 * 1024;
 
     private static final long MAX_ATTACHMENT_SIZE =
-            20L * 1024 * 1024;
+            50L * 1024 * 1024;
 
     private static final int MAX_FILES_PER_REQUEST = 10;
 
@@ -840,7 +840,7 @@ public class FileServiceImpl implements FileService {
     }
 
     private static final long MAX_DOCUMENT_SIZE =
-            5L * 1024 * 1024;
+            50L * 1024 * 1024;
 
     private static final Set<String> DOCUMENT_TYPES =
             Set.of(
