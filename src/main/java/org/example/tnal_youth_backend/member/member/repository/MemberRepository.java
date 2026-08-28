@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -437,6 +438,100 @@ public interface MemberRepository
             WHERE UPPER(status.code) = 'INACTIVE'
             """)
     long countInactiveMembers();
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countBefore(
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE m.branch_id = :branchId
+                      AND COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countByBranchIdBefore(
+            @Param("branchId") Long branchId,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE UPPER(m.gender) = UPPER(:gender)
+                      AND COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countByGenderBefore(
+            @Param("gender") String gender,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE UPPER(m.gender) = UPPER(:gender)
+                      AND m.branch_id = :branchId
+                      AND COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countByGenderAndBranchIdBefore(
+            @Param("gender") String gender,
+            @Param("branchId") Long branchId,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    JOIN religions r ON r.id = m.religion_id
+                    WHERE UPPER(r.code) = UPPER(:religionCode)
+                      AND COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countByReligionCodeBefore(
+            @Param("religionCode") String religionCode,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    JOIN religions r ON r.id = m.religion_id
+                    WHERE UPPER(r.code) = UPPER(:religionCode)
+                      AND m.branch_id = :branchId
+                      AND COALESCE(m.joined_on, m.created_at::date)
+                          < :exclusiveEndDate
+                    """,
+            nativeQuery = true
+    )
+    long countByReligionCodeAndBranchIdBefore(
+            @Param("religionCode") String religionCode,
+            @Param("branchId") Long branchId,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate
+    );
 
     @Query(
             value = """

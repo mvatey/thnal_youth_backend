@@ -13,6 +13,8 @@ import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 
+import org.example.tnal_youth_backend.dashboard.util.DashboardPercentageCalculator;
+
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
@@ -75,7 +77,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.TemporalAdjusters;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -165,6 +169,9 @@ public class MemberServiceImpl implements MemberService {
     private final ViewerAccessService
             viewerAccessService;
 
+    private final DashboardPercentageCalculator
+            percentageCalculator;
+
 
     /*
      * ==========================================================
@@ -238,12 +245,97 @@ public class MemberServiceImpl implements MemberService {
                                 effectiveBranchId
                         );
 
+        LocalDate currentMonthStart =
+                LocalDate.now()
+                        .with(TemporalAdjusters.firstDayOfMonth());
+
+        long previousTotalMembers =
+                effectiveBranchId == null
+                        ? memberRepository
+                        .countBefore(currentMonthStart)
+                        : memberRepository
+                        .countByBranchIdBefore(
+                                effectiveBranchId,
+                                currentMonthStart
+                        );
+
+        long previousFemaleMembers =
+                effectiveBranchId == null
+                        ? memberRepository
+                        .countByGenderBefore(
+                                Gender.FEMALE.name(),
+                                currentMonthStart
+                        )
+                        : memberRepository
+                        .countByGenderAndBranchIdBefore(
+                                Gender.FEMALE.name(),
+                                effectiveBranchId,
+                                currentMonthStart
+                        );
+
+        long previousMonkMembers =
+                effectiveBranchId == null
+                        ? memberRepository
+                        .countByGenderBefore(
+                                Gender.MONK.name(),
+                                currentMonthStart
+                        )
+                        : memberRepository
+                        .countByGenderAndBranchIdBefore(
+                                Gender.MONK.name(),
+                                effectiveBranchId,
+                                currentMonthStart
+                        );
+
+        long previousBuddhistMembers =
+                effectiveBranchId == null
+                        ? memberRepository
+                        .countByReligionCodeBefore(
+                                BUDDHISM_CODE,
+                                currentMonthStart
+                        )
+                        : memberRepository
+                        .countByReligionCodeAndBranchIdBefore(
+                                BUDDHISM_CODE,
+                                effectiveBranchId,
+                                currentMonthStart
+                        );
+
+        long previousIslamMembers =
+                effectiveBranchId == null
+                        ? memberRepository
+                        .countByReligionCodeBefore(
+                                ISLAM_CODE,
+                                currentMonthStart
+                        )
+                        : memberRepository
+                        .countByReligionCodeAndBranchIdBefore(
+                                ISLAM_CODE,
+                                effectiveBranchId,
+                                currentMonthStart
+                        );
+
         return new MemberSummaryResponse(
                 totalMembers,
+                percentageCalculator.calculate(
+                        totalMembers, previousTotalMembers
+                ),
                 femaleMembers,
+                percentageCalculator.calculate(
+                        femaleMembers, previousFemaleMembers
+                ),
                 monkMembers,
+                percentageCalculator.calculate(
+                        monkMembers, previousMonkMembers
+                ),
                 buddhistMembers,
-                islamMembers
+                percentageCalculator.calculate(
+                        buddhistMembers, previousBuddhistMembers
+                ),
+                islamMembers,
+                percentageCalculator.calculate(
+                        islamMembers, previousIslamMembers
+                )
         );
     }
 
