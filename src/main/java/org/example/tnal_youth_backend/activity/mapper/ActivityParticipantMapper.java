@@ -86,6 +86,11 @@ public class ActivityParticipantMapper {
                 .attendanceStatusId(
                         participant.getAttendanceStatusId()
                 )
+                .attendanceStatus(
+                        participant.getAttendanceStatus() != null
+                                ? participant.getAttendanceStatus().getCode()
+                                : null
+                )
                 .registrationSource(
                         participant.getRegistrationSource()
                 )

@@ -178,6 +178,12 @@ public class DashboardRepository {
                 SELECT COUNT(*)
                 FROM activities a
                 WHERE a.starts_at < :exclusiveEnd
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
@@ -201,6 +207,12 @@ public class DashboardRepository {
                 FROM activities a
                 WHERE a.branch_id IN (:branchIds)
                   AND a.starts_at < :exclusiveEnd
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
@@ -243,7 +255,15 @@ public class DashboardRepository {
                         0
                     ) AS total_amount_usd
                 FROM donations d
+                LEFT JOIN activities donation_activity
+                    ON donation_activity.id = d.activity_id
+                LEFT JOIN activity_statuses donation_activity_status
+                    ON donation_activity_status.id = donation_activity.status_id
                 WHERE d.paid_at < :exclusiveEnd
+                  AND (
+                        d.activity_id IS NULL
+                        OR UPPER(COALESCE(donation_activity_status.code, '')) <> 'CANCELLED'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
@@ -274,8 +294,16 @@ public class DashboardRepository {
                         0
                     ) AS total_amount_usd
                 FROM donations d
+                LEFT JOIN activities donation_activity
+                    ON donation_activity.id = d.activity_id
+                LEFT JOIN activity_statuses donation_activity_status
+                    ON donation_activity_status.id = donation_activity.status_id
                 WHERE d.branch_id IN (:branchIds)
                   AND d.paid_at < :exclusiveEnd
+                  AND (
+                        d.activity_id IS NULL
+                        OR UPPER(COALESCE(donation_activity_status.code, '')) <> 'CANCELLED'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
@@ -535,6 +563,11 @@ public class DashboardRepository {
                     ON at.id = a.type_id
                 WHERE a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                 GROUP BY at.code
                 ORDER BY at.code
                 """;
@@ -569,6 +602,11 @@ public class DashboardRepository {
                 WHERE a.branch_id IN (:branchIds)
                   AND a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                 GROUP BY at.code
                 ORDER BY at.code
                 """;
@@ -615,6 +653,11 @@ public class DashboardRepository {
                     ON ast.id = ap.attendance_status_id
                 WHERE a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                   AND (
                         ast.code = 'PRESENT'
                         OR (
@@ -661,6 +704,11 @@ public class DashboardRepository {
                 WHERE a.branch_id IN (:branchIds)
                   AND a.starts_at >= :start
                   AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
                   AND (
                         ast.code = 'PRESENT'
                         OR (
@@ -820,6 +868,11 @@ public class DashboardRepository {
             FROM activities a
             WHERE a.starts_at >= :startInclusive
               AND a.starts_at < :endExclusive
+              AND NOT EXISTS (
+                    SELECT 1 FROM activity_statuses activity_status
+                    WHERE activity_status.id = a.status_id
+                      AND UPPER(activity_status.code) = 'CANCELLED'
+              )
             """;
 
         MapSqlParameterSource parameters =
@@ -849,6 +902,11 @@ public class DashboardRepository {
             WHERE a.branch_id IN (:branchIds)
               AND a.starts_at >= :startInclusive
               AND a.starts_at < :endExclusive
+              AND NOT EXISTS (
+                    SELECT 1 FROM activity_statuses activity_status
+                    WHERE activity_status.id = a.status_id
+                      AND UPPER(activity_status.code) = 'CANCELLED'
+              )
             """;
 
         MapSqlParameterSource parameters =

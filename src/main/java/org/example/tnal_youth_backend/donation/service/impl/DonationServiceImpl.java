@@ -325,6 +325,13 @@ public class DonationServiceImpl implements DonationService {
     public List<DonationBranchTotalResponse> activityBranchTotals(Long activityId) {
         Long actorId = SecurityUtils.getCurrentUserId();
 
+        // A cancelled activity is retained in Activity history only.  Its
+        // existing donation rows remain auditable, but must not surface in
+        // donation views or totals.
+        if (isCancelledActivity(activityId)) {
+            return List.of();
+        }
+
         // Object-level authz: ADMIN/SECRETARY are org-wide (same as every
         // other read here); a BRANCH_LEADER may only view this if their own
         // branch actually has a stake in the activity — i.e. is the host or
@@ -582,6 +589,10 @@ public class DonationServiceImpl implements DonationService {
      * all, regardless of who is recording it.
      */
     private void validateActivityDonationBranchEligibility(Long activityId, Long branchId) {
+        if (isCancelledActivity(activityId)) {
+            throw new BusinessException("DONATION_ACTIVITY_CANCELLED",
+                    "Donations cannot be recorded for a cancelled activity");
+        }
         if (!isBranchEligibleForActivity(activityId, branchId)) {
             throw new BusinessException("DONATION_BRANCH_NOT_ELIGIBLE",
                     "Branch " + branchId + " is not this activity's host branch and has not "
@@ -611,6 +622,13 @@ public class DonationServiceImpl implements DonationService {
                 .findByActivity_IdAndBranch_IdAndInvitationStatus(
                         activityId, branchId, ActivityInvitationStatus.ACCEPTED)
                 .isPresent();
+    }
+
+    private boolean isCancelledActivity(Long activityId) {
+        return activityRepository.findById(activityId)
+                .map(Activity::getStatus)
+                .map(status -> "CANCELLED".equalsIgnoreCase(status.getCode()))
+                .orElse(false);
     }
 
     /**
