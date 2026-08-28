@@ -10,6 +10,7 @@ import org.example.tnal_youth_backend.donation.dto.response.DonationResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationSummaryResponse;
 import org.example.tnal_youth_backend.donation.entity.Donation;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -460,4 +461,18 @@ public interface DonationRepository {
         GROUP BY n.branch_id
         """)
     List<BranchDonationTotalRow> sumByActivityGroupedByBranch(@Param("activityId") Long activityId);
+
+    /**
+     * All-time USD-normalised donation total for one branch, across every
+     * donation type (monthly/activity/sponsor) -- the same total_amount_usd
+     * convention used everywhere else in this module. Powers the branch
+     * detail page's "total donations" card, which previously had no backend
+     * field at all and was hardcoded to a dash on the frontend.
+     */
+    @Select("""
+        SELECT COALESCE(SUM(d.total_amount_usd), 0)
+        FROM donations d
+        WHERE d.branch_id = #{branchId}
+        """)
+    BigDecimal sumTotalAmountUsdByBranchId(@Param("branchId") Long branchId);
 }

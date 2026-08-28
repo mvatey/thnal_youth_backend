@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.branch.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.Role;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +49,7 @@ public class BranchServiceImpl implements BranchService {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
     private final ActivityRepository activityRepository;
+    private final DonationRepository donationRepository;
     private final StaffBranchScopeService staffBranchScopeService;
     private final ViewerAccessService viewerAccessService;
 
@@ -1164,6 +1167,9 @@ public class BranchServiceImpl implements BranchService {
         long totalActivities =
                 activityRepository.countByBranchId(branchId);
 
+        BigDecimal totalDonationsUsd =
+                donationRepository.sumTotalAmountUsdByBranchId(branchId);
+
         List<BranchLeaderResponse> leaders =
                 memberRepository
                         .findBranchManagementMembers(
@@ -1187,7 +1193,8 @@ public class BranchServiceImpl implements BranchService {
                 branchResponse,
                 new BranchDetailSummaryResponse(
                         totalMembers,
-                        totalActivities
+                        totalActivities,
+                        totalDonationsUsd
                 ),
                 leaders
         );
