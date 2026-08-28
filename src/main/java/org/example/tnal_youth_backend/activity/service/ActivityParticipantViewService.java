@@ -159,6 +159,161 @@ public class ActivityParticipantViewService {
     }
 
     /**
+     * ALL-BRANCHES LIST.
+     *
+     * Unlike {@link #getParticipants}, this is not scoped down to a
+     * single branch — it returns every participant across the host
+     * branch and every ACCEPTED invited branch, so the caller can see
+     * (and client-side filter by) which members of each invited branch
+     * were invited and participated.
+     *
+     * Admin/viewer: same as {@link #getParticipants} (already
+     * unrestricted).
+     *
+     * Branch leader/secretary: only allowed when they staff the
+     * activity's own HOST/organizing branch — an invited branch's
+     * staff still only ever sees their own branch via
+     * {@link #getParticipants}.
+     */
+    @Transactional(readOnly = true)
+    public List<ActivityParticipantResponse>
+    getParticipantsAllBranches(
+            Long activityId,
+            Long currentUserId
+    ) {
+
+        Activity activity =
+                findActivity(
+                        activityId
+                );
+
+        User currentUser =
+                findUser(
+                        currentUserId
+                );
+
+        if (
+                currentUser.getRole()
+                        == UserRole.MEMBER
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Members cannot view "
+                            + "the participant list"
+            );
+        }
+
+        List<ActivityParticipant>
+                allParticipants =
+                participantRepository
+                        .findAllByActivity_IdOrderByRegisteredAtDesc(
+                                activityId
+                        );
+
+        if (
+                currentUser.getRole()
+                        == UserRole.ADMIN
+                        ||
+                        currentUser.getRole()
+                                == UserRole.VIEWER
+        ) {
+
+            return allParticipants
+                    .stream()
+                    .map(
+                            participantMapper
+                                    ::toResponse
+                    )
+                    .toList();
+        }
+
+        if (
+                currentUser.getRole()
+                        != UserRole.BRANCH_LEADER
+                        &&
+                        currentUser.getRole()
+                                != UserRole.SECRETARY
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only activity staff can "
+                            + "view participants"
+            );
+        }
+
+        Long hostBranchId =
+                activity.getBranchId();
+
+        Set<Long> staffBranchIds =
+                resolveStaffBranchIds(
+                        currentUser
+                );
+
+        if (
+                hostBranchId == null
+                        ||
+                        !staffBranchIds.contains(
+                                hostBranchId
+                        )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only the organizing branch "
+                            + "can view all invited "
+                            + "branches' participants"
+            );
+        }
+
+        Set<Long> visibleBranchIds =
+                new LinkedHashSet<>();
+
+        visibleBranchIds.add(
+                hostBranchId
+        );
+
+        invitedBranchRepository
+                .findAllByActivity_IdAndInvitationStatus(
+                        activityId,
+                        ActivityInvitationStatus.ACCEPTED
+                )
+                .forEach(
+                        invitedBranch ->
+                                visibleBranchIds.add(
+                                        invitedBranch
+                                                .getBranch()
+                                                .getId()
+                                )
+                );
+
+        return allParticipants
+                .stream()
+                .filter(
+                        participant -> {
+
+                            Member member =
+                                    participant
+                                            .getMember();
+
+                            return member
+                                    != null
+                                    &&
+                                    visibleBranchIds
+                                            .contains(
+                                                    member.getBranchId()
+                                            );
+                        }
+                )
+                .map(
+                        participantMapper
+                                ::toResponse
+                )
+                .toList();
+    }
+
+    /**
      * GLOBAL SUMMARY.
      *
      * Used by host page for 4 cards:

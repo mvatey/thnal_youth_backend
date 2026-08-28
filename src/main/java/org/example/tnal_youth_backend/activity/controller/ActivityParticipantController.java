@@ -110,6 +110,32 @@ public class ActivityParticipantController {
     }
 
     /*
+     * All-branches participant records (host branch staff, or
+     * admin/viewer) -- see ActivityParticipantViewService.getParticipantsAllBranches.
+     */
+    @GetMapping("/all-branches")
+    public ResponseEntity<
+            List<ActivityParticipantResponse>
+            >
+    getParticipantsAllBranches(
+            @PathVariable
+            Long activityId,
+
+            Authentication authentication
+    ) {
+
+        return ResponseEntity.ok(
+                participantViewService
+                        .getParticipantsAllBranches(
+                                activityId,
+                                getCurrentUserId(
+                                        authentication
+                                )
+                        )
+        );
+    }
+
+    /*
      * Global Activity participant totals.
      */
     @GetMapping("/summary")

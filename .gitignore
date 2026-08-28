@@ -44,6 +44,7 @@ donation_context/
 AGENT.md
 !AGENTS.md
 tnal_youth_db_backup.sql
+/db_backups/
 
 # Runtime user uploads are application data, not source code.
 /uploads/
