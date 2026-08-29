@@ -162,10 +162,9 @@ public class ActivityParticipantViewService {
      * ALL-BRANCHES LIST.
      *
      * Unlike {@link #getParticipants}, this is not scoped down to a
-     * single branch — it returns every participant across the host
-     * branch and every ACCEPTED invited branch, so the caller can see
-     * (and client-side filter by) which members of each invited branch
-     * were invited and participated.
+     * single branch — it returns participants from ACCEPTED invited
+     * branches only. Host-branch participants stay on the main
+     * "My Branch" tab and do not appear in this invited-branches view.
      *
      * Admin/viewer: same as {@link #getParticipants} (already
      * unrestricted).
@@ -211,6 +210,23 @@ public class ActivityParticipantViewService {
                                 activityId
                         );
 
+        Set<Long> invitedBranchIds =
+                new LinkedHashSet<>();
+
+        invitedBranchRepository
+                .findAllByActivity_IdAndInvitationStatus(
+                        activityId,
+                        ActivityInvitationStatus.ACCEPTED
+                )
+                .forEach(
+                        invitedBranch ->
+                                invitedBranchIds.add(
+                                        invitedBranch
+                                                .getBranch()
+                                                .getId()
+                                )
+                );
+
         if (
                 currentUser.getRole()
                         == UserRole.ADMIN
@@ -221,6 +237,13 @@ public class ActivityParticipantViewService {
 
             return allParticipants
                     .stream()
+                    .filter(
+                            participant -> {
+                                Member member = participant.getMember();
+                                return member != null
+                                        && invitedBranchIds.contains(member.getBranchId());
+                            }
+                    )
                     .map(
                             participantMapper
                                     ::toResponse
@@ -267,27 +290,6 @@ public class ActivityParticipantViewService {
             );
         }
 
-        Set<Long> visibleBranchIds =
-                new LinkedHashSet<>();
-
-        visibleBranchIds.add(
-                hostBranchId
-        );
-
-        invitedBranchRepository
-                .findAllByActivity_IdAndInvitationStatus(
-                        activityId,
-                        ActivityInvitationStatus.ACCEPTED
-                )
-                .forEach(
-                        invitedBranch ->
-                                visibleBranchIds.add(
-                                        invitedBranch
-                                                .getBranch()
-                                                .getId()
-                                )
-                );
-
         return allParticipants
                 .stream()
                 .filter(
@@ -300,7 +302,7 @@ public class ActivityParticipantViewService {
                             return member
                                     != null
                                     &&
-                                    visibleBranchIds
+                                    invitedBranchIds
                                             .contains(
                                                     member.getBranchId()
                                             );
