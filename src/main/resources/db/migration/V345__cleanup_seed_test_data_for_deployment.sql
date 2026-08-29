@@ -1,4 +1,4 @@
--- /*
+-- /*z
 --  * One-time deployment-readiness cleanup.
 --  *
 --  * Removes all dev/test seed data inserted by earlier migrations
@@ -72,4 +72,4 @@
 --     'tnal.admin@test.com',
 --     'tnal.vieweradmin@test.com'
 -- );
---
+
