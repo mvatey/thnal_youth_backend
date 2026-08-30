@@ -24,9 +24,14 @@ public class NotificationModel {
     private String typeCode;
     private String title;
     private String body;
+    /** Optional English variants (V347). Null for notifications created before this column existed. */
+    private String titleEn;
+    private String bodyEn;
     private String actionUrl;
     private Long activityId;
     private Long branchId;
+    /** Optional context: the document this notification is about (notifications.document_id, V348). */
+    private Long documentId;
     private Long createdBy;
     /** Optional idempotency key (V22). Passed to SQL as text and cast to uuid. */
     private String clientRequestId;

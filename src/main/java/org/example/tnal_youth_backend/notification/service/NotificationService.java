@@ -71,11 +71,14 @@ public class NotificationService {
                 .typeId(req.getTypeId())
                 .title(req.getTitle())
                 .body(req.getBody())
+                .titleEn(normalizeToNull(req.getTitleEn()))
+                .bodyEn(normalizeToNull(req.getBodyEn()))
                 // Normalise blank to NULL so we never violate chk_notification_action_url
                 // (action_url IS NULL OR BTRIM(action_url) <> '').
                 .actionUrl(normalizeToNull(req.getActionUrl()))
                 .activityId(req.getActivityId())
                 .branchId(req.getBranchId())
+                .documentId(req.getDocumentId())
                 .createdBy(actorId)
                 .clientRequestId(clientRequestId)
                 .build();

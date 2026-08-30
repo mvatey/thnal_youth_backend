@@ -517,6 +517,10 @@ public class ActivityInvitedBranchServiceImpl
             try {
                 NotificationCreateDTO notification =
                         new NotificationCreateDTO();
+                String certActivityTitleEn = activity.getTitleEn() != null && !activity.getTitleEn().isBlank()
+                        ? activity.getTitleEn()
+                        : activity.getTitleKm();
+
                 notification.setTypeId(typeId);
                 notification.setTitle(
                         "វិញ្ញាបនបត្រសម្រាប់សាខារបស់អ្នកបានរួចរាល់"
@@ -527,6 +531,16 @@ public class ActivityInvitedBranchServiceImpl
                                 + activity.getTitleKm()
                                 + "\" បានរួចរាល់ សូមទាក់ទងសាខារៀបចំកម្មវិធី"
                                 + "ដើម្បីទទួល"
+                );
+                notification.setTitleEn(
+                        "Certificates Ready for Your Branch"
+                );
+                notification.setBodyEn(
+                        "Certificates for your branch's members who joined"
+                                + " the activity \""
+                                + certActivityTitleEn
+                                + "\" are ready. Please contact the organizing"
+                                + " branch to collect them."
                 );
                 notification.setActionUrl(
                         "/activity/" + activity.getId()
@@ -764,13 +778,24 @@ public class ActivityInvitedBranchServiceImpl
             // that "a" branch invited them. Best-effort: a missing/deleted
             // host branch falls back to "-" rather than failing the whole
             // notification.
-            String organizerBranchName =
+            Branch organizerBranch =
                     activity.getBranchId() == null
-                            ? "-"
+                            ? null
                             : branchRepository
                                     .findById(activity.getBranchId())
-                                    .map(Branch::getNameKm)
-                                    .orElse("-");
+                                    .orElse(null);
+
+            String organizerBranchName =
+                    organizerBranch != null && organizerBranch.getNameKm() != null
+                            ? organizerBranch.getNameKm()
+                            : "-";
+
+            String organizerBranchNameEn =
+                    organizerBranch != null
+                            && organizerBranch.getNameEn() != null
+                            && !organizerBranch.getNameEn().isBlank()
+                            ? organizerBranch.getNameEn()
+                            : organizerBranchName;
 
             String activityDate =
                     activity.getStartsAt() == null
@@ -779,10 +804,19 @@ public class ActivityInvitedBranchServiceImpl
                                     .atZoneSameInstant(ZoneOffset.ofHours(7))
                                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
+            String venue = activity.getLocationName() != null && !activity.getLocationName().isBlank()
+                    ? activity.getLocationName()
+                    : activity.getAddress();
+
             // Named explicitly (not just "your branch") so the recipient —
             // who may be staff at more than one branch — knows exactly
             // which of their branches this invitation is for.
             String invitedBranchLabel = BranchLabels.withBranchPrefixKm(branch.getNameKm());
+            String invitedBranchLabelEn = BranchLabels.withBranchPrefixEn(branch.getNameEn());
+
+            String activityTitleEn = activity.getTitleEn() != null && !activity.getTitleEn().isBlank()
+                    ? activity.getTitleEn()
+                    : activity.getTitleKm();
 
             StringBuilder body = new StringBuilder()
                     .append("សាខា \"")
@@ -797,9 +831,25 @@ public class ActivityInvitedBranchServiceImpl
                 body.append(" នាថ្ងៃទី ").append(activityDate);
             }
 
-            if (activity.getLocationName() != null
-                    && !activity.getLocationName().isBlank()) {
-                body.append(" ត្រង់ ").append(activity.getLocationName());
+            if (venue != null && !venue.isBlank()) {
+                body.append(" ត្រង់ ").append(venue);
+            }
+
+            StringBuilder bodyEn = new StringBuilder()
+                    .append("Branch \"")
+                    .append(organizerBranchNameEn)
+                    .append("\" has invited ")
+                    .append(invitedBranchLabelEn.isBlank() ? "your branch" : invitedBranchLabelEn)
+                    .append(" to co-host the activity \"")
+                    .append(activityTitleEn)
+                    .append("\"");
+
+            if (activityDate != null) {
+                bodyEn.append(" on ").append(activityDate);
+            }
+
+            if (venue != null && !venue.isBlank()) {
+                bodyEn.append(" at ").append(venue);
             }
 
             NotificationCreateDTO notification =
@@ -809,6 +859,10 @@ public class ActivityInvitedBranchServiceImpl
                     "សាខារបស់អ្នកត្រូវបានអញ្ជើញចូលរួមកម្មវិធី"
             );
             notification.setBody(body.toString());
+            notification.setTitleEn(
+                    "Your Branch Has Been Invited to an Activity"
+            );
+            notification.setBodyEn(bodyEn.toString());
             notification.setActionUrl(
                     "/activity/" + activity.getId()
             );

@@ -11,6 +11,7 @@ package org.example.tnal_youth_backend.member.branch;
 public final class BranchLabels {
 
     private static final String PREFIX = "សាខា";
+    private static final String PREFIX_EN = "Branch";
 
     private BranchLabels() {
     }
@@ -21,5 +22,19 @@ public final class BranchLabels {
         }
 
         return rawNameKm.startsWith(PREFIX) ? rawNameKm : PREFIX + rawNameKm;
+    }
+
+    /**
+     * English counterpart of {@link #withBranchPrefixKm}. English branch
+     * names in this system are always the bare place name (no branch names
+     * are pre-authored as "X Branch" the way some Khmer ones are), so this
+     * always appends rather than checking for an existing prefix.
+     */
+    public static String withBranchPrefixEn(String rawNameEn) {
+        if (rawNameEn == null || rawNameEn.isBlank()) {
+            return "";
+        }
+
+        return rawNameEn + " " + PREFIX_EN;
     }
 }

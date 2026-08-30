@@ -150,6 +150,42 @@ public class MemberCredentialController {
 
     /*
      * ==========================================================
+     * ACTIVITY CERTIFICATE DUPLICATE CHECK
+     * ==========================================================
+     *
+     * Lets the certificate-creation flow check for an existing
+     * ACTIVITY_CERTIFICATE before uploading a file and creating a new
+     * document -- checked against the ACTIVITY's host branch (same as
+     * POST above), so it works for a cross-branch member too, instead of
+     * 403ing exactly for the case it exists to protect.
+     */
+    @GetMapping("/activity-certificate-status")
+    @PreAuthorize("""
+        hasAnyRole(
+            'ADMIN',
+            'SECRETARY',
+            'BRANCH_LEADER'
+        )
+        """)
+    public ResponseEntity<Boolean>
+    hasActivityCertificate(
+            @PathVariable
+            Long memberId,
+
+            @RequestParam
+            Long activityId
+    ) {
+        return ResponseEntity.ok(
+                memberCredentialService
+                        .hasActivityCertificate(
+                                memberId,
+                                activityId
+                        )
+        );
+    }
+
+    /*
+     * ==========================================================
      * UPDATE CREDENTIAL
      * ==========================================================
      */

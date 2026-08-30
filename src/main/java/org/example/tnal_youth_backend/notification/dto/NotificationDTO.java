@@ -20,6 +20,8 @@ public class NotificationDTO {
     private String typeLabelEn;
     private String title;
     private String body;
+    private String titleEn;
+    private String bodyEn;
     private String actionUrl;
     private Long activityId;
     private Long branchId;

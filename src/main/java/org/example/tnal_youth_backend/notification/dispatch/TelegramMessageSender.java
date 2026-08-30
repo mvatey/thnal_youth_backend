@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.document.document.entity.Document;
+import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
@@ -42,21 +44,32 @@ public class TelegramMessageSender {
     private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
     private static final String ACTIVITY_UPDATED_TYPE_CODE = "ACTIVITY_UPDATED";
     private static final String ACTIVITY_CANCELLED_TYPE_CODE = "ACTIVITY_CANCELLED";
+    private static final String CERTIFICATE_READY_TYPE_CODE = "ACTIVITY_CERTIFICATE_READY";
+    private static final String DOCUMENT_ADDED_TYPE_CODE = "DOCUMENT_ADDED";
+    private static final String ACTIVITY_REMINDER_TYPE_CODE = "ACTIVITY_REMINDER";
 
     private final RestTemplate restTemplate;
     private final ActivityRepository activityRepository;
     private final BranchRepository branchRepository;
+    private final DocumentRepository documentRepository;
     private final ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder;
     private final ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder;
     private final ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder;
+    private final CertificateReadyTelegramBuilder certificateReadyTelegramBuilder;
+    private final DocumentIssuedTelegramBuilder documentIssuedTelegramBuilder;
+    private final ActivityReminderTelegramBuilder activityReminderTelegramBuilder;
 
     public TelegramMessageSender(
             RestTemplateBuilder restTemplateBuilder,
             ActivityRepository activityRepository,
             BranchRepository branchRepository,
+            DocumentRepository documentRepository,
             ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder,
             ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder,
-            ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder
+            ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder,
+            CertificateReadyTelegramBuilder certificateReadyTelegramBuilder,
+            DocumentIssuedTelegramBuilder documentIssuedTelegramBuilder,
+            ActivityReminderTelegramBuilder activityReminderTelegramBuilder
     ) {
         this.restTemplate = restTemplateBuilder
                 .connectTimeout(Duration.ofSeconds(5))
@@ -64,9 +77,13 @@ public class TelegramMessageSender {
                 .build();
         this.activityRepository = activityRepository;
         this.branchRepository = branchRepository;
+        this.documentRepository = documentRepository;
         this.activityInvitationTelegramBuilder = activityInvitationTelegramBuilder;
         this.activityRescheduledTelegramBuilder = activityRescheduledTelegramBuilder;
         this.activityCancelledTelegramBuilder = activityCancelledTelegramBuilder;
+        this.certificateReadyTelegramBuilder = certificateReadyTelegramBuilder;
+        this.documentIssuedTelegramBuilder = documentIssuedTelegramBuilder;
+        this.activityReminderTelegramBuilder = activityReminderTelegramBuilder;
     }
 
     /**
@@ -97,11 +114,17 @@ public class TelegramMessageSender {
      * caller falls back to the plain Markdown message instead.
      */
     private String buildRichText(User user, NotificationModel notification) {
+        String typeCode = notification.getTypeCode();
+
+        if (DOCUMENT_ADDED_TYPE_CODE.equals(typeCode)) {
+            return notification.getDocumentId() == null
+                    ? null
+                    : buildDocumentIssuedText(notification.getDocumentId(), user.getFullNameKm());
+        }
+
         if (notification.getActivityId() == null) {
             return null;
         }
-
-        String typeCode = notification.getTypeCode();
 
         if (ACTIVITY_INVITATION_TYPE_CODE.equals(typeCode)) {
             return buildActivityInvitationText(notification.getActivityId(), user.getFullNameKm());
@@ -113,6 +136,14 @@ public class TelegramMessageSender {
 
         if (ACTIVITY_CANCELLED_TYPE_CODE.equals(typeCode)) {
             return buildActivityCancelledText(notification.getActivityId(), user.getFullNameKm());
+        }
+
+        if (CERTIFICATE_READY_TYPE_CODE.equals(typeCode)) {
+            return buildCertificateReadyText(notification.getActivityId(), user.getFullNameKm());
+        }
+
+        if (ACTIVITY_REMINDER_TYPE_CODE.equals(typeCode)) {
+            return buildActivityReminderText(notification.getActivityId(), user.getFullNameKm());
         }
 
         return null;
@@ -190,6 +221,49 @@ public class TelegramMessageSender {
         Branch branch = branchRepository.findById(activity.getBranchId()).orElse(null);
 
         return activityCancelledTelegramBuilder.build(activity, branch, recipientNameKm);
+    }
+
+    /**
+     * The organizer branch is looked up from the activity's own
+     * {@code branchId} (the host that prepared the certificates), matching
+     * {@link NotificationEmailSender#sendCertificateReady}.
+     */
+    private String buildCertificateReadyText(Long activityId, String recipientNameKm) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+
+        if (activity == null) {
+            return null;
+        }
+
+        Branch organizerBranch = activity.getBranchId() == null
+                ? null
+                : branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        return certificateReadyTelegramBuilder.build(activity, organizerBranch, recipientNameKm);
+    }
+
+    private String buildDocumentIssuedText(Long documentId, String recipientNameKm) {
+        Document document = documentRepository.findById(documentId).orElse(null);
+
+        if (document == null) {
+            return null;
+        }
+
+        return documentIssuedTelegramBuilder.build(document, recipientNameKm);
+    }
+
+    private String buildActivityReminderText(Long activityId, String recipientNameKm) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+
+        if (activity == null) {
+            return null;
+        }
+
+        Branch branch = activity.getBranchId() == null
+                ? null
+                : branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        return activityReminderTelegramBuilder.build(activity, branch, recipientNameKm);
     }
 
     private String buildText(NotificationModel notification) {

@@ -1,8 +1,12 @@
 package org.example.tnal_youth_backend.member.credential.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.tnal_youth_backend.activity.model.entity.Activity;
 import org.example.tnal_youth_backend.activity.repository.ActivityParticipantRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.CustomUserDetails;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.credential.dto.MemberCredentialRequest;
@@ -15,6 +19,8 @@ import org.example.tnal_youth_backend.member.credential.repository.MemberCredent
 import org.example.tnal_youth_backend.member.credential.service.MemberCredentialService;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
+import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
+import org.example.tnal_youth_backend.notification.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +34,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class MemberCredentialServiceImpl
         implements MemberCredentialService {
 
@@ -39,6 +46,9 @@ public class MemberCredentialServiceImpl
 
     private static final String APPOINTMENT_LETTER_KIND =
             "APPOINTMENT_LETTER";
+
+    private static final String CERTIFICATE_READY_TYPE_CODE =
+            "ACTIVITY_CERTIFICATE_READY";
 
     private final MemberCredentialRepository
             memberCredentialRepository;
@@ -57,6 +67,12 @@ public class MemberCredentialServiceImpl
 
     private final MemberCredentialMapper
             memberCredentialMapper;
+
+    private final UserRepository
+            userRepository;
+
+    private final NotificationService
+            notificationService;
 
     private final MemberAccessValidator
             memberAccessValidator;
@@ -109,8 +125,6 @@ public class MemberCredentialServiceImpl
             Long memberId,
             MemberCredentialRequest request
     ) {
-        memberAccessValidator.validateAccessibleMember(memberId);
-
         String credentialKind =
                 normalizeCredentialKind(
                         request.getCredentialKind()
@@ -119,6 +133,36 @@ public class MemberCredentialServiceImpl
         request.setCredentialKind(
                 credentialKind
         );
+
+        /*
+         * An activity certificate is issued by the ACTIVITY's host branch
+         * staff (or admin) -- not gated by the recipient member's own
+         * branch. This is the whole point of the feature: the organizing
+         * branch certifies every attendee, including members of a
+         * co-hosting branch it doesn't otherwise manage or have access
+         * to edit. validateCredentialActivity() below still confirms the
+         * member actually attended this specific activity before
+         * anything is created, so this is not a blanket cross-branch
+         * bypass -- only "you organized this activity, so you may
+         * certify who attended it."
+         */
+        if (ACTIVITY_CERTIFICATE_KIND.equals(credentialKind)
+                && request.getActivityId() != null) {
+
+            validateMemberExists(memberId);
+
+            Long hostBranchId = activityRepository
+                    .findById(request.getActivityId())
+                    .map(Activity::getBranchId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Activity not found with ID: " + request.getActivityId()
+                    ));
+
+            memberAccessValidator.validateBranchAccess(hostBranchId);
+        } else {
+            memberAccessValidator.validateAccessibleMember(memberId);
+        }
 
         validateCredentialPermission(
                 credentialKind
@@ -177,9 +221,120 @@ public class MemberCredentialServiceImpl
                         credential
                 );
 
+        if (ACTIVITY_CERTIFICATE_KIND.equals(credentialKind)
+                && request.getActivityId() != null) {
+            notifyMemberCertificateReady(
+                    memberId,
+                    request.getActivityId()
+            );
+        }
+
         return memberCredentialMapper.toResponse(
                 savedCredential
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasActivityCertificate(
+            Long memberId,
+            Long activityId
+    ) {
+        validateMemberExists(memberId);
+
+        Long hostBranchId = activityRepository
+                .findById(activityId)
+                .map(Activity::getBranchId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Activity not found with ID: " + activityId
+                ));
+
+        memberAccessValidator.validateBranchAccess(hostBranchId);
+
+        return memberCredentialRepository
+                .existsByMemberIdAndActivityIdAndCredentialKindIgnoreCase(
+                        memberId,
+                        activityId,
+                        ACTIVITY_CERTIFICATE_KIND
+                );
+    }
+
+    /**
+     * Tells the member directly that their personal activity certificate is
+     * ready -- reuses the same "certificate ready" notification type (and
+     * its bilingual email/Telegram letter) that used to only notify a
+     * co-hosting branch's leadership, now aimed at the individual recipient
+     * instead, since that's who actually holds the credential now. The
+     * document itself was created with suppress_notification so the member
+     * doesn't also get a generic "new document issued" notification for the
+     * same certificate. Best-effort: a failure here must never undo the
+     * credential that was already saved.
+     */
+    private void notifyMemberCertificateReady(
+            Long memberId,
+            Long activityId
+    ) {
+        try {
+            User user = userRepository
+                    .findByMemberId(memberId)
+                    .orElse(null);
+
+            if (user == null) {
+                return;
+            }
+
+            Short typeId = notificationService
+                    .findActiveTypeIdByCode(CERTIFICATE_READY_TYPE_CODE);
+
+            if (typeId == null) {
+                return;
+            }
+
+            Activity activity = activityRepository
+                    .findById(activityId)
+                    .orElse(null);
+
+            String activityTitleKm =
+                    activity != null && activity.getTitleKm() != null
+                            ? activity.getTitleKm()
+                            : "";
+
+            String activityTitleEn =
+                    activity != null
+                            && activity.getTitleEn() != null
+                            && !activity.getTitleEn().isBlank()
+                            ? activity.getTitleEn()
+                            : activityTitleKm;
+
+            NotificationCreateDTO notification = new NotificationCreateDTO();
+            notification.setTypeId(typeId);
+            notification.setTitle("អបអរសាទរ! អ្នកទទួលបានវិញ្ញាបនបត្រ");
+            notification.setBody(
+                    "អ្នកទទួលបានវិញ្ញាបនបត្របញ្ជាក់ការចូលរួមរបស់អ្នកក្នុងកម្មវិធី \""
+                            + activityTitleKm
+                            + "\"។ សូមចូលទៅកាន់គណនីរបស់អ្នកដើម្បីមើលឯកសារ។"
+            );
+            notification.setTitleEn("Congratulations! You've Received a Certificate");
+            notification.setBodyEn(
+                    "You have received a certificate confirming your participation in the activity \""
+                            + activityTitleEn
+                            + "\". Please log in to your account to view it."
+            );
+            notification.setActionUrl("/myAcc/documents");
+            notification.setActivityId(activityId);
+            notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
+            notification.setTargetUserIds(List.of(user.getId()));
+
+            notificationService.create(notification);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "MemberCredentialServiceImpl: failed to notify member {} about certificate for activity {}",
+                    memberId,
+                    activityId,
+                    e
+            );
+        }
     }
 
     @Override
@@ -781,6 +936,11 @@ public class MemberCredentialServiceImpl
                         "ROLE_SECRETARY"
                 );
 
+        boolean canIssueActivityCertificate =
+                isSecretary
+                        || hasAuthority(authentication, "ROLE_BRANCH_LEADER")
+                        || hasAuthority(authentication, "ROLE_ADMIN");
+
         switch (credentialKind) {
             case MEMBERSHIP_CARD_KIND ->
                     throw new ResponseStatusException(
@@ -789,10 +949,10 @@ public class MemberCredentialServiceImpl
                     );
 
             case ACTIVITY_CERTIFICATE_KIND -> {
-                if (!isSecretary) {
+                if (!canIssueActivityCertificate) {
                     throw new ResponseStatusException(
                             HttpStatus.FORBIDDEN,
-                            "Only a secretary can issue an activity certificate"
+                            "Only a secretary, branch leader, or admin can issue an activity certificate"
                     );
                 }
             }

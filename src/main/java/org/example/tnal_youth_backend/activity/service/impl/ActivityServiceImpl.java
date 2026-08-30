@@ -821,6 +821,10 @@ public class ActivityServiceImpl implements ActivityService {
             if (!"CANCELLED".equalsIgnoreCase(previousStatusCode)) {
                 String cancelReason = updatedActivity.getCancellationReason();
 
+                String titleEn = hasText(updatedActivity.getTitleEn())
+                        ? updatedActivity.getTitleEn()
+                        : updatedActivity.getTitleKm();
+
                 notifyActivityParticipants(
                         updatedActivity,
                         "ACTIVITY_CANCELLED",
@@ -830,7 +834,14 @@ public class ActivityServiceImpl implements ActivityService {
                                 + (cancelReason != null && !cancelReason.isBlank()
                                         ? " ដោយមូលហេតុ " + cancelReason
                                         : "")
-                                + "។"
+                                + "។",
+                        "Activity Cancelled",
+                        "The activity \"" + titleEn
+                                + "\" has been cancelled"
+                                + (cancelReason != null && !cancelReason.isBlank()
+                                        ? " for the following reason: " + cancelReason
+                                        : "")
+                                + "."
                 );
             }
         } else if ("UPCOMING".equalsIgnoreCase(previousStatusCode)
@@ -842,12 +853,19 @@ public class ActivityServiceImpl implements ActivityService {
             // Still upcoming, but pushed further out -- let existing
             // invitees know the date moved so they don't show up expecting
             // the original schedule.
+            String titleEn = hasText(updatedActivity.getTitleEn())
+                    ? updatedActivity.getTitleEn()
+                    : updatedActivity.getTitleKm();
+
             notifyActivityParticipants(
                     updatedActivity,
                     "ACTIVITY_UPDATED",
                     "កាលបរិច្ឆេទកម្មវិធីត្រូវបានផ្លាស់ប្តូរ",
                     "កាលបរិច្ឆេទកម្មវិធី \"" + updatedActivity.getTitleKm()
-                            + "\" ត្រូវបានផ្លាស់ប្តូរទៅជាកាលបរិច្ឆេទថ្មី។"
+                            + "\" ត្រូវបានផ្លាស់ប្តូរទៅជាកាលបរិច្ឆេទថ្មី។",
+                    "Activity Schedule Updated",
+                    "The schedule for the activity \"" + titleEn
+                            + "\" has been changed to a new date."
             );
         }
 
@@ -1051,7 +1069,9 @@ public class ActivityServiceImpl implements ActivityService {
             Activity activity,
             String typeCode,
             String title,
-            String body
+            String body,
+            String titleEn,
+            String bodyEn
     ) {
         List<ActivityParticipant> participants =
                 activityParticipantRepository
@@ -1093,6 +1113,8 @@ public class ActivityServiceImpl implements ActivityService {
             notification.setTypeId(typeId);
             notification.setTitle(title);
             notification.setBody(body);
+            notification.setTitleEn(titleEn);
+            notification.setBodyEn(bodyEn);
             notification.setActionUrl("/activity/" + activity.getId());
             notification.setActivityId(activity.getId());
             notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
@@ -1105,6 +1127,10 @@ public class ActivityServiceImpl implements ActivityService {
              * already succeeded and was flushed to the database.
              */
         }
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**

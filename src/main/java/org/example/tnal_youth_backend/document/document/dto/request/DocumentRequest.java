@@ -42,7 +42,34 @@ public record DocumentRequest(
 
         @JsonProperty("activity_id")
         @Positive(message = "Activity ID must be positive")
-        Long activityId
+        Long activityId,
+
+        /**
+         * Skips the automatic "new document issued" notification. Used only
+         * by flows that already send a more specific notification of their
+         * own right after this document is created (e.g. an activity
+         * certificate, which triggers a "certificate ready" notification
+         * when its credential is linked) -- without this, the recipient
+         * would get two notifications for the same certificate.
+         */
+        @JsonProperty("suppress_notification")
+        Boolean suppressNotification,
+
+        /**
+         * Set only when this member-owned document is a personal activity
+         * certificate. Unlike {@code activityId} (an exclusive "owner"
+         * field — see isOwnerSelectionValid()), this is pure extra context:
+         * it tells the access check to authorize based on that activity's
+         * HOST branch instead of the recipient member's own branch, the
+         * same carve-out already applied to the credential this document
+         * gets linked to right after. Without it, the activity's own
+         * organizing branch could never certify a co-hosting branch's
+         * member, since that member's own branch is outside the
+         * organizer's normal access scope.
+         */
+        @JsonProperty("certificate_activity_id")
+        @Positive(message = "Certificate activity ID must be positive")
+        Long certificateActivityId
 
 ) {
 

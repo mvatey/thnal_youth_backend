@@ -135,6 +135,10 @@ public class ActivityReminderScheduler {
             return;
         }
 
+        String titleEn = activity.getTitleEn() != null && !activity.getTitleEn().isBlank()
+                ? activity.getTitleEn()
+                : activity.getTitleKm();
+
         NotificationModel notification =
                 NotificationModel.builder()
                         .typeId(typeId)
@@ -144,6 +148,13 @@ public class ActivityReminderScheduler {
                                         + activity.getTitleKm()
                                         + "\" នឹងប្រព្រឹត្តទៅនៅថ្ងៃស្អែក។ "
                                         + "សូមរៀបចំខ្លួនអោយបានទាន់ពេលវេលា។"
+                        )
+                        .titleEn("Reminder: Activity Tomorrow")
+                        .bodyEn(
+                                "The activity \""
+                                        + titleEn
+                                        + "\" will take place tomorrow. "
+                                        + "Please make sure you are ready on time."
                         )
                         .actionUrl("/activity/" + activity.getId())
                         .activityId(activity.getId())

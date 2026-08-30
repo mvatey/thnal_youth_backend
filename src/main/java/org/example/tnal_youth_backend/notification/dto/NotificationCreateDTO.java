@@ -23,6 +23,13 @@ public class NotificationCreateDTO {
     @Size(max = 4000, message = "body must be 4000 characters or fewer")
     private String body;
 
+    /** Optional English variants (V347) — shown instead of title/body when the viewer's UI language is English. */
+    @Size(max = 200, message = "titleEn must be 200 characters or fewer")
+    private String titleEn;
+
+    @Size(max = 4000, message = "bodyEn must be 4000 characters or fewer")
+    private String bodyEn;
+
     /**
      * Optional deep link. Must be an app-relative path ("/...") or an http(s)
      * URL on an allowed host. {@link SafeLink} rejects protocol-relative URLs,
@@ -39,6 +46,9 @@ public class NotificationCreateDTO {
 
     /** Optional context: the branch this notification is about (notifications.branch_id). */
     private Long branchId;
+
+    /** Optional context: the document this notification is about (notifications.document_id, V348). */
+    private Long documentId;
 
     /**
      * Optional idempotency key (client-generated UUID). Two creates from the same

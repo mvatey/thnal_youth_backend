@@ -42,9 +42,11 @@ public class DocumentController {
      * MEMBER:
      * - no access to the branch-wide organizational list, but the
      *   service layer still serves this same endpoint scoped to just
-     *   their own documents plus documents from activities they
-     *   joined (see DocumentServiceImpl.getDocuments) — this is what
-     *   "My Account -> Documents" calls for any authenticated role.
+     *   their own documents (see DocumentServiceImpl.getDocuments) —
+     *   this is what "My Account -> Documents" calls for any
+     *   authenticated role. An activity's own attachments are NOT
+     *   included here even for an activity the member joined — those
+     *   stay visible only on that activity's own detail page.
      */
     @GetMapping
     @PreAuthorize(
@@ -144,6 +146,51 @@ public class DocumentController {
                         search,
                         typeId,
                         branchId,
+                        date
+                )
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * CROSS-BRANCH CERTIFICATE TAB
+     * =========================================================
+     *
+     * Activity certificates the current staff's own branch(es) issued to
+     * another branch's member (see DocumentService.
+     * getCrossBranchCertificateDocuments) -- these never appear in the
+     * plain member-documents tab above, since that one is scoped to the
+     * RECIPIENT's own branch, not the branch that actually issued the
+     * certificate.
+     */
+    @GetMapping("/member-documents/cross-branch-certificates")
+    @PreAuthorize(
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')"
+    )
+    public ResponseEntity<DocumentPageResponse>
+    getCrossBranchCertificateDocuments(
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "10")
+            int size,
+
+            @RequestParam(defaultValue = "")
+            String search,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE
+            )
+            LocalDate date
+    ) {
+        return ResponseEntity.ok(
+                documentService.getCrossBranchCertificateDocuments(
+                        page,
+                        size,
+                        search,
                         date
                 )
         );

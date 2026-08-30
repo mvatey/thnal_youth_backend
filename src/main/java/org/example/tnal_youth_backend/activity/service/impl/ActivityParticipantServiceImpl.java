@@ -295,11 +295,21 @@ public class ActivityParticipantServiceImpl
 
         try {
             NotificationCreateDTO notification = new NotificationCreateDTO();
+            String titleEn = activity.getTitleEn() != null && !activity.getTitleEn().isBlank()
+                    ? activity.getTitleEn()
+                    : activity.getTitleKm();
+
             notification.setTypeId(typeId);
             notification.setTitle("អ្នកត្រូវបានអញ្ជើញចូលរួមកម្មវិធី");
             notification.setBody(
                     "អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួមក្នុងកម្មវិធី \""
                             + activity.getTitleKm()
+                            + "\""
+            );
+            notification.setTitleEn("You've Been Invited to an Activity");
+            notification.setBodyEn(
+                    "You have been invited to join the activity \""
+                            + titleEn
                             + "\""
             );
             notification.setActionUrl("/activity/" + activity.getId());

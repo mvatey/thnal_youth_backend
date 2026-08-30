@@ -43,9 +43,11 @@ public class DonationResponse {
 
     private Long activityId;
     private String activityTitle;
+    private String activityTitleEn;
 
     private Long branchId;
     private String branchName;
+    private String branchNameEn;
 
     private LocalDate donationPeriod;
 

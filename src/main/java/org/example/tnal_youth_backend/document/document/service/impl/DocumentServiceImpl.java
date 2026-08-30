@@ -164,9 +164,11 @@ public class DocumentServiceImpl
                                     document
                             );
 
-            notifyMemberDocumentIssued(
-                    saved
-            );
+            if (!Boolean.TRUE.equals(request.suppressNotification())) {
+                notifyMemberDocumentIssued(
+                        saved
+                );
+            }
 
             return documentMapper
                     .toResponse(
@@ -235,6 +237,13 @@ public class DocumentServiceImpl
                     "ឯកសារ \"" + saved.getTitle()
                             + "\" ត្រូវបានចេញជូនអ្នក។ សូមចូលទៅកាន់គណនីរបស់អ្នកដើម្បីមើលឯកសារ។"
             );
+            notification.setTitleEn("New Document Issued");
+            notification.setBodyEn(
+                    "The document \"" + saved.getTitle()
+                            + "\" has been issued to you. Please log in to your account to view it."
+            );
+            notification.setDocumentId(saved.getId());
+            notification.setActionUrl("/myAcc/documents");
             notification.setTarget(
                     NotificationCreateDTO.TargetMode.USERS
             );
@@ -691,13 +700,11 @@ public class DocumentServiceImpl
         }
 
         /*
-         * A plain MEMBER never sees the branch-wide organizational
-         * list below (that stays staff-only) — only documents that
-         * belong to them personally, plus documents attached to an
-         * activity they actually joined (e.g. an activity's uploaded
-         * attachment). This lets "My Account -> Documents" reach an
-         * activity's documents without exposing the rest of the
-         * branch's organizational documents.
+         * A plain MEMBER only sees documents that belong to them
+         * personally here — never the branch-wide organizational list
+         * below (staff-only), and never an activity's own attachments
+         * either (those stay visible only on that activity's own detail
+         * page, not mixed into "My Account -> Documents").
          */
         if (isMember) {
             Long selfMemberId = currentUser.getMemberId();
@@ -905,7 +912,15 @@ public class DocumentServiceImpl
          * Member-owned document.
          *
          * Member itself must exist, then its branch
-         * must be accessible to the current user.
+         * must be accessible to the current user --
+         * UNLESS this is a personal activity certificate
+         * (certificateActivityId set), in which case the ACTIVITY's own
+         * host branch is what's checked instead. This is the same
+         * carve-out MemberCredentialServiceImpl.create() applies for the
+         * credential this document gets linked to right after: the
+         * organizing branch may certify any attendee of its own
+         * activity, including a co-hosting branch's member it doesn't
+         * otherwise manage.
          */
         if (request.memberId() != null) {
 
@@ -921,6 +936,27 @@ public class DocumentServiceImpl
                                                     + request.memberId()
                                     )
                             );
+
+            if (request.certificateActivityId() != null) {
+                Long hostBranchId =
+                        activityRepository
+                                .findById(request.certificateActivityId())
+                                .map(activity -> activity.getBranchId())
+                                .orElseThrow(() ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "Activity not found with ID: "
+                                                        + request.certificateActivityId()
+                                        )
+                                );
+
+                branchService
+                        .getAccessibleBranchById(
+                                hostBranchId
+                        );
+
+                return;
+            }
 
             branchService
                     .getAccessibleBranchById(
@@ -1377,6 +1413,130 @@ public class DocumentServiceImpl
                         .toList();
 
         return new MemberDocumentPageResponse(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentPageResponse getCrossBranchCertificateDocuments(
+            int page,
+            int size,
+            String search,
+            LocalDate date
+    ) {
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must not be negative"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Size must be between 1 and 100"
+            );
+        }
+
+        String normalizedSearch =
+                search == null ? "" : search.trim();
+
+        User currentUser =
+                SecurityUtil.getCurrentUser();
+
+        if (currentUser == null || currentUser.getRole() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        UserRole role = currentUser.getRole();
+
+        boolean isAdmin =
+                role == UserRole.ADMIN || role == UserRole.VIEWER;
+
+        boolean isStaff =
+                role == UserRole.SECRETARY || role == UserRole.BRANCH_LEADER;
+
+        if (!isAdmin && !isStaff) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to view these certificates"
+            );
+        }
+
+        /*
+         * Admin/viewer manage every branch, so "cross-branch" has no
+         * meaning for them -- nothing would ever be excluded, which
+         * would just reproduce the main member-documents list. This
+         * view only makes sense for branch-scoped staff.
+         */
+        if (isAdmin) {
+            return new DocumentPageResponse(
+                    List.of(), page, size, 0, 0, true, true
+            );
+        }
+
+        Set<Long> accessibleBranchIds =
+                branchService.getAccessibleBranchIds();
+
+        if (accessibleBranchIds.isEmpty()) {
+            return new DocumentPageResponse(
+                    List.of(), page, size, 0, 0, true, true
+            );
+        }
+
+        ZoneOffset cambodiaOffset = ZoneOffset.ofHours(7);
+
+        OffsetDateTime startDateTime =
+                LocalDate.of(1900, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
+
+        OffsetDateTime endDateTime =
+                LocalDate.of(9999, 1, 1)
+                        .atStartOfDay()
+                        .atOffset(cambodiaOffset);
+
+        if (date != null) {
+            startDateTime = date.atStartOfDay().atOffset(cambodiaOffset);
+            endDateTime = date.plusDays(1).atStartOfDay().atOffset(cambodiaOffset);
+        }
+
+        /*
+         * No Sort here on purpose -- this is a native query with its own
+         * hard-coded ORDER BY (using real column names). Spring Data
+         * appends a Pageable's Sort as a second, literal "order by"
+         * clause for native queries without translating property names
+         * to columns, so a Sort.by("createdAt") here would append
+         * "order by d.createdat" and blow up with a missing-column error.
+         */
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Document> result =
+                documentRepository.findCrossBranchCertificateDocumentPage(
+                        normalizedSearch,
+                        startDateTime,
+                        endDateTime,
+                        accessibleBranchIds,
+                        pageable
+                );
+
+        List<DocumentResponse> content =
+                result.getContent()
+                        .stream()
+                        .map(documentMapper::toResponse)
+                        .toList();
+
+        return new DocumentPageResponse(
                 content,
                 result.getNumber(),
                 result.getSize(),

@@ -81,9 +81,12 @@ public interface NotificationRepo {
             nt.code          AS typeCode,
             n.title          AS title,
             n.body           AS body,
+            n.title_en       AS titleEn,
+            n.body_en        AS bodyEn,
             n.action_url     AS actionUrl,
             n.activity_id    AS activityId,
             n.branch_id      AS branchId,
+            n.document_id    AS documentId,
             n.created_by     AS createdBy,
             n.client_request_id AS clientRequestId,
             n.created_at     AS createdAt
@@ -137,9 +140,9 @@ public interface NotificationRepo {
 
     @Insert("""
         INSERT INTO notifications
-            (type_id, title, body, action_url, activity_id, branch_id, created_by, client_request_id)
+            (type_id, title, body, title_en, body_en, action_url, activity_id, branch_id, document_id, created_by, client_request_id)
         VALUES
-            (#{typeId}, #{title}, #{body}, #{actionUrl}, #{activityId}, #{branchId}, #{createdBy}, #{clientRequestId}::uuid)
+            (#{typeId}, #{title}, #{body}, #{titleEn}, #{bodyEn}, #{actionUrl}, #{activityId}, #{branchId}, #{documentId}, #{createdBy}, #{clientRequestId}::uuid)
         """)
     @Options(useGeneratedKeys = true,
             keyProperty = "id,createdAt",
@@ -248,6 +251,8 @@ public interface NotificationRepo {
             nt.label_en     AS typeLabelEn,
             n.title         AS title,
             n.body          AS body,
+            n.title_en      AS titleEn,
+            n.body_en       AS bodyEn,
             n.action_url    AS actionUrl,
             n.activity_id   AS activityId,
             n.branch_id     AS branchId,

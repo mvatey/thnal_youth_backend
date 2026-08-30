@@ -54,4 +54,17 @@ public interface DocumentService {
             Long branchId,
             LocalDate date
     );
+
+    /**
+     * Activity certificates the current staff's own branch(es) issued to
+     * another branch's member (see DocumentRepository.
+     * findCrossBranchCertificateDocumentPage). Staff/admin/viewer only —
+     * a plain MEMBER never calls this.
+     */
+    DocumentPageResponse getCrossBranchCertificateDocuments(
+            int page,
+            int size,
+            String search,
+            LocalDate date
+    );
 }
