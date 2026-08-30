@@ -124,13 +124,11 @@ public class MemberPersonalInfoServiceImpl
                         memberId
                 );
 
-        if (!memberAccessValidator.isCurrentUserAdmin()) {
-            updateBasicInformation(member, request);
-            updateReligion(member, request.religionId());
-            updateEthnicity(member, request.ethnicityId());
-            updateNationality(member, request.nationalityId());
-            updateMemberLevel(member, request.memberLevelId());
-        }
+        updateBasicInformation(member, request);
+        updateReligion(member, request.religionId());
+        updateEthnicity(member, request.ethnicityId());
+        updateNationality(member, request.nationalityId());
+        updateMemberLevel(member, request.memberLevelId());
 
         boolean branchChanged =
                 member.getBranchId() == null
@@ -603,6 +601,10 @@ public class MemberPersonalInfoServiceImpl
 
                 primaryBranch != null
                         ? primaryBranch.getNameKm()
+                        : null,
+
+                primaryBranch != null
+                        ? primaryBranch.getNameEn()
                         : null,
 
                 assignedBranches,

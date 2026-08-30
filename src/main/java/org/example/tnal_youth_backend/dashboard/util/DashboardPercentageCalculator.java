@@ -36,13 +36,15 @@ public class DashboardPercentageCalculator {
                         : previous;
 
         /*
-         * Change is undefined when the previous value was zero
-         * but the current value is greater than zero.
+         * A zero previous value has no true ratio to divide by --
+         * treat any positive current value as full (100%) growth
+         * rather than leaving it undefined, so a brand new count
+         * still shows as growing instead of stuck at "no change".
          */
         if (safePrevious.compareTo(BigDecimal.ZERO) == 0) {
             return safeCurrent.compareTo(BigDecimal.ZERO) == 0
                     ? BigDecimal.ZERO
-                    : null;
+                    : ONE_HUNDRED;
         }
 
         return safeCurrent

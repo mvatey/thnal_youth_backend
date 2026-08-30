@@ -67,6 +67,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     CustomUserDetails userDetails =
                             new CustomUserDetails(user);
 
+                    /*
+                     * The token itself can still be cryptographically valid
+                     * (unexpired, correctly signed) after an admin disables
+                     * or locks this account -- disabling only revokes the
+                     * refresh token, so without this check every request
+                     * made with the still-live access token would keep
+                     * authenticating normally until it naturally expires.
+                     * Manually building the authentication below bypasses
+                     * Spring Security's usual AuthenticationProvider (which
+                     * would otherwise enforce this), so it has to be done
+                     * explicitly here.
+                     */
+                    if (!userDetails.isEnabled()
+                            || !userDetails.isAccountNonLocked()) {
+
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,

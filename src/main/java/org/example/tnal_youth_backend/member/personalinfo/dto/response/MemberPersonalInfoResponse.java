@@ -46,6 +46,9 @@ public record MemberPersonalInfoResponse(
         @JsonProperty("branch_name_km")
         String branchNameKm,
 
+        @JsonProperty("branch_name_en")
+        String branchNameEn,
+
         @JsonProperty("assigned_branches")
         List<MemberAssignedBranchResponse> assignedBranches,
 

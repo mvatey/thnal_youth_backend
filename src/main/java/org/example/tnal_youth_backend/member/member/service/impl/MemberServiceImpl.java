@@ -658,9 +658,7 @@ public class MemberServiceImpl implements MemberService {
 
         List<Long> effectiveBranchIds =
                 resolveEffectiveBranchIds(
-                        requestedRole,
-                        request.branchId(),
-                        request.branchIds()
+                        request.branchId()
                 );
 
         for (Long branchIdToCheck : effectiveBranchIds) {
@@ -770,31 +768,6 @@ public class MemberServiceImpl implements MemberService {
                                 currentUser
                                         .getId()
                         );
-            }
-
-            if (effectiveBranchIds.size() > 1) {
-
-                Position secretaryPosition =
-                        position != null
-                                ? position
-                                : positionRepository
-                                        .findByCodeIgnoreCase("SECRETARY")
-                                        .orElse(null);
-
-                if (secretaryPosition != null) {
-
-                    for (Long extraBranchId : effectiveBranchIds.subList(1, effectiveBranchIds.size())) {
-
-                        branchStaffRepository
-                                .assignPosition(
-                                        extraBranchId,
-                                        savedMember.getId(),
-                                        secretaryPosition.getId(),
-                                        request.joinedOn(),
-                                        currentUser.getId()
-                                );
-                    }
-                }
             }
 
             Member detailedMember =
@@ -1769,26 +1742,17 @@ public class MemberServiceImpl implements MemberService {
      * given only one branch) stays single-branch via branchId, same as
      * before this feature existed.
      */
+    /*
+     * A member -- secretary included -- is always created with exactly
+     * one (primary) branch. Any additional branches a secretary covers
+     * are assigned afterward through the personal-info page's branch
+     * multiselect (MemberBranchAssignmentServiceImpl), where they're
+     * explicitly a "helper" to those branches via branch_staff rather
+     * than a member of them.
+     */
     private List<Long> resolveEffectiveBranchIds(
-            UserRole requestedRole,
-            Long branchId,
-            List<Long> branchIds
+            Long branchId
     ) {
-
-        List<Long> distinctBranchIds =
-                branchIds == null
-                        ? List.of()
-                        : branchIds.stream()
-                                .filter(id -> id != null)
-                                .distinct()
-                                .toList();
-
-        if (
-                requestedRole == UserRole.SECRETARY
-                        && distinctBranchIds.size() >= 2
-        ) {
-            return distinctBranchIds;
-        }
 
         if (branchId == null) {
             throw new ResponseStatusException(
