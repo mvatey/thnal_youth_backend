@@ -596,7 +596,9 @@ public interface MemberRepository
                     WHEN 'INACTIVE' THEN 'អសកម្ម'
                     WHEN 'LOCKED' THEN 'បានចាក់សោ'
                     ELSE u.status
-                END AS account_status_label_km
+                END AS account_status_label_km,
+
+                b.name_en AS branch_name_en
 
             FROM members m
 

@@ -21,9 +21,11 @@ import org.springframework.stereotype.Component;
  * {@link JavaMailSender} bean {@code EmailOtpDeliveryService} already uses
  * for OTP emails.
  *
- * <p>Activity-invitation notifications ("ACTIVITY_INVITATION") get the
- * richer bilingual HTML invitation card instead of the generic plain-text
- * email every other notification type still gets.
+ * <p>Activity-invitation ("ACTIVITY_INVITATION") and activity-rescheduled
+ * ("ACTIVITY_UPDATED") notifications get the richer bilingual HTML card
+ * instead of the generic plain-text email every other notification type
+ * still gets — matching the same two message types Telegram already sends
+ * as a long bilingual letter (see {@link TelegramMessageSender}).
  */
 @Component
 @RequiredArgsConstructor
@@ -31,11 +33,13 @@ import org.springframework.stereotype.Component;
 public class NotificationEmailSender {
 
     private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
+    private static final String ACTIVITY_UPDATED_TYPE_CODE = "ACTIVITY_UPDATED";
 
     private final JavaMailSender mailSender;
     private final ActivityRepository activityRepository;
     private final BranchRepository branchRepository;
     private final ActivityInvitationEmailBuilder activityInvitationEmailBuilder;
+    private final ActivityRescheduledEmailBuilder activityRescheduledEmailBuilder;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -54,6 +58,12 @@ public class NotificationEmailSender {
         if (ACTIVITY_INVITATION_TYPE_CODE.equals(notification.getTypeCode())
                 && notification.getActivityId() != null
                 && sendActivityInvitation(user, notification)) {
+            return;
+        }
+
+        if (ACTIVITY_UPDATED_TYPE_CODE.equals(notification.getTypeCode())
+                && notification.getActivityId() != null
+                && sendActivityRescheduled(user, notification)) {
             return;
         }
 
@@ -105,6 +115,45 @@ public class NotificationEmailSender {
             log.warn("NotificationEmailSender: failed to send activity invitation to {}", user.getEmail(), e);
             throw new IllegalStateException(
                     "Failed to send activity invitation email: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
+                    e
+            );
+        }
+    }
+
+    /**
+     * @return true if the rich HTML reschedule notice was sent — false only
+     * when the activity can no longer be found, in which case the caller
+     * falls back to the plain-text email instead of sending nothing.
+     */
+    private boolean sendActivityRescheduled(User user, NotificationModel notification) {
+        Activity activity = activityRepository
+                .findById(notification.getActivityId())
+                .orElse(null);
+
+        if (activity == null) {
+            return false;
+        }
+
+        Branch branch = branchRepository
+                .findById(activity.getBranchId())
+                .orElse(null);
+
+        String html = activityRescheduledEmailBuilder.build(activity, branch, user.getFullNameKm());
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(user.getEmail());
+            helper.setSubject(activity.getTitleKm());
+            helper.setText(html, true);
+
+            mailSender.send(mimeMessage);
+            return true;
+        } catch (Exception e) {
+            log.warn("NotificationEmailSender: failed to send activity reschedule notice to {}", user.getEmail(), e);
+            throw new IllegalStateException(
+                    "Failed to send activity reschedule email: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
                     e
             );
         }

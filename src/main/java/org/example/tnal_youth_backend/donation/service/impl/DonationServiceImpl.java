@@ -355,8 +355,26 @@ public class DonationServiceImpl implements DonationService {
                 .stream()
                 .filter(branch -> branch.getRole() == ActivityBranchRole.ORGANIZER
                         || branch.getInvitationStatus() == ActivityInvitationStatus.ACCEPTED)
-                .filter(branch -> staffScope == null || staffScope.contains(branch.getBranchId()))
                 .toList();
+
+        /*
+         * Access check, not a display filter: a branch-scoped viewer may see
+         * this activity's totals at all only if one of their own branches
+         * actually has a stake in it (same rule as recording a donation,
+         * isBranchEligibleForActivity) -- but once that's true they see every
+         * eligible branch's row, same as everyone else. The list above used
+         * to be additionally filtered down to just the viewer's own
+         * branch(es), which meant a co-hosting branch's leader could never
+         * see the organizer's (or another co-host's) actual total, directly
+         * contradicting DonationBranchTotalResponse's documented "every
+         * viewer sees the SAME totals" contract.
+         */
+        if (staffScope != null
+                && eligibleBranches.stream()
+                        .noneMatch(branch -> staffScope.contains(branch.getBranchId()))) {
+            throw new AccessDeniedException(
+                    "Your branch has no stake in this activity");
+        }
 
         Map<Long, BranchDonationTotalRow> totalsByBranchId = new HashMap<>();
         for (BranchDonationTotalRow row : repo.sumByActivityGroupedByBranch(activityId)) {

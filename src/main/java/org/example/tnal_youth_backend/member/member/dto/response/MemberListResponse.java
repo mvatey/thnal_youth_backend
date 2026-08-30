@@ -71,7 +71,10 @@ public record MemberListResponse(
             Long id,
 
             @JsonProperty("label_km")
-            String labelKm
+            String labelKm,
+
+            @JsonProperty("label_en")
+            String labelEn
     ) {
     }
 

@@ -38,7 +38,8 @@ public class MemberMapper {
 
                 toBranchResponse(
                         row[5],
-                        row[6]
+                        row[6],
+                        row.length > 23 ? row[23] : null
                 ),
 
                 toListLookup(
@@ -207,7 +208,8 @@ public class MemberMapper {
     private MemberListResponse.BranchResponse
     toBranchResponse(
             Object branchId,
-            Object branchNameKm
+            Object branchNameKm,
+            Object branchNameEn
     ) {
         Long id =
                 toLong(
@@ -222,6 +224,9 @@ public class MemberMapper {
                 id,
                 toStringValue(
                         branchNameKm
+                ),
+                toStringValue(
+                        branchNameEn
                 )
         );
     }

@@ -287,6 +287,23 @@ public class DashboardRepository {
 
         // Same cumulative / total_amount_usd rules as
         // sumAllDonationsBefore() above.
+        //
+        // A non-activity donation (monthly, or a standalone sponsor
+        // donation) only ever belongs to the branch that recorded it, so
+        // those stay scoped to `d.branch_id IN (:branchIds)` as before.
+        //
+        // An activity donation is different: donations.branch_id is
+        // whichever branch happened to RECORD that particular row, but the
+        // activity itself can be organized/co-hosted by several branches at
+        // once (see activity_invited_branches) -- the same "every
+        // participating branch sees the SAME combined total for a shared
+        // activity" rule already established for the Activity Donations
+        // feature (DonationBranchTotalResponse / activityBranchTotals)
+        // applies here too. So an activity donation counts toward this
+        // branch's dashboard total if this branch recorded it directly, OR
+        // is the activity's organizer, OR has an ACCEPTED co-hosting
+        // invitation to it -- regardless of which branch actually recorded
+        // the money.
         String sql = """
                 SELECT
                     COALESCE(
@@ -298,11 +315,30 @@ public class DashboardRepository {
                     ON donation_activity.id = d.activity_id
                 LEFT JOIN activity_statuses donation_activity_status
                     ON donation_activity_status.id = donation_activity.status_id
-                WHERE d.branch_id IN (:branchIds)
-                  AND d.paid_at < :exclusiveEnd
+                WHERE d.paid_at < :exclusiveEnd
                   AND (
                         d.activity_id IS NULL
                         OR UPPER(COALESCE(donation_activity_status.code, '')) <> 'CANCELLED'
+                  )
+                  AND (
+                        (
+                            d.activity_id IS NULL
+                            AND d.branch_id IN (:branchIds)
+                        )
+                        OR (
+                            d.activity_id IS NOT NULL
+                            AND (
+                                d.branch_id IN (:branchIds)
+                                OR donation_activity.branch_id IN (:branchIds)
+                                OR EXISTS (
+                                    SELECT 1
+                                    FROM activity_invited_branches aib
+                                    WHERE aib.activity_id = d.activity_id
+                                      AND aib.branch_id IN (:branchIds)
+                                      AND aib.invitation_status = 'ACCEPTED'
+                                )
+                            )
+                        )
                   )
                 """;
 

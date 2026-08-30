@@ -13,16 +13,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Renders the activity-invitation email as the same bilingual letter
- * {@link ActivityInvitationTelegramBuilder} sends to Telegram — a
+ * Renders the "activity date changed" email as the same bilingual letter
+ * {@link ActivityRescheduledTelegramBuilder} sends to Telegram — a
  * personalized Khmer paragraph block addressed to the recipient by name,
- * then its English translation — wrapped in the org's card-style HTML/CSS
- * design. Used by {@link NotificationEmailSender} only for notifications
- * whose type code is "ACTIVITY_INVITATION"; every other notification type
- * keeps the plain-text email it already had.
+ * then its English translation — wrapped in the same card-style HTML/CSS
+ * design {@link ActivityInvitationEmailBuilder} uses. Used by
+ * {@link NotificationEmailSender} only for notifications whose type code is
+ * "ACTIVITY_UPDATED"; every other notification type keeps the plain-text
+ * email it already had.
  */
 @Component
-public class ActivityInvitationEmailBuilder {
+public class ActivityRescheduledEmailBuilder {
 
     private static final ZoneOffset CAMBODIA_OFFSET = ZoneOffset.of("+07:00");
 
@@ -51,11 +52,7 @@ public class ActivityInvitationEmailBuilder {
         String branchLabelKm = BranchLabels.withBranchPrefixKm(rawBranchNameKm);
         String branchNameEn = branch != null && hasText(branch.getNameEn()) ? branch.getNameEn() : rawBranchNameKm;
 
-        boolean isPublic = Boolean.TRUE.equals(activity.getPublicActivity());
         String activityNameEn = hasText(activity.getTitleEn()) ? escape(activity.getTitleEn()) : titleKm;
-        String descriptionKm = hasText(activity.getDescription())
-                ? escape(stripTrailingPunctuation(activity.getDescription()))
-                : "";
 
         String venueKm = buildVenue(activity, false);
         String venueEn = buildVenue(activity, true);
@@ -67,51 +64,32 @@ public class ActivityInvitationEmailBuilder {
 
         String contact = branch != null && (hasText(branch.getPhone()) || hasText(branch.getEmail()))
                 ? Stream.of(branch.getPhone(), branch.getEmail())
-                        .filter(ActivityInvitationEmailBuilder::hasText)
+                        .filter(ActivityRescheduledEmailBuilder::hasText)
                         .map(this::escape)
                         .collect(Collectors.joining(" &nbsp;&middot;&nbsp; "))
                 : "";
 
         StringBuilder letterKm = new StringBuilder();
-        letterKm.append("<p>ជម្រាបសួរ, ").append(escape(name)).append("</p>");
-        letterKm.append("<p>យើងខ្ញុំ សមាគមថ្នាលយុវជនកម្ពុជា");
-        if (hasText(branchLabelKm)) {
-            letterKm.append(" ").append(escape(branchLabelKm));
-        }
-        letterKm.append(" មានកិត្តិយសជាខ្លាំងក្នុងការរៀបចំសកម្មភាព &laquo;").append(titleKm).append("&raquo;");
-        if (hasText(descriptionKm)) {
-            letterKm.append(" ដែលប្រព្រឹត្តទៅក្នុងគោលបំណង ").append(descriptionKm);
-        }
-        letterKm.append("។</p>");
-        letterKm.append("<p>ដូចនេះដែរ យើងខ្ញុំសូមគោរពអញ្ជើញលោក លោកស្រី អ្នកនាងកញ្ញា ចូលរួមជាសមាជិកម្នាក់នៅក្នុងសកម្មភាពនេះរបស់សាខាយើងខ្ញុំ ដែលនឹងប្រព្រឹត្តទៅជា")
-                .append(isPublic ? "សាធារណៈ" : "ឯកជន")
-                .append("។</p>");
-        letterKm.append("<p>នាកាលបរិច្ឆេទ ").append(dateKm).append("<br>")
-                .append("នៅវេលាម៉ោង ").append(timeKm).append("<br>")
-                .append("ដែលស្ថិតនៅទីតាំង ").append(venueKm).append("</p>");
-        letterKm.append("<p>សូមចូលរួមដោយផ្ទាល់តាមថ្ងៃ និងម៉ោងដែលបានកំណត់។</p>");
-        letterKm.append("<p>ដោយក្តីគោរព<br>")
-                .append(hasText(branchLabelKm) ? "ពី" + escape(branchLabelKm) : "TNAL Youth Cambodia")
+        letterKm.append("<p>ជម្រាបសួរ ").append(escape(name)).append("</p>");
+        letterKm.append("<p>យើងខ្ញុំសូមជម្រាបដំណឹងថា កាលបរិច្ឆេទរបស់កម្មវិធី &laquo;").append(titleKm)
+                .append("&raquo; ត្រូវបានផ្លាស់ប្តូរទៅជាកាលបរិច្ឆេទថ្មី</p>");
+        letterKm.append("<p>នាថ្ងៃទី ").append(dateKm).append("<br>")
+                .append("ម៉ោង ").append(timeKm).append("<br>")
+                .append("ទីតាំង ").append(venueKm).append("</p>");
+        letterKm.append("<p>សូមអធ្យាស្រ័យដល់ការជូនដំណឹងភ្លាមៗ និងសូមលោក លោកស្រី អ្នកនាងកញ្ញា មកចូលរួមតាមពេលកំណត់ជាថ្មីម្តងទៀត។</p>");
+        letterKm.append("<p>ដោយក្ដីយោគយល់<br>")
+                .append(hasText(branchLabelKm) ? escape(branchLabelKm) : "TNAL Youth Cambodia")
                 .append("</p>");
 
         StringBuilder letterEn = new StringBuilder();
         letterEn.append("<p>Dear ").append(escape(name)).append(",</p>");
-        letterEn.append("<p>We, TNAL Youth Cambodia Association");
-        if (hasText(branchNameEn)) {
-            letterEn.append(" &ndash; ").append(escape(branchNameEn)).append(" branch");
-        }
-        letterEn.append(", are pleased to organize the activity &laquo;").append(activityNameEn).append("&raquo;");
-        if (hasText(descriptionKm)) {
-            letterEn.append(", held for the purpose of ").append(descriptionKm);
-        }
-        letterEn.append(".</p>");
-        letterEn.append("<p>We would therefore like to cordially invite you to join as a participant in this activity of our branch, which will be held as a ")
-                .append(isPublic ? "public" : "private")
-                .append(" session.</p>");
+        letterEn.append("<p>We would like to inform you that the schedule of the activity &laquo;")
+                .append(activityNameEn)
+                .append("&raquo; has been changed to a new date.</p>");
         letterEn.append("<p>Date: ").append(dateEn).append("<br>")
                 .append("Time: ").append(timeEn).append("<br>")
                 .append("Venue: ").append(venueEn).append("</p>");
-        letterEn.append("<p>Please join directly at the scheduled date and time.</p>");
+        letterEn.append("<p>We apologize for the short notice and kindly ask you to join according to the newly scheduled time.</p>");
         letterEn.append("<p>Best regards,<br>")
                 .append(hasText(branchNameEn) ? branchNameEn + " Branch" : "TNAL Youth Cambodia")
                 .append("</p>");
@@ -120,7 +98,6 @@ public class ActivityInvitationEmailBuilder {
                 titleKm,
                 titleKm,
                 activityNameEn,
-                isPublic ? "សាធារណៈ &middot; Public Session" : "ឯកជន &middot; Private Session",
                 letterKm.toString(),
                 letterEn.toString(),
                 hasText(contact) ? "<p class=\"contact\">" + contact + "</p>" : ""
@@ -191,22 +168,6 @@ public class ActivityInvitationEmailBuilder {
         return value != null && !value.isBlank();
     }
 
-    /**
-     * Free-text descriptions often already end with their own "។" or ".",
-     * and this template always adds its own closing punctuation right
-     * after — stripping any trailing period first avoids a doubled "។។"
-     * or "។." at the join point.
-     */
-    private String stripTrailingPunctuation(String value) {
-        String trimmed = value.trim();
-
-        while (trimmed.endsWith("។") || trimmed.endsWith(".")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
-        }
-
-        return trimmed;
-    }
-
     private String escape(String value) {
         if (value == null) {
             return "";
@@ -269,15 +230,15 @@ public class ActivityInvitationEmailBuilder {
             <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">
             <div class="page">
               <div class="eyebrow-row">
-                <span class="eyebrow">សំបុត្រអញ្ជើញ &nbsp;&middot;&nbsp; Invitation</span>
+                <span class="eyebrow">ការផ្លាស់ប្តូរកាលបរិច្ឆេទ &nbsp;&middot;&nbsp; Schedule Change</span>
               </div>
               <div class="card">
                 <div class="motif" aria-hidden="true">&nbsp;</div>
                 <div class="head">
-                  <p class="kicker">សូមគោរពអញ្ជើញចូលរួម</p>
+                  <p class="kicker">កាលបរិច្ឆេទកម្មវិធីត្រូវបានផ្លាស់ប្តូរ</p>
                   <h1 class="title-km">%s</h1>
                   <p class="title-en">%s</p>
-                  <span class="status-pill">%s</span>
+                  <span class="status-pill">កាលបរិច្ឆេទថ្មី &middot; Updated Schedule</span>
                 </div>
                 <div class="letter km">
                   %s

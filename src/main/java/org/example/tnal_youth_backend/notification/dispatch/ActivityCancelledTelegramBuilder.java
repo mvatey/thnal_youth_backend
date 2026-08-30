@@ -109,9 +109,20 @@ public class ActivityCancelledTelegramBuilder {
     }
 
     private String buildVenue(Activity activity, boolean english) {
+        /*
+         * locationName is a distinct, optional field from address that the
+         * activity-creation form never actually exposes an input for, so it
+         * is blank for effectively every activity -- falling back to
+         * address here matches the same locationName-or-address fallback
+         * already used to display the venue on the activity list/detail
+         * pages (see activity/[id]/page.js), instead of showing "TBA" for
+         * an activity that does have a venue.
+         */
         String locationName = hasText(activity.getLocationName())
                 ? activity.getLocationName()
-                : (english ? "TBA" : "មិនទាន់កំណត់");
+                : hasText(activity.getAddress())
+                        ? activity.getAddress()
+                        : (english ? "TBA" : "មិនទាន់កំណត់");
 
         if (hasText(activity.getGoogleMapUrl())) {
             return "<a href=\"" + escapeAttribute(activity.getGoogleMapUrl()) + "\">" + escape(locationName) + "</a>";
