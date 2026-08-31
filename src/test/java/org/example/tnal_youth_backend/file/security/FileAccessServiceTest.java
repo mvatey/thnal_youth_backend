@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,6 +21,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -39,12 +41,16 @@ class FileAccessServiceTest {
     private StaffBranchScopeService staffBranchScopeService;
 
     @Mock
+    private ViewerAccessService viewerAccessService;
+
+    @Mock
     private NamedParameterJdbcTemplate jdbcTemplate;
 
     @Test
     void adminCanReadExistingFile() {
         User admin = user(10L, UserRole.ADMIN, null);
         when(userRepository.findById(10L)).thenReturn(Optional.of(admin));
+        when(viewerAccessService.effectiveReadRole(admin)).thenReturn(UserRole.ADMIN);
         when(fileRepository.existsById(50L)).thenReturn(true);
 
         try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
@@ -64,8 +70,12 @@ class FileAccessServiceTest {
             security.when(SecurityUtils::getCurrentUserId).thenReturn(11L);
 
             assertTrue(service().canRead(50L));
+            // canRead() always probes the organization-branding query first
+            // (unstubbed here, so it returns null/false) -- what this test
+            // actually cares about is that the heavier member/staff lookup
+            // never runs once the uploader check already succeeded.
             verify(jdbcTemplate, never()).queryForObject(
-                    any(String.class),
+                    argThat(sql -> sql != null && !sql.contains("organization_profile")),
                     any(MapSqlParameterSource.class),
                     eq(Boolean.class)
             );
@@ -78,7 +88,12 @@ class FileAccessServiceTest {
         when(userRepository.findById(12L)).thenReturn(Optional.of(member));
         when(fileRepository.existsByIdAndUploadedById(50L, 12L)).thenReturn(false);
         when(jdbcTemplate.queryForObject(
-                any(String.class),
+                argThat(sql -> sql != null && sql.contains("organization_profile")),
+                any(MapSqlParameterSource.class),
+                eq(Boolean.class)
+        )).thenReturn(false);
+        when(jdbcTemplate.queryForObject(
+                argThat(sql -> sql != null && !sql.contains("organization_profile")),
                 any(MapSqlParameterSource.class),
                 eq(Boolean.class)
         )).thenReturn(true);
@@ -94,10 +109,16 @@ class FileAccessServiceTest {
     void branchLeaderCanReadOnlyFileInResolvedScope() {
         User leader = user(13L, UserRole.BRANCH_LEADER, null);
         when(userRepository.findById(13L)).thenReturn(Optional.of(leader));
+        when(viewerAccessService.effectiveReadRole(leader)).thenReturn(UserRole.BRANCH_LEADER);
         when(fileRepository.existsByIdAndUploadedById(50L, 13L)).thenReturn(false);
         when(staffBranchScopeService.staffBranchIds(leader)).thenReturn(Set.of(7L));
         when(jdbcTemplate.queryForObject(
-                any(String.class),
+                argThat(sql -> sql != null && sql.contains("organization_profile")),
+                any(MapSqlParameterSource.class),
+                eq(Boolean.class)
+        )).thenReturn(false);
+        when(jdbcTemplate.queryForObject(
+                argThat(sql -> sql != null && !sql.contains("organization_profile")),
                 any(MapSqlParameterSource.class),
                 eq(Boolean.class)
         )).thenReturn(true);
@@ -143,6 +164,7 @@ class FileAccessServiceTest {
                 fileRepository,
                 userRepository,
                 staffBranchScopeService,
+                viewerAccessService,
                 jdbcTemplate
         );
     }

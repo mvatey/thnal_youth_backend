@@ -33,6 +33,8 @@ class DocumentRequestValidationTest {
                 null,
                 null,
                 1L,
+                null,
+                null,
                 null
         );
 
@@ -52,6 +54,8 @@ class DocumentRequestValidationTest {
                 null,
                 null,
                 1L,
+                null,
+                null,
                 null
         );
 

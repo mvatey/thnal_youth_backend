@@ -15,7 +15,16 @@ class TelegramMessageSenderTest {
     @Test
     void missingBotTokenFailsInsteadOfReportingFalseSuccess() {
         TelegramMessageSender sender = new TelegramMessageSender(
-                new RestTemplateBuilder()
+                new RestTemplateBuilder(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
         ReflectionTestUtils.setField(sender, "botToken", "   ");
 
