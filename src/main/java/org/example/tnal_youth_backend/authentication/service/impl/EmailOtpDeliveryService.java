@@ -1,20 +1,40 @@
 package org.example.tnal_youth_backend.authentication.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.authentication.service.OtpDeliveryService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Sends OTP emails through Resend's HTTP API rather than SMTP, because
+ * Railway blocks outbound SMTP ports (25/465/587/2525) below its Pro plan.
+ */
 @Service("emailOtpDeliveryService")
 @RequiredArgsConstructor
 @Slf4j
 public class EmailOtpDeliveryService implements OtpDeliveryService {
 
-    private final JavaMailSender mailSender;
+    private static final URI RESEND_API_URI =
+            URI.create("https://api.resend.com/emails");
+
+    private final ObjectMapper objectMapper;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+
+    @Value("${resend.api-key}")
+    private String resendApiKey;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -42,17 +62,7 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
         String normalizedDestination =
                 destination.trim().toLowerCase();
 
-        SimpleMailMessage message =
-                new SimpleMailMessage();
-
-        message.setFrom(fromAddress);
-        message.setTo(normalizedDestination);
-        message.setSubject(
-                "TNAL Youth Cambodia password reset code"
-        );
-
-        message.setText(
-                """
+        String textBody = """
                 Hello,
 
                 Your TNAL Youth password reset verification code is:
@@ -70,7 +80,13 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
                 """.formatted(
                         otpCode,
                         otpExpireMinutes
-                )
+                );
+
+        Map<String, Object> payload = Map.of(
+                "from", fromAddress,
+                "to", List.of(normalizedDestination),
+                "subject", "TNAL Youth Cambodia password reset code",
+                "text", textBody
         );
 
         try {
@@ -79,14 +95,43 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
                     maskEmail(normalizedDestination)
             );
 
-            mailSender.send(message);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(RESEND_API_URI)
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            objectMapper.writeValueAsString(payload)
+                    ))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() < 200
+                    || response.statusCode() >= 300) {
+                log.error(
+                        "Resend API returned {} for OTP email to {}: {}",
+                        response.statusCode(),
+                        maskEmail(normalizedDestination),
+                        response.body()
+                );
+
+                throw new IllegalStateException(
+                        "Unable to send password reset email"
+                );
+            }
 
             log.info(
                     "OTP email sent successfully to {}",
                     maskEmail(normalizedDestination)
             );
 
-        } catch (MailException exception) {
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
             log.error(
                     "Failed to send OTP email to {}",
                     maskEmail(normalizedDestination),
