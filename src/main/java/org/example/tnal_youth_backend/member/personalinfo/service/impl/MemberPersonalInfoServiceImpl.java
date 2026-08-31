@@ -155,6 +155,10 @@ public class MemberPersonalInfoServiceImpl
                                 member
                         );
 
+        synchronizeLinkedAccount(
+                savedMember
+        );
+
         return toResponse(
                 savedMember
         );
@@ -1013,6 +1017,36 @@ public class MemberPersonalInfoServiceImpl
                         member.getId()
                 )
                 .ifPresent(user -> {
+                    String newPhone =
+                            member.getPhone();
+
+                    String newEmail =
+                            member.getEmail();
+
+                    if (newPhone != null
+                            && !newPhone.isBlank()
+                            && userRepository.existsByPhoneAndIdNot(
+                                    newPhone,
+                                    user.getId()
+                            )) {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "This phone number already exists. Please use a different one."
+                        );
+                    }
+
+                    if (newEmail != null
+                            && !newEmail.isBlank()
+                            && userRepository.existsByEmailIgnoreCaseAndIdNot(
+                                    newEmail,
+                                    user.getId()
+                            )) {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "This email already exists. Please use a different one."
+                        );
+                    }
+
                     user.setFullNameKm(
                             member.getFullNameKm()
                     );
@@ -1022,11 +1056,11 @@ public class MemberPersonalInfoServiceImpl
                     );
 
                     user.setPhone(
-                            member.getPhone()
+                            newPhone
                     );
 
                     user.setEmail(
-                            member.getEmail()
+                            newEmail
                     );
 
                     /*
