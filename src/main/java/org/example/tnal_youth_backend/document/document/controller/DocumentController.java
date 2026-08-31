@@ -80,7 +80,13 @@ public class DocumentController {
             @DateTimeFormat(
                     iso = DateTimeFormat.ISO.DATE
             )
-            LocalDate date
+            LocalDate date,
+
+            @RequestParam(
+                    name = "exclude_cross_branch_issued_certificates",
+                    defaultValue = "false"
+            )
+            boolean excludeCrossBranchIssuedCertificates
     ) {
         return ResponseEntity.ok(
                 documentService.getDocuments(
@@ -91,7 +97,8 @@ public class DocumentController {
                         branchId,
                         memberId,
                         activityId,
-                        date
+                        date,
+                        excludeCrossBranchIssuedCertificates
                 )
         );
     }
@@ -184,14 +191,18 @@ public class DocumentController {
             @DateTimeFormat(
                     iso = DateTimeFormat.ISO.DATE
             )
-            LocalDate date
+            LocalDate date,
+
+            @RequestParam(required = false)
+            Long branchId
     ) {
         return ResponseEntity.ok(
                 documentService.getCrossBranchCertificateDocuments(
                         page,
                         size,
                         search,
-                        date
+                        date,
+                        branchId
                 )
         );
     }
@@ -226,14 +237,18 @@ public class DocumentController {
             @DateTimeFormat(
                     iso = DateTimeFormat.ISO.DATE
             )
-            LocalDate date
+            LocalDate date,
+
+            @RequestParam(required = false)
+            Long branchId
     ) {
         return ResponseEntity.ok(
                 documentService.getCertificatesReceivedFromOtherBranches(
                         page,
                         size,
                         search,
-                        date
+                        date,
+                        branchId
                 )
         );
     }

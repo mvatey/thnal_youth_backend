@@ -18,6 +18,7 @@ import org.example.tnal_youth_backend.document.type.repository.DocumentTypeRepos
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
+import org.example.tnal_youth_backend.member.credential.repository.MemberCredentialRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
@@ -63,6 +64,7 @@ public class DocumentServiceImpl
     private final BranchService branchService;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final MemberCredentialRepository memberCredentialRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -359,6 +361,24 @@ public class DocumentServiceImpl
         );
 
         try {
+            /*
+             * A member-owned document and its credential (a member's
+             * certificate/appointment-letter row) are linked only by
+             * convention -- matching (member_id, file_id), no real
+             * foreign key -- so deleting the document has to clean up
+             * its credential too. Without this, the credential is
+             * orphaned: it keeps blocking a future reissue via the
+             * duplicate-certificate check, and the member's own document
+             * page papers over the missing document by reconstructing a
+             * "phantom" card straight from the leftover credential.
+             */
+            if (document.getMemberId() != null) {
+                memberCredentialRepository.deleteByMemberIdAndFileId(
+                        document.getMemberId(),
+                        document.getFileId()
+                );
+            }
+
             documentRepository.delete(
                     document
             );
@@ -542,7 +562,8 @@ public class DocumentServiceImpl
             Long branchId,
             Long memberId,
             Long activityId,
-            LocalDate date
+            LocalDate date,
+            boolean excludeCrossBranchIssuedCertificates
     ) {
         if (page < 0) {
             throw new ResponseStatusException(
@@ -849,6 +870,7 @@ public class DocumentServiceImpl
                                 endDateTime,
                                 isAdmin,
                                 queryBranchIds,
+                                excludeCrossBranchIssuedCertificates,
                                 pageable
                         );
 
@@ -1429,7 +1451,8 @@ public class DocumentServiceImpl
             int page,
             int size,
             String search,
-            LocalDate date
+            LocalDate date,
+            Long branchId
     ) {
         validateCertificatePageParams(page, size);
 
@@ -1437,7 +1460,7 @@ public class DocumentServiceImpl
                 search == null ? "" : search.trim();
 
         Set<Long> accessibleBranchIds =
-                resolveAccessibleBranchIdsForCertificateView();
+                resolveAccessibleBranchIdsForCertificateView(branchId);
 
         if (accessibleBranchIds.isEmpty()) {
             return new DocumentPageResponse(
@@ -1476,7 +1499,8 @@ public class DocumentServiceImpl
             int page,
             int size,
             String search,
-            LocalDate date
+            LocalDate date,
+            Long branchId
     ) {
         validateCertificatePageParams(page, size);
 
@@ -1484,7 +1508,7 @@ public class DocumentServiceImpl
                 search == null ? "" : search.trim();
 
         Set<Long> accessibleBranchIds =
-                resolveAccessibleBranchIdsForCertificateView();
+                resolveAccessibleBranchIdsForCertificateView(branchId);
 
         if (accessibleBranchIds.isEmpty()) {
             return new DocumentPageResponse(
@@ -1534,7 +1558,7 @@ public class DocumentServiceImpl
      * empty set (rather than every branch) signals the caller to return
      * an empty page instead.
      */
-    private Set<Long> resolveAccessibleBranchIdsForCertificateView() {
+    private Set<Long> resolveAccessibleBranchIdsForCertificateView(Long branchId) {
         User currentUser =
                 SecurityUtil.getCurrentUser();
 
@@ -1561,10 +1585,38 @@ public class DocumentServiceImpl
         }
 
         if (isAdmin) {
-            return Set.of();
+            /*
+             * Admin/viewer manage every branch, so with no specific
+             * branch picked on the sidebar there's nothing to narrow
+             * against -- "cross-branch" has no meaning against the
+             * whole org. If they HAVE selected a specific branch there,
+             * scope to exactly that one so the view means something.
+             */
+            return branchId != null
+                    ? Set.of(branchId)
+                    : Set.of();
         }
 
-        return branchService.getAccessibleBranchIds();
+        Set<Long> staffBranchIds =
+                branchService.getAccessibleBranchIds();
+
+        /*
+         * A multi-branch secretary's sidebar branch switcher picks ONE
+         * branch to operate in at a time (see BranchContext/
+         * selectedBranch -- already the pattern donation pages follow)
+         * -- these views must follow that same selection, not the
+         * secretary's whole staffed-branch set. Otherwise an activity
+         * hosted by one of their OTHER branches looks like "their own"
+         * from every branch they staff, and never surfaces as
+         * cross-branch at all.
+         */
+        if (branchId != null) {
+            return staffBranchIds.contains(branchId)
+                    ? Set.of(branchId)
+                    : Set.of();
+        }
+
+        return staffBranchIds;
     }
 
     private record CertificateDateRange(

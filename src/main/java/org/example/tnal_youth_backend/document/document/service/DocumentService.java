@@ -32,6 +32,18 @@ public interface DocumentService {
             Long id
     );
 
+    /**
+     * excludeCrossBranchIssuedCertificates: when true, drops any
+     * member-owned document that is an activity certificate whose
+     * ACTIVITY was hosted by a different branch than the recipient
+     * member's own branch (see DocumentRepository.
+     * findCrossBranchCertificateDocumentPage) -- those belong in the
+     * "certificates received from other branches" tab instead, not
+     * mixed into a plain "my branch's documents" listing. Defaults to
+     * false everywhere else this method is already called (myAcc
+     * self-service, the organization documents tab), so it changes
+     * nothing for them.
+     */
     DocumentPageResponse getDocuments(
             int page,
             int size,
@@ -40,7 +52,8 @@ public interface DocumentService {
             Long branchId,
             Long memberId,
             Long activityId,
-            LocalDate date
+            LocalDate date,
+            boolean excludeCrossBranchIssuedCertificates
     );
 
     List<DocumentTypeOptionResponse>
@@ -59,13 +72,17 @@ public interface DocumentService {
      * Activity certificates the current staff's own branch(es) issued to
      * another branch's member (see DocumentRepository.
      * findCrossBranchCertificateDocumentPage). Staff/admin/viewer only —
-     * a plain MEMBER never calls this.
+     * a plain MEMBER never calls this. branchId narrows a multi-branch
+     * secretary's scope to the one branch currently selected on the
+     * sidebar (see BranchContext) instead of every branch they staff —
+     * null keeps the old whole-scope behavior.
      */
     DocumentPageResponse getCrossBranchCertificateDocuments(
             int page,
             int size,
             String search,
-            LocalDate date
+            LocalDate date,
+            Long branchId
     );
 
     /**
@@ -73,12 +90,14 @@ public interface DocumentService {
      * certificates the current staff's own branch(es) RECEIVED from an
      * activity hosted by another branch (see DocumentRepository.
      * findCertificatesReceivedFromOtherBranchesPage). Staff/admin/viewer
-     * only — a plain MEMBER never calls this.
+     * only — a plain MEMBER never calls this. branchId narrows the same
+     * way as above.
      */
     DocumentPageResponse getCertificatesReceivedFromOtherBranches(
             int page,
             int size,
             String search,
-            LocalDate date
+            LocalDate date,
+            Long branchId
     );
 }

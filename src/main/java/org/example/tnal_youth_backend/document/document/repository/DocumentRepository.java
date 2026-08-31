@@ -140,6 +140,25 @@ public interface DocumentRepository
                 IN :accessibleBranchIds
         )
     )
+
+    AND (
+        :excludeCrossBranchIssuedCertificates = false
+
+        OR NOT EXISTS (
+            SELECT 1
+            FROM MemberCredential mc
+            JOIN Activity a
+                ON a.id = mc.activityId
+
+            JOIN Member m
+                ON m.id = d.memberId
+
+            WHERE mc.memberId = d.memberId
+                AND mc.fileId = d.fileId
+                AND mc.credentialKind = 'ACTIVITY_CERTIFICATE'
+                AND a.branchId <> m.branchId
+        )
+    )
     """)
     Page<Document> findDocumentPage(
 
@@ -169,6 +188,9 @@ public interface DocumentRepository
 
             @Param("accessibleBranchIds")
             Set<Long> accessibleBranchIds,
+
+            @Param("excludeCrossBranchIssuedCertificates")
+            boolean excludeCrossBranchIssuedCertificates,
 
             Pageable pageable
     );
@@ -270,6 +292,18 @@ public interface DocumentRepository
 
                 WHERE m.branchId
                     IN :accessibleBranchIds
+            )
+
+            AND NOT EXISTS (
+                SELECT 1
+                FROM MemberCredential mc
+                JOIN Activity a
+                    ON a.id = mc.activityId
+
+                WHERE mc.memberId = d.memberId
+                    AND mc.fileId = d.fileId
+                    AND mc.credentialKind = 'ACTIVITY_CERTIFICATE'
+                    AND a.branchId NOT IN :accessibleBranchIds
             )
         )
     )
