@@ -67,4 +67,18 @@ public interface DocumentService {
             String search,
             LocalDate date
     );
+
+    /**
+     * The inverse of getCrossBranchCertificateDocuments: activity
+     * certificates the current staff's own branch(es) RECEIVED from an
+     * activity hosted by another branch (see DocumentRepository.
+     * findCertificatesReceivedFromOtherBranchesPage). Staff/admin/viewer
+     * only — a plain MEMBER never calls this.
+     */
+    DocumentPageResponse getCertificatesReceivedFromOtherBranches(
+            int page,
+            int size,
+            String search,
+            LocalDate date
+    );
 }

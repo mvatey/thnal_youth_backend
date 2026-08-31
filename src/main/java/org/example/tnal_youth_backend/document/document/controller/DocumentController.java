@@ -199,6 +199,48 @@ public class DocumentController {
 
     /*
      * =========================================================
+     * CERTIFICATES RECEIVED FROM OTHER BRANCHES TAB
+     * =========================================================
+     *
+     * The inverse of the cross-branch tab above: activity certificates a
+     * member of the current staff's own branch(es) RECEIVED from an
+     * activity hosted by another branch.
+     */
+    @GetMapping("/member-documents/received-from-other-branches")
+    @PreAuthorize(
+            "hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')"
+    )
+    public ResponseEntity<DocumentPageResponse>
+    getCertificatesReceivedFromOtherBranches(
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "10")
+            int size,
+
+            @RequestParam(defaultValue = "")
+            String search,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE
+            )
+            LocalDate date
+    ) {
+        return ResponseEntity.ok(
+                documentService.getCertificatesReceivedFromOtherBranches(
+                        page,
+                        size,
+                        search,
+                        date
+                )
+        );
+    }
+
+
+    /*
+     * =========================================================
      * DOCUMENT TYPE OPTIONS
      * =========================================================
      *

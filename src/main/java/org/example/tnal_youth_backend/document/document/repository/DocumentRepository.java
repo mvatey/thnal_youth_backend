@@ -390,6 +390,78 @@ public interface DocumentRepository
             Pageable pageable
     );
 
+    /*
+     * ==========================================================
+     * CERTIFICATES RECEIVED FROM OTHER BRANCHES (the inverse of the query
+     * above: a member of the current staff's own branch(es) who received
+     * an activity certificate from an activity hosted by ANOTHER branch)
+     * ==========================================================
+     *
+     * Same join, WHERE flipped: the ACTIVITY's host branch is now outside
+     * the current staff's scope, and the RECIPIENT belongs to one of
+     * their own branches.
+     */
+    @Query(
+            value = """
+            SELECT d.*
+            FROM documents d
+            JOIN member_credentials mc
+                ON mc.member_id = d.member_id
+               AND mc.file_id = d.file_id
+               AND mc.credential_kind = 'ACTIVITY_CERTIFICATE'
+            JOIN activities a ON a.id = mc.activity_id
+            JOIN members m ON m.id = d.member_id
+            WHERE a.branch_id NOT IN (:accessibleBranchIds)
+              AND m.branch_id IN (:accessibleBranchIds)
+              AND (
+                  :search = ''
+                  OR LOWER(d.title) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+                  OR LOWER(COALESCE(m.full_name_km, '')) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+                  OR LOWER(COALESCE(m.full_name_en, '')) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+              )
+              AND d.created_at >= :startDateTime
+              AND d.created_at < :endDateTime
+            ORDER BY d.created_at DESC, d.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(*)
+            FROM documents d
+            JOIN member_credentials mc
+                ON mc.member_id = d.member_id
+               AND mc.file_id = d.file_id
+               AND mc.credential_kind = 'ACTIVITY_CERTIFICATE'
+            JOIN activities a ON a.id = mc.activity_id
+            JOIN members m ON m.id = d.member_id
+            WHERE a.branch_id NOT IN (:accessibleBranchIds)
+              AND m.branch_id IN (:accessibleBranchIds)
+              AND (
+                  :search = ''
+                  OR LOWER(d.title) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+                  OR LOWER(COALESCE(m.full_name_km, '')) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+                  OR LOWER(COALESCE(m.full_name_en, '')) LIKE CONCAT('%', LOWER(CAST(:search AS text)), '%')
+              )
+              AND d.created_at >= :startDateTime
+              AND d.created_at < :endDateTime
+            """,
+            nativeQuery = true
+    )
+    Page<Document> findCertificatesReceivedFromOtherBranchesPage(
+
+            @Param("search")
+            String search,
+
+            @Param("startDateTime")
+            OffsetDateTime startDateTime,
+
+            @Param("endDateTime")
+            OffsetDateTime endDateTime,
+
+            @Param("accessibleBranchIds")
+            Set<Long> accessibleBranchIds,
+
+            Pageable pageable
+    );
+
 
     /*
      * ==========================================================

@@ -1431,6 +1431,85 @@ public class DocumentServiceImpl
             String search,
             LocalDate date
     ) {
+        validateCertificatePageParams(page, size);
+
+        String normalizedSearch =
+                search == null ? "" : search.trim();
+
+        Set<Long> accessibleBranchIds =
+                resolveAccessibleBranchIdsForCertificateView();
+
+        if (accessibleBranchIds.isEmpty()) {
+            return new DocumentPageResponse(
+                    List.of(), page, size, 0, 0, true, true
+            );
+        }
+
+        CertificateDateRange range =
+                resolveCertificateDateRange(date);
+
+        /*
+         * No Sort here on purpose -- this is a native query with its own
+         * hard-coded ORDER BY (using real column names). Spring Data
+         * appends a Pageable's Sort as a second, literal "order by"
+         * clause for native queries without translating property names
+         * to columns, so a Sort.by("createdAt") here would append
+         * "order by d.createdat" and blow up with a missing-column error.
+         */
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Document> result =
+                documentRepository.findCrossBranchCertificateDocumentPage(
+                        normalizedSearch,
+                        range.startDateTime(),
+                        range.endDateTime(),
+                        accessibleBranchIds,
+                        pageable
+                );
+
+        return toDocumentPageResponse(result);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentPageResponse getCertificatesReceivedFromOtherBranches(
+            int page,
+            int size,
+            String search,
+            LocalDate date
+    ) {
+        validateCertificatePageParams(page, size);
+
+        String normalizedSearch =
+                search == null ? "" : search.trim();
+
+        Set<Long> accessibleBranchIds =
+                resolveAccessibleBranchIdsForCertificateView();
+
+        if (accessibleBranchIds.isEmpty()) {
+            return new DocumentPageResponse(
+                    List.of(), page, size, 0, 0, true, true
+            );
+        }
+
+        CertificateDateRange range =
+                resolveCertificateDateRange(date);
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Document> result =
+                documentRepository.findCertificatesReceivedFromOtherBranchesPage(
+                        normalizedSearch,
+                        range.startDateTime(),
+                        range.endDateTime(),
+                        accessibleBranchIds,
+                        pageable
+                );
+
+        return toDocumentPageResponse(result);
+    }
+
+    private void validateCertificatePageParams(int page, int size) {
         if (page < 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -1444,10 +1523,18 @@ public class DocumentServiceImpl
                     "Size must be between 1 and 100"
             );
         }
+    }
 
-        String normalizedSearch =
-                search == null ? "" : search.trim();
-
+    /**
+     * Shared role gate for both the cross-branch-issued and
+     * received-from-other-branches certificate views: staff/admin/viewer
+     * only. Admin/viewer manage every branch, so neither view has any
+     * meaning for them -- nothing would ever be excluded either way,
+     * which would just reproduce the main member-documents list. An
+     * empty set (rather than every branch) signals the caller to return
+     * an empty page instead.
+     */
+    private Set<Long> resolveAccessibleBranchIdsForCertificateView() {
         User currentUser =
                 SecurityUtil.getCurrentUser();
 
@@ -1473,27 +1560,20 @@ public class DocumentServiceImpl
             );
         }
 
-        /*
-         * Admin/viewer manage every branch, so "cross-branch" has no
-         * meaning for them -- nothing would ever be excluded, which
-         * would just reproduce the main member-documents list. This
-         * view only makes sense for branch-scoped staff.
-         */
         if (isAdmin) {
-            return new DocumentPageResponse(
-                    List.of(), page, size, 0, 0, true, true
-            );
+            return Set.of();
         }
 
-        Set<Long> accessibleBranchIds =
-                branchService.getAccessibleBranchIds();
+        return branchService.getAccessibleBranchIds();
+    }
 
-        if (accessibleBranchIds.isEmpty()) {
-            return new DocumentPageResponse(
-                    List.of(), page, size, 0, 0, true, true
-            );
-        }
+    private record CertificateDateRange(
+            OffsetDateTime startDateTime,
+            OffsetDateTime endDateTime
+    ) {
+    }
 
+    private CertificateDateRange resolveCertificateDateRange(LocalDate date) {
         ZoneOffset cambodiaOffset = ZoneOffset.ofHours(7);
 
         OffsetDateTime startDateTime =
@@ -1511,25 +1591,10 @@ public class DocumentServiceImpl
             endDateTime = date.plusDays(1).atStartOfDay().atOffset(cambodiaOffset);
         }
 
-        /*
-         * No Sort here on purpose -- this is a native query with its own
-         * hard-coded ORDER BY (using real column names). Spring Data
-         * appends a Pageable's Sort as a second, literal "order by"
-         * clause for native queries without translating property names
-         * to columns, so a Sort.by("createdAt") here would append
-         * "order by d.createdat" and blow up with a missing-column error.
-         */
-        Pageable pageable = PageRequest.of(page, size);
+        return new CertificateDateRange(startDateTime, endDateTime);
+    }
 
-        Page<Document> result =
-                documentRepository.findCrossBranchCertificateDocumentPage(
-                        normalizedSearch,
-                        startDateTime,
-                        endDateTime,
-                        accessibleBranchIds,
-                        pageable
-                );
-
+    private DocumentPageResponse toDocumentPageResponse(Page<Document> result) {
         List<DocumentResponse> content =
                 result.getContent()
                         .stream()
