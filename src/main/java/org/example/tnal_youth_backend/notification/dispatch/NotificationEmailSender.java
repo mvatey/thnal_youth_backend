@@ -1,6 +1,6 @@
 package org.example.tnal_youth_backend.notification.dispatch;
 
-import jakarta.mail.internet.MimeMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.activity.model.entity.Activity;
@@ -12,16 +12,21 @@ import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
- * Sends a notification's title/body by email, reusing the same
- * {@link JavaMailSender} bean {@code EmailOtpDeliveryService} already uses
- * for OTP emails.
+ * Sends a notification's title/body by email through Resend's HTTP API —
+ * see {@code EmailOtpDeliveryService} for why this doesn't use SMTP
+ * (Railway blocks outbound SMTP ports 25/465/587/2525 below its Pro plan).
  *
  * <p>Activity-invitation ("ACTIVITY_INVITATION") and activity-rescheduled
  * ("ACTIVITY_UPDATED") notifications get the richer bilingual HTML card
@@ -40,7 +45,9 @@ public class NotificationEmailSender {
     private static final String DOCUMENT_ADDED_TYPE_CODE = "DOCUMENT_ADDED";
     private static final String ACTIVITY_REMINDER_TYPE_CODE = "ACTIVITY_REMINDER";
 
-    private final JavaMailSender mailSender;
+    private static final URI RESEND_API_URI = URI.create("https://api.resend.com/emails");
+
+    private final ObjectMapper objectMapper;
     private final ActivityRepository activityRepository;
     private final BranchRepository branchRepository;
     private final DocumentRepository documentRepository;
@@ -49,6 +56,13 @@ public class NotificationEmailSender {
     private final CertificateReadyEmailBuilder certificateReadyEmailBuilder;
     private final DocumentIssuedEmailBuilder documentIssuedEmailBuilder;
     private final ActivityReminderEmailBuilder activityReminderEmailBuilder;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+
+    @Value("${resend.api-key}")
+    private String resendApiKey;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -94,15 +108,9 @@ public class NotificationEmailSender {
             return;
         }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
-        message.setTo(user.getEmail());
-        message.setSubject(notification.getTitle());
-        message.setText(buildBody(notification));
-
         try {
-            mailSender.send(message);
-        } catch (MailException e) {
+            sendViaResend(user.getEmail(), notification.getTitle(), null, buildBody(notification));
+        } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send to {}", user.getEmail(), e);
             throw e;
         }
@@ -129,14 +137,7 @@ public class NotificationEmailSender {
         String html = activityInvitationEmailBuilder.build(activity, branch, user.getFullNameKm());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromAddress);
-            helper.setTo(user.getEmail());
-            helper.setSubject(activity.getTitleKm());
-            helper.setText(html, true);
-
-            mailSender.send(mimeMessage);
+            sendViaResend(user.getEmail(), activity.getTitleKm(), html, null);
             return true;
         } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send activity invitation to {}", user.getEmail(), e);
@@ -168,14 +169,7 @@ public class NotificationEmailSender {
         String html = activityRescheduledEmailBuilder.build(activity, branch, user.getFullNameKm());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromAddress);
-            helper.setTo(user.getEmail());
-            helper.setSubject(activity.getTitleKm());
-            helper.setText(html, true);
-
-            mailSender.send(mimeMessage);
+            sendViaResend(user.getEmail(), activity.getTitleKm(), html, null);
             return true;
         } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send activity reschedule notice to {}", user.getEmail(), e);
@@ -210,14 +204,7 @@ public class NotificationEmailSender {
         String html = certificateReadyEmailBuilder.build(activity, organizerBranch, user.getFullNameKm());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromAddress);
-            helper.setTo(user.getEmail());
-            helper.setSubject(activity.getTitleKm());
-            helper.setText(html, true);
-
-            mailSender.send(mimeMessage);
+            sendViaResend(user.getEmail(), activity.getTitleKm(), html, null);
             return true;
         } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send certificate-ready notice to {}", user.getEmail(), e);
@@ -245,14 +232,7 @@ public class NotificationEmailSender {
         String html = documentIssuedEmailBuilder.build(document, user.getFullNameKm());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromAddress);
-            helper.setTo(user.getEmail());
-            helper.setSubject(document.getTitle());
-            helper.setText(html, true);
-
-            mailSender.send(mimeMessage);
+            sendViaResend(user.getEmail(), document.getTitle(), html, null);
             return true;
         } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send document-issued notice to {}", user.getEmail(), e);
@@ -284,14 +264,7 @@ public class NotificationEmailSender {
         String html = activityReminderEmailBuilder.build(activity, branch, user.getFullNameKm());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromAddress);
-            helper.setTo(user.getEmail());
-            helper.setSubject(activity.getTitleKm());
-            helper.setText(html, true);
-
-            mailSender.send(mimeMessage);
+            sendViaResend(user.getEmail(), activity.getTitleKm(), html, null);
             return true;
         } catch (Exception e) {
             log.warn("NotificationEmailSender: failed to send activity reminder to {}", user.getEmail(), e);
@@ -299,6 +272,45 @@ public class NotificationEmailSender {
                     "Failed to send activity reminder email: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
                     e
             );
+        }
+    }
+
+    /**
+     * POSTs one email to Resend. Exactly one of {@code html}/{@code text}
+     * should be non-null — {@code html} takes priority when both are given.
+     */
+    private void sendViaResend(String to, String subject, String html, String text) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("from", fromAddress);
+        payload.put("to", List.of(to));
+        payload.put("subject", subject);
+        payload.put(html != null ? "html" : "text", html != null ? html : (text == null ? "" : text));
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(RESEND_API_URI)
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            objectMapper.writeValueAsString(payload)
+                    ))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException(
+                        "Resend API returned " + response.statusCode() + ": " + response.body()
+                );
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to send email via Resend", e);
         }
     }
 
