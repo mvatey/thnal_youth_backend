@@ -594,6 +594,10 @@ public class MemberServiceImpl implements MemberService {
             CreateMemberRequest request
     ) {
 
+        validateDateOfBirth(
+                request.dateOfBirth()
+        );
+
         String memberNo =
                 generateMemberNo();
 
@@ -1636,6 +1640,34 @@ public class MemberServiceImpl implements MemberService {
                 : requestedRole;
     }
 
+
+    private void validateDateOfBirth(
+            LocalDate dateOfBirth
+    ) {
+
+        if (dateOfBirth == null) {
+            return;
+        }
+
+        LocalDate today =
+                LocalDate.now();
+
+        if (dateOfBirth.isAfter(today)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Date of birth cannot be in the future"
+            );
+        }
+
+        if (dateOfBirth.isAfter(
+                today.minusYears(12)
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Member must be at least 12 years old"
+            );
+        }
+    }
 
     private void validateAssignableRole(
             UserRole actorRole,
