@@ -183,6 +183,13 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- S3 client for uploaded file storage (AWS-only branch) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.54.7</version>
+        </dependency>
     </dependencies>
 
     <build>

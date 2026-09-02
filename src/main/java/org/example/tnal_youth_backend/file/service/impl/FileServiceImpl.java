@@ -8,26 +8,36 @@ import org.example.tnal_youth_backend.file.mapper.FileMapper;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Stores uploaded files in S3 rather than on local disk, since Elastic
+ * Beanstalk's EC2 instances don't persist local files across
+ * redeploys/restarts. Credentials come from the EC2 instance profile
+ * (aws-elasticbeanstalk-ec2-role) -- no access keys are configured here.
+ */
 @Service
 public class FileServiceImpl implements FileService {
 
@@ -69,29 +79,22 @@ public class FileServiceImpl implements FileService {
     private final FileRepository fileRepository;
 
     private final FileMapper fileMapper;
-    private final Path uploadRoot;
+    private final S3Client s3Client;
+    private final String bucket;
 
     public FileServiceImpl(
             FileRepository fileRepository,
             FileMapper fileMapper,
-            @Value("${app.file.upload-dir}") String uploadDirectory
+            @Value("${app.storage.s3.bucket}") String bucket,
+            @Value("${app.storage.s3.region:ap-southeast-1}") String region
     ) {
         this.fileRepository = fileRepository;
         this.fileMapper = fileMapper;
+        this.bucket = bucket;
 
-        this.uploadRoot = Paths.get(uploadDirectory)
-                .toAbsolutePath()
-                .normalize();
-
-        try {
-            Files.createDirectories(this.uploadRoot);
-
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Could not create the file upload directory",
-                    exception
-            );
-        }
+        this.s3Client = S3Client.builder()
+                .region(Region.of(region))
+                .build();
     }
 
     // ============================================================
@@ -327,18 +330,17 @@ public class FileServiceImpl implements FileService {
     ) {
         FileEntity file = findFileById(id);
 
-        Path physicalPath =
-                resolveStoredPath(file);
-
         try {
             /*
              * Flush first so database constraints are checked before
-             * deleting the physical file.
+             * deleting the stored object.
              */
             fileRepository.delete(file);
             fileRepository.flush();
 
-            Files.deleteIfExists(physicalPath);
+            deleteObjectQuietly(
+                    file.getFilePath()
+            );
 
         } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
@@ -348,12 +350,6 @@ public class FileServiceImpl implements FileService {
                     record is using it
                     """,
                     exception
-            );
-
-        } catch (IOException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "File metadata was removed, but the physical file could not be deleted"
             );
         }
     }
@@ -476,30 +472,26 @@ public class FileServiceImpl implements FileService {
     ) {
         FileEntity file = findFileById(fileId);
 
-        Path physicalPath =
-                resolveStoredPath(file);
-
         try {
-            Resource resource =
-                    new UrlResource(
-                            physicalPath.toUri()
-                    );
+            return new InputStreamResource(
+                    s3Client.getObject(
+                            GetObjectRequest.builder()
+                                    .bucket(bucket)
+                                    .key(file.getFilePath())
+                                    .build()
+                    )
+            );
 
-            if (!resource.exists()
-                    || !resource.isReadable()) {
+        } catch (NoSuchKeyException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Stored file could not be found"
+            );
 
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Stored file could not be found"
-                );
-            }
-
-            return resource;
-
-        } catch (MalformedURLException exception) {
+        } catch (S3Exception exception) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Stored file path is invalid"
+                    "Could not retrieve the stored file"
             );
         }
     }
@@ -529,21 +521,10 @@ public class FileServiceImpl implements FileService {
         String extension =
                 extractExtension(originalName);
 
-        String storedName =
-                UUID.randomUUID()
+        String objectKey =
+                folder + "/"
+                        + UUID.randomUUID()
                         + extension;
-
-        Path targetDirectory =
-                uploadRoot
-                        .resolve(folder)
-                        .normalize();
-
-        Path targetPath =
-                targetDirectory
-                        .resolve(storedName)
-                        .normalize();
-
-        validatePathInsideUploadRoot(targetPath);
 
         String contentType =
                 normalizeMimeType(
@@ -551,23 +532,21 @@ public class FileServiceImpl implements FileService {
                 );
 
         try {
-            Files.createDirectories(targetDirectory);
-
-            Files.copy(
-                    multipartFile.getInputStream(),
-                    targetPath,
-                    StandardCopyOption.REPLACE_EXISTING
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(objectKey)
+                            .contentType(contentType)
+                            .build(),
+                    RequestBody.fromInputStream(
+                            multipartFile.getInputStream(),
+                            multipartFile.getSize()
+                    )
             );
-
-            String relativePath =
-                    uploadRoot
-                            .relativize(targetPath)
-                            .toString()
-                            .replace("\\", "/");
 
             FileEntity entity =
                     FileEntity.builder()
-                            .filePath(relativePath)
+                            .filePath(objectKey)
                             .originalName(originalName)
                             .mimeType(contentType)
                             .sizeBytes(
@@ -582,15 +561,19 @@ public class FileServiceImpl implements FileService {
 
             } catch (RuntimeException exception) {
                 /*
-                 * Database save failed, so remove the physical file.
+                 * Database save failed, so remove the uploaded object.
                  */
-                deletePhysicalFileQuietly(targetPath);
+                deleteObjectQuietly(objectKey);
                 throw exception;
             }
 
         } catch (IOException exception) {
-            deletePhysicalFileQuietly(targetPath);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Could not store the uploaded file"
+            );
 
+        } catch (S3Exception exception) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Could not store the uploaded file"
@@ -598,27 +581,21 @@ public class FileServiceImpl implements FileService {
         }
     }
 
-    private Path resolveStoredPath(
-            FileEntity file
+    private void deleteObjectQuietly(
+            String objectKey
     ) {
-        Path physicalPath =
-                uploadRoot
-                        .resolve(file.getFilePath())
-                        .normalize();
-
-        validatePathInsideUploadRoot(physicalPath);
-
-        return physicalPath;
-    }
-
-    private void validatePathInsideUploadRoot(
-            Path path
-    ) {
-        if (!path.startsWith(uploadRoot)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid file path"
+        try {
+            s3Client.deleteObject(
+                    DeleteObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(objectKey)
+                            .build()
             );
+
+        } catch (S3Exception ignored) {
+            /*
+             * Cleanup failure must not hide the original exception.
+             */
         }
     }
 
@@ -753,19 +730,6 @@ public class FileServiceImpl implements FileService {
         return filename
                 .substring(dotIndex)
                 .toLowerCase(Locale.ROOT);
-    }
-
-    private void deletePhysicalFileQuietly(
-            Path path
-    ) {
-        try {
-            Files.deleteIfExists(path);
-
-        } catch (IOException ignored) {
-            /*
-             * Cleanup failure must not hide the original exception.
-             */
-        }
     }
 
     // ============================================================
