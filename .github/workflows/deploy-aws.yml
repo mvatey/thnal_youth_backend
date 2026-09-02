@@ -40,10 +40,19 @@ jobs:
 
       - name: Create application version
         run: |
-          aws elasticbeanstalk create-application-version \
+          EXISTS=$(aws elasticbeanstalk describe-application-versions \
             --application-name tnal-youth-backend \
-            --version-label "${{ github.sha }}" \
-            --source-bundle S3Bucket="elasticbeanstalk-ap-southeast-1-732837096104",S3Key="tnal-youth-backend-${{ github.sha }}.jar"
+            --version-labels "${{ github.sha }}" \
+            --query 'ApplicationVersions[0].VersionLabel' --output text)
+
+          if [ "$EXISTS" == "${{ github.sha }}" ]; then
+            echo "Version ${{ github.sha }} already exists (likely a retry of a previous run) -- skipping creation."
+          else
+            aws elasticbeanstalk create-application-version \
+              --application-name tnal-youth-backend \
+              --version-label "${{ github.sha }}" \
+              --source-bundle S3Bucket="elasticbeanstalk-ap-southeast-1-732837096104",S3Key="tnal-youth-backend-${{ github.sha }}.jar"
+          fi
 
       - name: Deploy to environment
         run: |
