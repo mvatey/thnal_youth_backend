@@ -19,6 +19,7 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchLeaderResponse;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -84,6 +85,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -669,6 +671,13 @@ public class MemberServiceImpl implements MemberService {
             validateMemberBranchAccess(branchIdToCheck);
         }
 
+        if (requestedRole == UserRole.BRANCH_LEADER) {
+            validateNoConflictingLeader(
+                    effectiveBranchIds.get(0),
+                    request.confirmReplaceLeader()
+            );
+        }
+
         Branch branch =
                 findBranch(
                         effectiveBranchIds.get(0)
@@ -757,7 +766,26 @@ public class MemberServiceImpl implements MemberService {
                     requestedRole
             );
 
-            if (position != null) {
+            if (requestedRole == UserRole.BRANCH_LEADER) {
+
+                /*
+                 * Not assignPosition: a leader needs is_primary = TRUE
+                 * (assignPosition always inserts FALSE) and the old
+                 * leader, if any, demoted -- both of which assignLeader
+                 * already does correctly, same as the "assign leader"
+                 * endpoint on the branch detail page.
+                 */
+                branchStaffRepository
+                        .assignLeader(
+                                savedMember
+                                        .getBranchId(),
+                                savedMember
+                                        .getId(),
+                                currentUser
+                                        .getId()
+                        );
+
+            } else if (position != null) {
 
                 branchStaffRepository
                         .assignPosition(
@@ -1667,6 +1695,41 @@ public class MemberServiceImpl implements MemberService {
                     "Member must be at least 12 years old"
             );
         }
+    }
+
+    /**
+     * A branch can only have one active leader. Creating a new member as
+     * BRANCH_LEADER for a branch that already has one is rejected unless
+     * the caller explicitly confirms replacing them -- otherwise the old
+     * leader would silently get bumped with no warning, which is exactly
+     * what caused a real leader's account to become inaccessible before
+     * this check existed.
+     */
+    private void validateNoConflictingLeader(
+            Long branchId,
+            Boolean confirmReplaceLeader
+    ) {
+        if (Boolean.TRUE.equals(confirmReplaceLeader)) {
+            return;
+        }
+
+        Optional<BranchLeaderResponse> existingLeader =
+                branchStaffRepository.findActiveLeader(branchId);
+
+        if (existingLeader.isEmpty()) {
+            return;
+        }
+
+        String existingLeaderName =
+                existingLeader.get().fullNameKm();
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "This branch already has an active leader: "
+                        + existingLeaderName
+                        + ". Set confirm_replace_leader to true to replace them "
+                        + "(they will be demoted to a regular member of this branch)."
+        );
     }
 
     private void validateAssignableRole(

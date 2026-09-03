@@ -1063,6 +1063,10 @@ public class MemberPersonalInfoServiceImpl
                             newEmail
                     );
 
+                    user.setBranchId(
+                            member.getBranchId()
+                    );
+
                     /*
                      * Keep these unchanged:
                      *
