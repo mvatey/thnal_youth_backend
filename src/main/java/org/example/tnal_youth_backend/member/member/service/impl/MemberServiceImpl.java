@@ -19,7 +19,6 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
 
-import org.example.tnal_youth_backend.member.branch.dto.response.BranchLeaderResponse;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -1704,6 +1703,17 @@ public class MemberServiceImpl implements MemberService {
      * leader would silently get bumped with no warning, which is exactly
      * what caused a real leader's account to become inaccessible before
      * this check existed.
+     *
+     * Deliberately reads the same source the rest of the app treats as
+     * authoritative for "who is this branch's leader" -- Member.branchId +
+     * User.role, via findBranchManagementMembers (also used by
+     * getBranchDetails/LeaderCard) -- instead of the branch_staff table's
+     * is_primary flag. branch_staff can fall out of sync when a leader's
+     * role or branch is changed through a path that doesn't go through
+     * assignLeader/removeLeader (e.g. an admin editing a member's role or
+     * branch directly), which previously made this warning name a stale,
+     * already-replaced leader instead of the one actually shown everywhere
+     * else in the app.
      */
     private void validateNoConflictingLeader(
             Long branchId,
@@ -1713,20 +1723,24 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
 
-        Optional<BranchLeaderResponse> existingLeader =
-                branchStaffRepository.findActiveLeader(branchId);
+        Optional<String> existingLeaderName =
+                memberRepository
+                        .findBranchManagementMembers(
+                                branchId,
+                                List.of(UserRole.BRANCH_LEADER)
+                        )
+                        .stream()
+                        .findFirst()
+                        .map(item -> item.getMember().getFullNameKm());
 
-        if (existingLeader.isEmpty()) {
+        if (existingLeaderName.isEmpty()) {
             return;
         }
-
-        String existingLeaderName =
-                existingLeader.get().fullNameKm();
 
         throw new ResponseStatusException(
                 HttpStatus.CONFLICT,
                 "This branch already has an active leader: "
-                        + existingLeaderName
+                        + existingLeaderName.get()
                         + ". Set confirm_replace_leader to true to replace them "
                         + "(they will be demoted to a regular member of this branch)."
         );
