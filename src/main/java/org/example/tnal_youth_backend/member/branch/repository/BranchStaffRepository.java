@@ -122,6 +122,13 @@ public class BranchStaffRepository {
                   AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
                   AND member_id <> :memberId
                 """, params);
+
+        // The previous leader's branch_staff row just ended above, but their
+        // login role was never reset -- without this they keep BRANCH_LEADER
+        // access (and show up as a leader in places that read users.role)
+        // even though branch_staff no longer records them as one.
+        demoteStaleLeaderRoles();
+
         int updated = jdbcTemplate.update("""
                 UPDATE branch_staff SET is_primary = TRUE, appointed_by = :appointedBy, updated_at = NOW()
                 WHERE branch_id = :branchId AND member_id = :memberId AND ended_on IS NULL
@@ -141,13 +148,14 @@ public class BranchStaffRepository {
                 """, params);
     }
 
-    public void removeLeader(Long branchId) {
-        MapSqlParameterSource params = new MapSqlParameterSource("branchId", branchId);
-        jdbcTemplate.update("""
-                UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
-                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
-                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
-                """, params);
+    /**
+     * Demotes any login account still marked BRANCH_LEADER back to MEMBER
+     * once it no longer holds an active primary branch_staff leadership row
+     * anywhere -- the same cleanup {@link #removeLeader} already does,
+     * pulled out so {@link #assignLeader} can run it too right after ending
+     * someone's leadership there.
+     */
+    public void demoteStaleLeaderRoles() {
         jdbcTemplate.update("""
                 UPDATE users u SET role = 'MEMBER', updated_at = NOW()
                 WHERE u.role = 'BRANCH_LEADER'
@@ -156,7 +164,17 @@ public class BranchStaffRepository {
                     WHERE bs.member_id = u.member_id AND p.code = 'BRANCH_LEADER'
                       AND bs.ended_on IS NULL AND bs.is_primary = TRUE
                   )
+                """, new MapSqlParameterSource());
+    }
+
+    public void removeLeader(Long branchId) {
+        MapSqlParameterSource params = new MapSqlParameterSource("branchId", branchId);
+        jdbcTemplate.update("""
+                UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
+                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
+                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
                 """, params);
+        demoteStaleLeaderRoles();
     }
 
     /**
