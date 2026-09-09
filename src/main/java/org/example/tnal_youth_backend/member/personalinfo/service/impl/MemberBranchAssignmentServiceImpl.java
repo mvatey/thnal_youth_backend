@@ -235,6 +235,25 @@ public class MemberBranchAssignmentServiceImpl
                         ? currentPrimary
                         : desiredBranchIds.iterator().next();
 
+        // uq_branch_primary_position allows at most one active primary
+        // SECRETARY row per branch. If some other member already holds that
+        // slot for nextPrimary, the upsert below would otherwise hit that
+        // raw constraint and surface as a generic "conflicts with existing
+        // data" 409 with no indication of which branch or who -- name it
+        // here instead, before any write happens.
+        if (!nextPrimary.equals(currentPrimary)) {
+            findActivePrimarySecretaryName(nextPrimary, memberId)
+                    .ifPresent(existingSecretaryName -> {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "This branch already has an active primary secretary: "
+                                        + existingSecretaryName
+                                        + ". Remove or reassign them before making this "
+                                        + "member primary for that branch."
+                        );
+                    });
+        }
+
         Long actorId = currentUserId();
 
         // Make the member's primary branch agree with the selected coverage.
@@ -305,6 +324,35 @@ public class MemberBranchAssignmentServiceImpl
                 );
             }
         }
+    }
+
+    /**
+     * The active primary SECRETARY of a branch, if it's held by someone
+     * other than the member currently being edited.
+     */
+    private java.util.Optional<String> findActivePrimarySecretaryName(
+            Long branchId,
+            Long excludingMemberId
+    ) {
+        List<String> names = jdbcTemplate.queryForList(
+                """
+                SELECT m.full_name_km
+                FROM branch_staff bs
+                JOIN members m ON m.id = bs.member_id
+                WHERE bs.branch_id = :branchId
+                  AND bs.position_id = (SELECT id FROM positions WHERE code = 'SECRETARY')
+                  AND bs.ended_on IS NULL
+                  AND bs.is_primary = TRUE
+                  AND bs.member_id <> :excludingMemberId
+                LIMIT 1
+                """,
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId)
+                        .addValue("excludingMemberId", excludingMemberId),
+                String.class
+        );
+
+        return names.stream().findFirst();
     }
 
     @Override
