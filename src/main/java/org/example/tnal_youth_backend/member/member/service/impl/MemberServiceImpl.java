@@ -206,7 +206,7 @@ public class MemberServiceImpl implements MemberService {
                         )
                         : memberRepository
                         .countByGenderAndBranchId(
-                                Gender.FEMALE,
+                                Gender.FEMALE.name(),
                                 effectiveBranchId
                         );
 
@@ -218,7 +218,7 @@ public class MemberServiceImpl implements MemberService {
                         )
                         : memberRepository
                         .countByGenderAndBranchId(
-                                Gender.MONK,
+                                Gender.MONK.name(),
                                 effectiveBranchId
                         );
 

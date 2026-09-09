@@ -240,7 +240,15 @@ public interface MemberRepository
                            ON f.id = m.profile_photo_id
                     LEFT JOIN users u
                            ON u.member_id = m.id
-                    WHERE m.branch_id = :branchId
+                    WHERE (
+                        m.branch_id = :branchId
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id = :branchId
+                              AND bs.ended_on IS NULL
+                        )
+                    )
                     ORDER BY
                         m.created_at DESC,
                         m.id DESC
@@ -397,13 +405,44 @@ public interface MemberRepository
             Gender gender
     );
 
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE m.branch_id = :branchId
+                       OR EXISTS (
+                           SELECT 1 FROM branch_staff bs
+                           WHERE bs.member_id = m.id
+                             AND bs.branch_id = :branchId
+                             AND bs.ended_on IS NULL
+                       )
+                    """,
+            nativeQuery = true
+    )
     long countByBranchId(
-            Long branchId
+            @Param("branchId") Long branchId
     );
 
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE UPPER(m.gender) = UPPER(:gender)
+                      AND (
+                          m.branch_id = :branchId
+                          OR EXISTS (
+                              SELECT 1 FROM branch_staff bs
+                              WHERE bs.member_id = m.id
+                                AND bs.branch_id = :branchId
+                                AND bs.ended_on IS NULL
+                          )
+                      )
+                    """,
+            nativeQuery = true
+    )
     long countByGenderAndBranchId(
-            Gender gender,
-            Long branchId
+            @Param("gender") String gender,
+            @Param("branchId") Long branchId
     );
 
     @Query("""
@@ -418,14 +457,24 @@ public interface MemberRepository
             String religionCode
     );
 
-    @Query("""
-            SELECT COUNT(member)
-            FROM Member member
-            JOIN member.religion religion
-            WHERE UPPER(religion.code) =
-                  UPPER(:religionCode)
-              AND member.branchId = :branchId
-            """)
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    JOIN religions r ON r.id = m.religion_id
+                    WHERE UPPER(r.code) = UPPER(:religionCode)
+                      AND (
+                          m.branch_id = :branchId
+                          OR EXISTS (
+                              SELECT 1 FROM branch_staff bs
+                              WHERE bs.member_id = m.id
+                                AND bs.branch_id = :branchId
+                                AND bs.ended_on IS NULL
+                          )
+                      )
+                    """,
+            nativeQuery = true
+    )
     long countByReligionCodeAndBranchId(
             @Param("religionCode") String religionCode,
             @Param("branchId") Long branchId
@@ -456,7 +505,15 @@ public interface MemberRepository
             value = """
                     SELECT COUNT(*)
                     FROM members m
-                    WHERE m.branch_id = :branchId
+                    WHERE (
+                        m.branch_id = :branchId
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id = :branchId
+                              AND bs.ended_on IS NULL
+                        )
+                    )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
                     """,
@@ -487,7 +544,15 @@ public interface MemberRepository
                     SELECT COUNT(*)
                     FROM members m
                     WHERE UPPER(m.gender) = UPPER(:gender)
-                      AND m.branch_id = :branchId
+                      AND (
+                          m.branch_id = :branchId
+                          OR EXISTS (
+                              SELECT 1 FROM branch_staff bs
+                              WHERE bs.member_id = m.id
+                                AND bs.branch_id = :branchId
+                                AND bs.ended_on IS NULL
+                          )
+                      )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
                     """,
@@ -521,7 +586,15 @@ public interface MemberRepository
                     FROM members m
                     JOIN religions r ON r.id = m.religion_id
                     WHERE UPPER(r.code) = UPPER(:religionCode)
-                      AND m.branch_id = :branchId
+                      AND (
+                          m.branch_id = :branchId
+                          OR EXISTS (
+                              SELECT 1 FROM branch_staff bs
+                              WHERE bs.member_id = m.id
+                                AND bs.branch_id = :branchId
+                                AND bs.ended_on IS NULL
+                          )
+                      )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
                     """,
@@ -647,6 +720,12 @@ public interface MemberRepository
             AND (
                 :branchId IS NULL
                 OR m.branch_id = :branchId
+                OR EXISTS (
+                    SELECT 1 FROM branch_staff bs
+                    WHERE bs.member_id = m.id
+                      AND bs.branch_id = :branchId
+                      AND bs.ended_on IS NULL
+                )
             )
 
             AND (
@@ -699,6 +778,12 @@ public interface MemberRepository
             AND (
                 :branchId IS NULL
                 OR m.branch_id = :branchId
+                OR EXISTS (
+                    SELECT 1 FROM branch_staff bs
+                    WHERE bs.member_id = m.id
+                      AND bs.branch_id = :branchId
+                      AND bs.ended_on IS NULL
+                )
             )
 
             AND (
