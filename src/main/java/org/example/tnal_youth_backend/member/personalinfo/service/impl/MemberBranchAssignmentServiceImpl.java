@@ -82,16 +82,16 @@ public class MemberBranchAssignmentServiceImpl
                 requireMember(memberId);
 
         /*
-         * A member with no primary branch yet gets this one
-         * promoted to primary automatically — otherwise there
-         * would be no way to give a brand-new secretary a first
-         * branch through this multiselect at all, since removing
-         * "the primary branch" is deliberately blocked below.
+         * A member with no home branch yet gets this one -- otherwise
+         * there would be no way to give a brand-new secretary a first
+         * branch through this multiselect at all, since removing the
+         * member's only branch is deliberately blocked elsewhere. This
+         * is purely about members.branchId (their own home/login
+         * branch); it has no bearing on branch_staff.is_primary, which
+         * secretaries never use -- every branch they cover is just
+         * coverage, none of them exclusive to this member.
          */
-        boolean becomesPrimary =
-                member.getBranchId() == null;
-
-        if (becomesPrimary) {
+        if (member.getBranchId() == null) {
             member.setBranchId(branchId);
 
             memberRepository
@@ -110,10 +110,6 @@ public class MemberBranchAssignmentServiceImpl
                                 memberId
                         )
                         .addValue(
-                                "isPrimary",
-                                becomesPrimary
-                        )
-                        .addValue(
                                 "appointedBy",
                                 currentUserId()
                         );
@@ -122,7 +118,7 @@ public class MemberBranchAssignmentServiceImpl
                 """
                 UPDATE branch_staff
                 SET ended_on = NULL,
-                    is_primary = :isPrimary,
+                    is_primary = FALSE,
                     updated_at = NOW()
                 WHERE branch_id = :branchId
                   AND member_id = :memberId
@@ -169,7 +165,7 @@ public class MemberBranchAssignmentServiceImpl
                 VALUES (
                     :branchId, :memberId,
                     (SELECT id FROM positions WHERE code = 'SECRETARY'),
-                    CURRENT_DATE, :isPrimary, :appointedBy
+                    CURRENT_DATE, FALSE, :appointedBy
                 )
                 """,
                 params
@@ -222,45 +218,30 @@ public class MemberBranchAssignmentServiceImpl
         }
 
         /*
-         * Primary-branch rule:
-         * 1. Keep the existing primary branch if it is still selected.
-         * 2. If the secretary had no primary branch, the first selected
-         *    branch becomes primary.
-         * 3. If the old primary was removed, promote the first remaining
-         *    selected branch.
+         * A secretary covering several branches is simply a member of every
+         * one of them -- no branch is more "primary" than another for
+         * coverage purposes, so branch_staff rows here are never marked
+         * is_primary (that flag, and uq_branch_primary_position, exist for
+         * BRANCH_LEADER's genuinely-exclusive one-leader-per-branch rule;
+         * SECRETARY never participates in it).
+         *
+         * members.branchId still needs exactly one value (it's a single FK,
+         * used for this account's own login/JWT scoping and which member
+         * list shows them first) -- keep the existing one if it's still
+         * selected, otherwise fall back to the first selected branch.
          */
-        Long currentPrimary = member.getBranchId();
-        Long nextPrimary =
-                currentPrimary != null && desiredBranchIds.contains(currentPrimary)
-                        ? currentPrimary
+        Long currentHomeBranch = member.getBranchId();
+        Long nextHomeBranch =
+                currentHomeBranch != null && desiredBranchIds.contains(currentHomeBranch)
+                        ? currentHomeBranch
                         : desiredBranchIds.iterator().next();
-
-        // uq_branch_primary_position allows at most one active primary
-        // SECRETARY row per branch. If some other member already holds that
-        // slot for nextPrimary, the upsert below would otherwise hit that
-        // raw constraint and surface as a generic "conflicts with existing
-        // data" 409 with no indication of which branch or who -- name it
-        // here instead, before any write happens.
-        if (!nextPrimary.equals(currentPrimary)) {
-            findActivePrimarySecretaryName(nextPrimary, memberId)
-                    .ifPresent(existingSecretaryName -> {
-                        throw new ResponseStatusException(
-                                HttpStatus.CONFLICT,
-                                "This branch already has an active primary secretary: "
-                                        + existingSecretaryName
-                                        + ". Remove or reassign them before making this "
-                                        + "member primary for that branch."
-                        );
-                    });
-        }
 
         Long actorId = currentUserId();
 
-        // Make the member's primary branch agree with the selected coverage.
-        if (!nextPrimary.equals(currentPrimary)) {
-            member.setBranchId(nextPrimary);
+        if (!nextHomeBranch.equals(currentHomeBranch)) {
+            member.setBranchId(nextHomeBranch);
             memberRepository.saveAndFlush(member);
-            synchronizeLinkedUserPrimaryBranch(memberId, nextPrimary);
+            synchronizeLinkedUserPrimaryBranch(memberId, nextHomeBranch);
         }
 
         MapSqlParameterSource commonParams =
@@ -284,20 +265,17 @@ public class MemberBranchAssignmentServiceImpl
                         .addValue("branchIds", desiredBranchIds)
         );
 
-        // Upsert every selected branch. The selected primary is the only primary row.
+        // Upsert every selected branch. None of these are ever primary.
         for (Long branchId : desiredBranchIds) {
-            boolean isPrimary = branchId.equals(nextPrimary);
-
             MapSqlParameterSource params =
                     new MapSqlParameterSource(commonParams.getValues())
-                            .addValue("branchId", branchId)
-                            .addValue("isPrimary", isPrimary);
+                            .addValue("branchId", branchId);
 
             int updated = jdbcTemplate.update(
                     """
                     UPDATE branch_staff
                     SET ended_on = NULL,
-                        is_primary = :isPrimary,
+                        is_primary = FALSE,
                         updated_at = NOW(),
                         appointed_by = :appointedBy
                     WHERE branch_id = :branchId
@@ -317,42 +295,13 @@ public class MemberBranchAssignmentServiceImpl
                         VALUES (
                             :branchId, :memberId,
                             (SELECT id FROM positions WHERE code = 'SECRETARY'),
-                            CURRENT_DATE, :isPrimary, :appointedBy
+                            CURRENT_DATE, FALSE, :appointedBy
                         )
                         """,
                         params
                 );
             }
         }
-    }
-
-    /**
-     * The active primary SECRETARY of a branch, if it's held by someone
-     * other than the member currently being edited.
-     */
-    private java.util.Optional<String> findActivePrimarySecretaryName(
-            Long branchId,
-            Long excludingMemberId
-    ) {
-        List<String> names = jdbcTemplate.queryForList(
-                """
-                SELECT m.full_name_km
-                FROM branch_staff bs
-                JOIN members m ON m.id = bs.member_id
-                WHERE bs.branch_id = :branchId
-                  AND bs.position_id = (SELECT id FROM positions WHERE code = 'SECRETARY')
-                  AND bs.ended_on IS NULL
-                  AND bs.is_primary = TRUE
-                  AND bs.member_id <> :excludingMemberId
-                LIMIT 1
-                """,
-                new MapSqlParameterSource()
-                        .addValue("branchId", branchId)
-                        .addValue("excludingMemberId", excludingMemberId),
-                String.class
-        );
-
-        return names.stream().findFirst();
     }
 
     @Override
