@@ -149,6 +149,10 @@ public class MemberPersonalInfoServiceImpl
             );
         }
 
+        validateMemberContactIsAvailable(
+                member
+        );
+
         Member savedMember =
                 memberRepository
                         .saveAndFlush(
@@ -994,6 +998,10 @@ public class MemberPersonalInfoServiceImpl
 
           member.setJoinedOn(request.joinedOn());
 
+        validateMemberContactIsAvailable(
+                member
+        );
+
         Member savedMember =
                 memberRepository
                         .saveAndFlush(
@@ -1007,6 +1015,49 @@ public class MemberPersonalInfoServiceImpl
         return toResponse(
                 savedMember
         );
+    }
+
+    /**
+     * Runs before the member row itself is saved. members.phone/email each
+     * have their own unique index (uq_members_phone/uq_members_email),
+     * separate from the users table's uniqueness that
+     * synchronizeLinkedAccount below checks -- without this, a clash here
+     * hits that raw DB constraint first and falls through to
+     * GlobalExceptionHandler's generic "The request conflicts with
+     * existing data" instead of naming which field actually collided.
+     */
+    private void validateMemberContactIsAvailable(
+            Member member
+    ) {
+        String phone =
+                member.getPhone();
+
+        if (phone != null
+                && !phone.isBlank()
+                && memberRepository.existsByPhoneAndIdNot(
+                        phone,
+                        member.getId()
+                )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This phone number already exists. Please use a different one."
+            );
+        }
+
+        String email =
+                member.getEmail();
+
+        if (email != null
+                && !email.isBlank()
+                && memberRepository.existsByEmailIgnoreCaseAndIdNot(
+                        email,
+                        member.getId()
+                )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This email already exists. Please use a different one."
+            );
+        }
     }
 
     private void synchronizeLinkedAccount(
