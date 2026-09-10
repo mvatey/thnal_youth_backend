@@ -555,7 +555,7 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
                 && zero(request.getAmountUsd()).signum() <= 0) {
             throw new BusinessException(
                     "DONATION_AMOUNT_REQUIRED",
-                    "Money donations require amountKhr or amountUsd greater than zero"
+                    "ការឧបត្ថម្ភជាទឹកប្រាក់ត្រូវមានចំនួនទឹកប្រាក់ជារៀល ឬដុល្លារ ធំជាងសូន្យ។"
             );
         }
     }

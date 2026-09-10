@@ -449,11 +449,11 @@ public class DonationServiceImpl implements DonationService {
         BigDecimal amountKhr = amountKhrRaw != null ? amountKhrRaw : BigDecimal.ZERO;
         BigDecimal amountUsd = amountUsdRaw != null ? amountUsdRaw : BigDecimal.ZERO;
         if (amountKhr.signum() < 0 || amountUsd.signum() < 0) {
-            throw new BusinessException("DONATION_AMOUNTS_INVALID", "Amounts must be zero or positive");
+            throw new BusinessException("DONATION_AMOUNTS_INVALID", "ចំនួនទឹកប្រាក់ត្រូវតែសូន្យ ឬវិជ្ជមាន។");
         }
         if (amountKhr.signum() == 0 && amountUsd.signum() == 0) {
             throw new BusinessException("DONATION_AMOUNTS_INVALID",
-                    "At least one of amountKhr or amountUsd must be greater than zero");
+                    "ត្រូវមានចំនួនទឹកប្រាក់យ៉ាងតិចមួយ (រៀល ឬដុល្លារ) ធំជាងសូន្យ។");
         }
 
         // ---- exchange rate required when there is a KHR component ----
