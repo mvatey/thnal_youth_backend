@@ -67,9 +67,9 @@ public class TelegramUpdateHandler {
             reply(
                     chatId,
                     "សូមស្វាគមន៍មកកាន់ @TnalYouth_Bot!\n\n"
-                            + "ការភ្ជាប់គណនីរបស់អ្នកបានជោគជ័យ! អ្នកនឹងទទួលបានការជូនដំណឹងភ្លាមៗអំពីសកម្មភាព និងឯកសារផ្សេងៗនៅទីនេះ។\n\n"
+                            + "ការភ្ជាប់មកកាន់តេឡេក្រាមរបស់អ្នកទទួលបានជោគជ័យ! អ្នកនឹងទទួលបានការជូនដំណឹងភ្លាមៗស្ដីអំពីសកម្មភាព និងឯកសារផ្សេងៗនៅទីនេះ។\n\n"
                             + "Welcome to @TnalYouth_Bot!\n\n"
-                            + "You have successfully connected your account! You will now receive real-time notifications of activities and documents here."
+                            + "You have successfully connected to telegram! You will now receive real-time notifications of any updated activities and documents here."
             );
         } catch (BusinessException e) {
             log.info("Telegram link attempt failed for chat {}: {}", chatId, e.getMessage());
