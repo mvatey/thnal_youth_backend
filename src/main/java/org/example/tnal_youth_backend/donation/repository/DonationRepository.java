@@ -480,11 +480,18 @@ public interface DonationRepository {
      * convention used everywhere else in this module. Powers the branch
      * detail page's "total donations" card, which previously had no backend
      * field at all and was hardcoded to a dash on the frontend.
+     *
+     * Excludes activity donations whose activity has since been cancelled
+     * -- same guard as the donation list/summary queries above, so a
+     * cancelled activity's money doesn't linger in this total either.
      */
     @Select("""
         SELECT COALESCE(SUM(d.total_amount_usd), 0)
         FROM donations d
+        LEFT JOIN activities a ON a.id = d.activity_id
+        LEFT JOIN activity_statuses ast ON ast.id = a.status_id
         WHERE d.branch_id = #{branchId}
+          AND (d.activity_id IS NULL OR UPPER(COALESCE(ast.code, '')) != 'CANCELLED')
         """)
     BigDecimal sumTotalAmountUsdByBranchId(@Param("branchId") Long branchId);
 }

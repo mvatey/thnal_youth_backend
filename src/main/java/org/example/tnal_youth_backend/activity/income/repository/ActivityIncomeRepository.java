@@ -41,9 +41,11 @@ public interface ActivityIncomeRepository {
             "FROM donations n",
             "JOIN donation_types dt ON dt.id = n.donation_type_id",
             "JOIN activities a ON a.id = n.activity_id",
+            "JOIN activity_statuses ast ON ast.id = a.status_id",
             "JOIN branches b ON b.id = a.branch_id",
             "WHERE dt.code = 'ACTIVITY_DONATION'",
             "  AND n.activity_id IS NOT NULL",
+            "  AND UPPER(COALESCE(ast.code, '')) != 'CANCELLED'",
             "  <if test='branchId != null'> AND n.branch_id = #{branchId} </if>",
             "  <if test='paidFrom != null'> AND n.paid_at &gt;= #{paidFrom} </if>",
             "  <if test='paidTo != null'> AND n.paid_at &lt;= #{paidTo} </if>",
@@ -77,9 +79,11 @@ public interface ActivityIncomeRepository {
             "  FROM donations n",
             "  JOIN donation_types dt ON dt.id = n.donation_type_id",
             "  JOIN activities a ON a.id = n.activity_id",
+            "  JOIN activity_statuses ast ON ast.id = a.status_id",
             "  JOIN branches b ON b.id = a.branch_id",
             "  WHERE dt.code = 'ACTIVITY_DONATION'",
             "    AND n.activity_id IS NOT NULL",
+            "    AND UPPER(COALESCE(ast.code, '')) != 'CANCELLED'",
             "    <if test='branchId != null'> AND n.branch_id = #{branchId} </if>",
             "    <if test='paidFrom != null'> AND n.paid_at &gt;= #{paidFrom} </if>",
             "    <if test='paidTo != null'> AND n.paid_at &lt;= #{paidTo} </if>",
@@ -118,6 +122,12 @@ public interface ActivityIncomeRepository {
         """)
     ActivityIncomeActivityResponse findActivity(@Param("activityId") Long activityId);
 
+    /*
+     * Excludes a cancelled activity's income entirely -- getDetail() falls
+     * back to a zero-filled summary when this returns no row, so a
+     * cancelled activity's income page correctly shows nothing rather
+     * than the money it was recording before cancellation.
+     */
     @Select("""
         SELECT
             COUNT(DISTINCT n.member_id) AS memberCount,
@@ -126,8 +136,11 @@ public interface ActivityIncomeRepository {
             COALESCE(SUM(n.total_amount_usd), 0) AS overallTotalUsd
         FROM donations n
         JOIN donation_types dt ON dt.id = n.donation_type_id
+        JOIN activities a ON a.id = n.activity_id
+        JOIN activity_statuses ast ON ast.id = a.status_id
         WHERE dt.code = 'ACTIVITY_DONATION'
           AND n.activity_id = #{activityId}
+          AND UPPER(COALESCE(ast.code, '')) != 'CANCELLED'
         """)
     ActivityIncomeSummaryResponse summarize(@Param("activityId") Long activityId);
 
@@ -157,9 +170,12 @@ public interface ActivityIncomeRepository {
         FROM donations n
         JOIN donation_types dt ON dt.id = n.donation_type_id
         JOIN payment_methods pm ON pm.id = n.payment_method_id
+        JOIN activities a ON a.id = n.activity_id
+        JOIN activity_statuses ast ON ast.id = a.status_id
         LEFT JOIN members m ON m.id = n.member_id
         WHERE dt.code = 'ACTIVITY_DONATION'
           AND n.activity_id = #{activityId}
+          AND UPPER(COALESCE(ast.code, '')) != 'CANCELLED'
         ORDER BY n.paid_at DESC, n.id DESC
         """)
     List<ActivityIncomeMemberRowResponse> findRows(
