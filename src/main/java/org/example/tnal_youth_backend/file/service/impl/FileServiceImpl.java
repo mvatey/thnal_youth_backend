@@ -384,10 +384,17 @@ public class FileServiceImpl implements FileService {
             MultipartFile file,
             Long uploadedById
     ) {
+        /*
+         * No MIME-type whitelist here (unlike uploadImage) --
+         * "attachment" backs both the document page's file upload and
+         * an activity's "Other Documents" field, either of which may
+         * legitimately be a photographed/scanned document (jpg/png)
+         * as easily as a pdf/doc, so any type is accepted.
+         */
         validateMultipartFile(
                 file,
                 MAX_ATTACHMENT_SIZE,
-                ATTACHMENT_TYPES,
+                null,
                 "attachment"
         );
 
@@ -646,7 +653,13 @@ public class FileServiceImpl implements FileService {
                         .trim()
                         .toLowerCase(Locale.ROOT);
 
-        if (!allowedMimeTypes.contains(
+        /*
+         * A null allowedMimeTypes set means this file type is
+         * unrestricted (see uploadAttachment) -- only the earlier
+         * size/presence checks apply.
+         */
+        if (allowedMimeTypes != null
+                && !allowedMimeTypes.contains(
                 normalizedContentType
         )) {
             throw new ResponseStatusException(
