@@ -110,9 +110,8 @@ public class MemberEducationServiceImpl
                                 )
                         )
                         .countryName(
-                                normalizeRequired(
-                                        request.countryName(),
-                                        "Country name"
+                                trimToNull(
+                                        request.countryName()
                                 )
                         )
                         .provinceName(
@@ -195,9 +194,8 @@ public class MemberEducationServiceImpl
         );
 
         education.setCountryName(
-                normalizeRequired(
-                        request.countryName(),
-                        "Country name"
+                trimToNull(
+                        request.countryName()
                 )
         );
 
