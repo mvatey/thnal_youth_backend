@@ -63,4 +63,18 @@ public class MemberAccountController {
                         )
         );
     }
+
+    @PatchMapping("/reset-activation")
+    public ResponseEntity<MemberPasswordStatusResponse>
+    resetToPendingActivation(
+            @PathVariable
+            Long memberId
+    ) {
+        return ResponseEntity.ok(
+                memberPasswordService
+                        .resetToPendingActivation(
+                                memberId
+                        )
+        );
+    }
 }

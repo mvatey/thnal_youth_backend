@@ -27,6 +27,18 @@ public interface MemberPasswordService {
             Long memberId
     );
 
+    /**
+     * Sends an ACTIVE (or INACTIVE) account back to PENDING_ACTIVATION --
+     * clears the password hash and any lock/failed-login state, and
+     * revokes existing sessions, so the account can only come back by
+     * completing OTP activation again from scratch. Meant for support
+     * cases (e.g. a demo/test account that needs to redo the activation
+     * flow) — never for an account already pending activation.
+     */
+    MemberPasswordStatusResponse resetToPendingActivation(
+            Long memberId
+    );
+
     MemberPasswordStatusResponse updateAccountRole(
             Long memberId,
             UpdateMemberRoleRequest request

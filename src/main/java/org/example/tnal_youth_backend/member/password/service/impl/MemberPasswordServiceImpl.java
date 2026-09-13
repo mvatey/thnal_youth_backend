@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -403,6 +404,87 @@ public class MemberPasswordServiceImpl
 
         /*
          * Immediately end existing sessions after disabling.
+         */
+        revokeRefreshTokens(
+                savedUser
+        );
+
+        return toResponse(
+                savedUser
+        );
+    }
+
+    /*
+     * ==========================================================
+     * RESET TO PENDING ACTIVATION
+     * ==========================================================
+     */
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse resetToPendingActivation(
+            Long memberId
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
+        requireMember(
+                memberId
+        );
+
+        User user =
+                requireUserAccount(
+                        memberId
+                );
+
+        validateCanManageTargetAccount(
+                user
+        );
+
+        if (
+                user.getStatus()
+                        == UserStatus.PENDING_ACTIVATION
+        ) {
+            return toResponse(
+                    user
+            );
+        }
+
+        user.setStatus(
+                UserStatus.PENDING_ACTIVATION
+        );
+
+        /*
+         * password_hash is NOT NULL -- a fresh PENDING_ACTIVATION account
+         * (see MemberServiceImpl's member-creation flow) is given a hash
+         * of a random, never-shared UUID instead of an empty value, so
+         * it's structurally impossible for it to match any real password
+         * until OTP activation sets a genuine one. Same approach here.
+         */
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        UUID.randomUUID().toString()
+                )
+        );
+
+        user.setLockedUntil(null);
+        user.setFailedLoginCount(0);
+
+        User savedUser =
+                userRepository.saveAndFlush(
+                        user
+                );
+
+        /*
+         * Immediately end existing sessions -- the account has no usable
+         * password anymore until OTP activation is completed again.
          */
         revokeRefreshTokens(
                 savedUser
