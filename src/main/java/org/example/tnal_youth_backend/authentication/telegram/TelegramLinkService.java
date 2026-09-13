@@ -17,4 +17,12 @@ public interface TelegramLinkService {
      * the token's owning user.
      */
     void confirmLink(String token, Long chatId);
+
+    /**
+     * Called from {@code DELETE /api/telegram/link} by a logged-in user to
+     * disconnect their own Telegram account. Idempotent -- unlinking an
+     * account that isn't currently linked is a no-op, not an error, so a
+     * stale UI state or a double-click can't fail it.
+     */
+    void unlinkTelegram(Long userId);
 }

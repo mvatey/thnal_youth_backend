@@ -158,4 +158,23 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         linkToken.setConsumedAt(OffsetDateTime.now());
         telegramLinkTokenRepository.save(linkToken);
     }
+
+    @Override
+    @Transactional
+    public void unlinkTelegram(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(
+                        "USER_NOT_FOUND",
+                        "User " + userId + " not found",
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (user.getTelegramChatId() == null) {
+            return;
+        }
+
+        user.setTelegramChatId(null);
+        user.setTelegramLinkedAt(null);
+        userRepository.save(user);
+    }
 }

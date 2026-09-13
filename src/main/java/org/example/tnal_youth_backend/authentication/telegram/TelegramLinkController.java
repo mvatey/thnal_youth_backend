@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -59,6 +60,19 @@ public class TelegramLinkController {
 
         telegramLinkService.confirmLink(request.getToken(), request.getChatId());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Self-service disconnect. Not covered by the POST /link permitAll
+     * rule above (that's scoped to POST only), so this requires the
+     * normal JWT auth like any other endpoint -- a user can only ever
+     * unlink their own account, never someone else's.
+     */
+    @DeleteMapping("/link")
+    public ResponseEntity<Void> unlink() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        telegramLinkService.unlinkTelegram(userId);
+        return ResponseEntity.noContent().build();
     }
 
     private boolean secretMatches(String expected, String actual) {
