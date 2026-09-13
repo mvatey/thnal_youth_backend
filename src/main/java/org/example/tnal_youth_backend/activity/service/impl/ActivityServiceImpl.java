@@ -722,7 +722,8 @@ public class ActivityServiceImpl implements ActivityService {
 
         validateStatusForUpdate(
                 activityStatus,
-                request
+                request,
+                previousStatusCode
         );
 
         activity.setTitleKm(
@@ -1334,7 +1335,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     private void validateStatusForUpdate(
             ActivityStatus requestedStatus,
-            UpdateActivityRequest request
+            UpdateActivityRequest request,
+            String previousStatusCode
     ) {
         String statusCode =
                 requestedStatus.getCode();
@@ -1343,9 +1345,14 @@ public class ActivityServiceImpl implements ActivityService {
                 OffsetDateTime.now();
 
         /*
-         * COMPLETED is handled through a separate manual endpoint.
+         * Transitioning INTO completed is handled through the separate
+         * manual /complete endpoint. This must not reject an activity that
+         * was ALREADY completed and is simply being edited (title,
+         * description, etc.) with its status resubmitted unchanged --
+         * only an actual transition into COMPLETED is disallowed here.
          */
-        if ("COMPLETED".equalsIgnoreCase(statusCode)) {
+        if ("COMPLETED".equalsIgnoreCase(statusCode)
+                && !"COMPLETED".equalsIgnoreCase(previousStatusCode)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Use the complete activity endpoint to mark the activity as completed"
