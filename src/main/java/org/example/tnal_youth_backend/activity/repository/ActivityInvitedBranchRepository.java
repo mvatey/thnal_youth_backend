@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -114,5 +115,26 @@ public interface ActivityInvitedBranchRepository
     List<ActivityInvitedBranch> findByBranchIdInAndInvitationStatusIn(
             @Param("branchIds") Collection<Long> branchIds,
             @Param("statuses") Collection<ActivityInvitationStatus> statuses
+    );
+
+    /*
+     * Every invitation still PENDING whose activity has already ended --
+     * used by ActivityStatusScheduler to auto-decline stale invitations on
+     * a timer. ActivityServiceImpl#completeActivity already declines these
+     * too, but only when staff manually mark the activity COMPLETED, which
+     * the frontend's own effective-status display (endsAt in the past) does
+     * not require them to ever actually do -- so a PENDING invitation could
+     * otherwise sit there indefinitely, still showing Accept/Decline, for
+     * an activity that already happened.
+     */
+    @EntityGraph(
+            attributePaths = {
+                    "activity"
+            }
+    )
+    List<ActivityInvitedBranch>
+    findAllByInvitationStatusAndActivity_EndsAtLessThanEqual(
+            ActivityInvitationStatus invitationStatus,
+            OffsetDateTime cutoff
     );
 }
