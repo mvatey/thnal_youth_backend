@@ -58,10 +58,9 @@ public interface DonationService {
     List<DonationBranchTotalResponse> activityBranchTotals(Long activityId);
 
     /**
-     * The activity's grand total across every donation type (member/branch
-     * donations plus sponsor donations earmarked for it) — the figure for
-     * the top-level summary cards, as opposed to {@link #activityBranchTotals}'s
-     * per-branch, member-donation-only breakdown.
+     * How much of this activity's money came specifically from sponsors —
+     * the standalone Sponsor card next to (not folded into) {@link
+     * #activityBranchTotals}'s member/branch total.
      */
-    DonationSummaryResponse activityDonationTotal(Long activityId);
+    DonationSummaryResponse activitySponsorTotal(Long activityId);
 }

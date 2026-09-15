@@ -400,15 +400,15 @@ public class DonationServiceImpl implements DonationService {
     }
 
     /**
-     * See {@link DonationService#activityDonationTotal}. Same "does this
+     * See {@link DonationService#activitySponsorTotal}. Same "does this
      * viewer's branch have a stake in the activity" access check as {@link
      * #activityBranchTotals}, just without building the per-branch rows —
-     * this one only needs a single grand total, summed across every
-     * donation type by {@link DonationRepository#sumActivityTotalAllTypes}.
+     * this one only needs a single total, summed across this activity's
+     * SPONSOR_DONATION rows by {@link DonationRepository#sumActivitySponsorTotal}.
      */
     @Transactional(readOnly = true)
     @Override
-    public DonationSummaryResponse activityDonationTotal(Long activityId) {
+    public DonationSummaryResponse activitySponsorTotal(Long activityId) {
         if (isCancelledActivity(activityId)) {
             return new DonationSummaryResponse(0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         }
@@ -427,7 +427,7 @@ public class DonationServiceImpl implements DonationService {
             }
         }
 
-        return repo.sumActivityTotalAllTypes(activityId);
+        return repo.sumActivitySponsorTotal(activityId);
     }
 
     // ===================================================================
