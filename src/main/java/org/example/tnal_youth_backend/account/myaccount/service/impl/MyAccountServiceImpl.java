@@ -244,7 +244,21 @@ public class MyAccountServiceImpl implements MyAccountService {
                 findMemberLevel(request.memberLevelId());
 
         member.setBranchId(request.branchId());
+
+        // Only bump statusChangedAt when the status actually changes here --
+        // this path used to call member.setStatus(...) directly, silently
+        // skipping the same stamp MemberServiceImpl#applyStatus keeps for
+        // the admin-facing edit/status endpoints. Any other field edit on
+        // this same request must never touch it.
+        Short previousStatusId =
+                member.getStatus() != null
+                        ? member.getStatus().getId()
+                        : null;
         member.setStatus(memberStatus);
+        if (!java.util.Objects.equals(previousStatusId, memberStatus.getId())) {
+            member.setStatusChangedAt(java.time.OffsetDateTime.now());
+        }
+
         member.setLevel(memberLevel);
         member.setJoinedOn(request.joinedOn());
 
