@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.member.dto.response;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 public record MemberListResponse(
 
@@ -54,7 +55,17 @@ public record MemberListResponse(
         AccountRoleResponse accountRole,
 
         @JsonProperty("account_status")
-        AccountStatusResponse accountStatus
+        AccountStatusResponse accountStatus,
+
+        /*
+         * When this member's status_id last actually changed (see
+         * MemberServiceImpl#applyStatus) — lets a screen that's about to
+         * add this member to something new (an activity invite, a
+         * document) tell whether that thing was created before or after
+         * the member went inactive, and only block the newer case.
+         */
+        @JsonProperty("status_changed_at")
+        OffsetDateTime statusChangedAt
 ) {
 
     public record GenderResponse(

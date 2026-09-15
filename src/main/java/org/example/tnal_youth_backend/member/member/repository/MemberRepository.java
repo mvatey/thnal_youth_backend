@@ -671,7 +671,9 @@ public interface MemberRepository
                     ELSE u.status
                 END AS account_status_label_km,
 
-                b.name_en AS branch_name_en
+                b.name_en AS branch_name_en,
+
+                m.status_changed_at
 
             FROM members m
 

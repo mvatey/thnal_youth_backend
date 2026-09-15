@@ -15,4 +15,5 @@ public class SponsorLookupResponse {
     private Long branchId;
     private String branchNameKm;
     private String branchNameEn;
+    private String memberStatusCode;
 }

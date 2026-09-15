@@ -84,6 +84,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -888,7 +889,8 @@ public class MemberServiceImpl implements MemberService {
                 targetBranch.getId()
         );
 
-        member.setStatus(
+        applyStatus(
+                member,
                 findStatus(
                         request.statusId()
                 )
@@ -1043,7 +1045,8 @@ public class MemberServiceImpl implements MemberService {
                         request.statusId()
                 );
 
-        member.setStatus(
+        applyStatus(
+                member,
                 status
         );
 
@@ -2135,6 +2138,29 @@ public class MemberServiceImpl implements MemberService {
                 );
     }
 
+
+    // Sets the member's status and, only when it actually changes, bumps
+    // statusChangedAt -- this is what lets a screen decide whether an
+    // activity/document created before the member went inactive should
+    // still treat them normally, versus one created after. Any other field
+    // edit on the same request (name, branch, etc.) must never touch this
+    // timestamp, hence the explicit id comparison rather than just always
+    // stamping "now" on every save.
+    private void applyStatus(
+            Member member,
+            MemberStatus newStatus
+    ) {
+        Short previousStatusId =
+                member.getStatus() != null
+                        ? member.getStatus().getId()
+                        : null;
+
+        member.setStatus(newStatus);
+
+        if (!Objects.equals(previousStatusId, newStatus.getId())) {
+            member.setStatusChangedAt(OffsetDateTime.now());
+        }
+    }
 
     private MemberStatus findStatus(
             Short id

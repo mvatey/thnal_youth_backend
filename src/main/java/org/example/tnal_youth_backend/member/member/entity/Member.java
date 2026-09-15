@@ -182,6 +182,16 @@ public class Member {
     )
     private OffsetDateTime updatedAt;
 
+    /*
+     * When this member's status_id last actually changed (see
+     * MemberServiceImpl#applyStatus) -- distinct from updated_at, which
+     * bumps on every field edit. Lets a screen that adds a member to
+     * something new (an activity, a document) tell whether that thing was
+     * created before or after the member went inactive.
+     */
+    @Column(name = "status_changed_at")
+    private OffsetDateTime statusChangedAt;
+
     @PrePersist
     protected void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -192,6 +202,10 @@ public class Member {
 
         if (updatedAt == null) {
             updatedAt = now;
+        }
+
+        if (statusChangedAt == null) {
+            statusChangedAt = now;
         }
     }
 

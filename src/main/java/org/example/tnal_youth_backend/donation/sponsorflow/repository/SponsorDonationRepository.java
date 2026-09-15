@@ -601,13 +601,13 @@ public interface SponsorDonationRepository {
             'MEMBER' AS donorKind,
             m.branch_id AS branchId,
             b.name_km AS branchNameKm,
-            b.name_en AS branchNameEn
+            b.name_en AS branchNameEn,
+            ms.code AS memberStatusCode
         FROM members m
         JOIN branches b
           ON b.id = m.branch_id
         JOIN member_statuses ms
           ON ms.id = m.status_id
-         AND ms.code = 'ACTIVE'
         WHERE m.branch_id = #{branchId}
           AND (
               CAST(#{search} AS TEXT) IS NULL

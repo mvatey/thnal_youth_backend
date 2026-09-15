@@ -77,6 +77,10 @@ public class MemberMapper {
                 toAccountStatusResponse(
                         row[21],
                         row[22]
+                ),
+
+                toOffsetDateTime(
+                        row.length > 24 ? row[24] : null
                 )
         );
     }
@@ -418,6 +422,31 @@ public class MemberMapper {
         return value == null
                 ? null
                 : value.toString();
+    }
+
+    private java.time.OffsetDateTime toOffsetDateTime(
+            Object value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof java.time.OffsetDateTime offsetDateTime) {
+            return offsetDateTime;
+        }
+
+        if (value instanceof java.time.Instant instant) {
+            return instant.atOffset(java.time.ZoneOffset.UTC);
+        }
+
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        }
+
+        throw new IllegalArgumentException(
+                "Unsupported member timestamp value: "
+                        + value.getClass().getName()
+        );
     }
 
     private LocalDate toLocalDate(
