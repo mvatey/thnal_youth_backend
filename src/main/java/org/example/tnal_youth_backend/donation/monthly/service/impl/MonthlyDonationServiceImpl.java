@@ -89,6 +89,7 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
                 .total(
                         monthlyDonationRepository.countMembers(
                                 branchId,
+                                donationPeriod,
                                 normalizedSearch
                         )
                 )

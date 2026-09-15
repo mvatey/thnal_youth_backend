@@ -62,7 +62,8 @@ public interface MonthlyDonationRepository {
             "  d.payment_method_id AS paymentMethodId,",
             "  pm.code AS paymentMethodCode,",
             "  d.receipt_file_id AS receiptFileId,",
-            "  (d.id IS NOT NULL) AS alreadyPaid",
+            "  (d.id IS NOT NULL) AS alreadyPaid,",
+            "  ms.code AS memberStatusCode",
             "FROM members m",
             "JOIN branches b ON b.id = m.branch_id",
             "JOIN member_statuses ms ON ms.id = m.status_id",
@@ -81,7 +82,13 @@ public interface MonthlyDonationRepository {
             "LEFT JOIN payment_methods pm",
             "  ON pm.id = d.payment_method_id",
             "WHERE m.branch_id = #{branchId}",
-            "  AND ms.code = 'ACTIVE'",
+            // An inactive member with no donation already recorded for this
+            // exact period offers nothing to fill in and must not be
+            // addable as a new entry. One who DOES already have a donation
+            // for this period stays visible (with their existing amount) so
+            // that record isn't lost just because the account went
+            // inactive afterward -- the frontend renders that row locked.
+            "  AND (ms.code = 'ACTIVE' OR d.id IS NOT NULL)",
             "  <if test='search != null and search != \"\"'>",
             "    AND (",
             "      m.member_no ILIKE ('%' || #{search} || '%')",
@@ -108,7 +115,21 @@ public interface MonthlyDonationRepository {
             "JOIN member_statuses ms",
             "  ON ms.id = m.status_id",
             "WHERE m.branch_id = #{branchId}",
-            "  AND ms.code = 'ACTIVE'",
+            // Kept in lockstep with listMembers' own inclusion rule above --
+            // otherwise the count and the actual page of rows disagree.
+            "  AND (",
+            "    ms.code = 'ACTIVE'",
+            "    OR EXISTS (",
+            "      SELECT 1",
+            "      FROM donations d2",
+            "      JOIN donation_types dt2",
+            "        ON dt2.id = d2.donation_type_id",
+            "      WHERE dt2.code = 'MONTHLY_DONATION'",
+            "        AND d2.member_id = m.id",
+            "        AND d2.branch_id = #{branchId}",
+            "        AND d2.donation_period = #{donationPeriod}",
+            "    )",
+            "  )",
             "  <if test='search != null and search != \"\"'>",
             "    AND (",
             "      m.member_no ILIKE ('%' || #{search} || '%')",
@@ -120,6 +141,7 @@ public interface MonthlyDonationRepository {
     })
     long countMembers(
             @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod,
             @Param("search") String search
     );
 

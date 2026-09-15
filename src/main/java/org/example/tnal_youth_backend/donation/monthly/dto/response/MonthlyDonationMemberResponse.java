@@ -23,4 +23,5 @@ public class MonthlyDonationMemberResponse {
     private String paymentMethodCode;
     private Long receiptFileId;
     private Boolean alreadyPaid;
+    private String memberStatusCode;
 }
