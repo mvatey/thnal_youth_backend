@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.file.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.file.dto.request.CreateFileRequest;
 import org.example.tnal_youth_backend.file.dto.request.UpdateFileRequest;
 import org.example.tnal_youth_backend.file.dto.response.FileResponse;
@@ -7,8 +8,8 @@ import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.mapper.FileMapper;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
 import org.example.tnal_youth_backend.file.service.FileService;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.InputStreamResource;
+import org.example.tnal_youth_backend.file.storage.FileStorage;
+import org.example.tnal_youth_backend.file.storage.FileStorageNotFoundException;
 import org.springframework.core.io.Resource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -16,14 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -33,12 +26,13 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Stores uploaded files in S3 rather than on local disk, since Elastic
- * Beanstalk's EC2 instances don't persist local files across
- * redeploys/restarts. Credentials come from the EC2 instance profile
- * (aws-elasticbeanstalk-ec2-role) -- no access keys are configured here.
+ * Handles file validation and FileEntity bookkeeping; the actual bytes go
+ * through whichever {@link FileStorage} is active (S3 on AWS, local disk
+ * on a self-managed server -- see app.storage.type). This class doesn't
+ * know or care which one it's talking to.
  */
 @Service
+@RequiredArgsConstructor
 public class FileServiceImpl implements FileService {
 
     private static final long MAX_IMAGE_SIZE =
@@ -79,23 +73,7 @@ public class FileServiceImpl implements FileService {
     private final FileRepository fileRepository;
 
     private final FileMapper fileMapper;
-    private final S3Client s3Client;
-    private final String bucket;
-
-    public FileServiceImpl(
-            FileRepository fileRepository,
-            FileMapper fileMapper,
-            @Value("${app.storage.s3.bucket}") String bucket,
-            @Value("${app.storage.s3.region:ap-southeast-1}") String region
-    ) {
-        this.fileRepository = fileRepository;
-        this.fileMapper = fileMapper;
-        this.bucket = bucket;
-
-        this.s3Client = S3Client.builder()
-                .region(Region.of(region))
-                .build();
-    }
+    private final FileStorage fileStorage;
 
     // ============================================================
     // EXISTING FILE METADATA OPERATIONS
@@ -480,22 +458,15 @@ public class FileServiceImpl implements FileService {
         FileEntity file = findFileById(fileId);
 
         try {
-            return new InputStreamResource(
-                    s3Client.getObject(
-                            GetObjectRequest.builder()
-                                    .bucket(bucket)
-                                    .key(file.getFilePath())
-                                    .build()
-                    )
-            );
+            return fileStorage.load(file.getFilePath());
 
-        } catch (NoSuchKeyException exception) {
+        } catch (FileStorageNotFoundException exception) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Stored file could not be found"
             );
 
-        } catch (S3Exception exception) {
+        } catch (RuntimeException exception) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Could not retrieve the stored file"
@@ -539,16 +510,11 @@ public class FileServiceImpl implements FileService {
                 );
 
         try {
-            s3Client.putObject(
-                    PutObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(objectKey)
-                            .contentType(contentType)
-                            .build(),
-                    RequestBody.fromInputStream(
-                            multipartFile.getInputStream(),
-                            multipartFile.getSize()
-                    )
+            fileStorage.store(
+                    objectKey,
+                    multipartFile.getInputStream(),
+                    multipartFile.getSize(),
+                    contentType
             );
 
             FileEntity entity =
@@ -579,31 +545,13 @@ public class FileServiceImpl implements FileService {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Could not store the uploaded file"
             );
-
-        } catch (S3Exception exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Could not store the uploaded file"
-            );
         }
     }
 
     private void deleteObjectQuietly(
             String objectKey
     ) {
-        try {
-            s3Client.deleteObject(
-                    DeleteObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(objectKey)
-                            .build()
-            );
-
-        } catch (S3Exception ignored) {
-            /*
-             * Cleanup failure must not hide the original exception.
-             */
-        }
+        fileStorage.delete(objectKey);
     }
 
     private void validateMultipartFile(
