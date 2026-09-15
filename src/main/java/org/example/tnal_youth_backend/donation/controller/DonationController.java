@@ -118,17 +118,16 @@ public class DonationController {
     }
 
     /**
-     * The activity's grand total across every donation type (member/branch
-     * donations plus sponsor donations earmarked for it) — powers the
-     * top-level summary cards shown above the Members/Branch tab switcher,
-     * as opposed to {@link #activityBranchTotals}'s per-branch,
-     * member-donation-only breakdown.
+     * How much of this activity's money came specifically from sponsors —
+     * powers the standalone Sponsor card shown above the Members/Branch tab
+     * switcher, next to (not folded into) {@link #activityBranchTotals}'s
+     * member/branch total.
      */
-    @GetMapping("/activity/{activityId}/total")
+    @GetMapping("/activity/{activityId}/sponsor-total")
     @PreAuthorize(READ_ACCESS)
-    public ResponseEntity<ApiResponse<DonationSummaryResponse>> activityDonationTotal(
+    public ResponseEntity<ApiResponse<DonationSummaryResponse>> activitySponsorTotal(
             @PathVariable Long activityId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.activityDonationTotal(activityId)));
+        return ResponseEntity.ok(ApiResponse.ok(service.activitySponsorTotal(activityId)));
     }
 
     @PutMapping("/{id}")

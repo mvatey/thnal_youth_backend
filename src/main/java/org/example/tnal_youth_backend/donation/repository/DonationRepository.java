@@ -485,15 +485,13 @@ public interface DonationRepository {
     List<BranchDonationTotalRow> sumByActivityGroupedByBranch(@Param("activityId") Long activityId);
 
     /**
-     * Grand total for one activity across EVERY donation type recorded
-     * against it (ACTIVITY_DONATION *and* SPONSOR_DONATION) — "how much has
-     * this activity raised, period," for the top-level summary cards above
-     * the Members/Branch tab switcher (EventDonationDetailCards on the
-     * frontend). Deliberately type-unfiltered, unlike {@link
-     * #sumByActivityGroupedByBranch}: a sponsor donation earmarked for this
-     * activity is still money the activity raised, even though it is kept
-     * out of any branch's member-donation total so it isn't double-counted
-     * there (it has its own Sponsor tab instead).
+     * How much of THIS activity's money came specifically from sponsors
+     * (donation_type SPONSOR_DONATION, earmarked with this activity_id) —
+     * the standalone Sponsor card on the activity donation detail page
+     * (EventDonationDetailCards on the frontend), shown next to (not folded
+     * into) {@link #sumByActivityGroupedByBranch}'s member/branch total —
+     * the two stay separate lanes everywhere else in this module, and this
+     * card is no different.
      */
     @Select("""
         SELECT
@@ -502,9 +500,11 @@ public interface DonationRepository {
             COALESCE(SUM(n.amount_khr), 0)       AS sumAmountKhr,
             COALESCE(SUM(n.amount_usd), 0)       AS sumAmountUsd
         FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
         WHERE n.activity_id = #{activityId}
+          AND dt.code = 'SPONSOR_DONATION'
         """)
-    DonationSummaryResponse sumActivityTotalAllTypes(@Param("activityId") Long activityId);
+    DonationSummaryResponse sumActivitySponsorTotal(@Param("activityId") Long activityId);
 
     /**
      * All-time USD-normalised donation total for one branch, across every
