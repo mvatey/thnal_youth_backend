@@ -295,15 +295,19 @@ public class DashboardRepository {
         // An activity donation is different: donations.branch_id is
         // whichever branch happened to RECORD that particular row, but the
         // activity itself can be organized/co-hosted by several branches at
-        // once (see activity_invited_branches) -- the same "every
-        // participating branch sees the SAME combined total for a shared
-        // activity" rule already established for the Activity Donations
-        // feature (DonationBranchTotalResponse / activityBranchTotals)
-        // applies here too. So an activity donation counts toward this
-        // branch's dashboard total if this branch recorded it directly, OR
-        // is the activity's organizer, OR has an ACCEPTED co-hosting
-        // invitation to it -- regardless of which branch actually recorded
-        // the money.
+        // once (see activity_invited_branches). The HOST branch keeps the
+        // "sees the whole activity's combined total" privilege already
+        // established for the Activity Donations feature
+        // (DonationBranchTotalResponse / activityBranchTotals) -- that's
+        // donation_activity.branch_id IN (:branchIds) below. A merely
+        // INVITED (accepted co-host, non-organizer) branch does NOT get
+        // that same privilege here: it must only total the money it
+        // actually recorded itself (d.branch_id IN (:branchIds)), same as
+        // every other donation-scoped view in this app. This used to also
+        // credit an accepted invitee with 100% of an activity's total
+        // regardless of which branch actually recorded each donation row --
+        // silently inflating an invited (non-host) branch's dashboard total
+        // with money it never raised.
         String sql = """
                 SELECT
                     COALESCE(
@@ -330,13 +334,6 @@ public class DashboardRepository {
                             AND (
                                 d.branch_id IN (:branchIds)
                                 OR donation_activity.branch_id IN (:branchIds)
-                                OR EXISTS (
-                                    SELECT 1
-                                    FROM activity_invited_branches aib
-                                    WHERE aib.activity_id = d.activity_id
-                                      AND aib.branch_id IN (:branchIds)
-                                      AND aib.invitation_status = 'ACCEPTED'
-                                )
                             )
                         )
                   )
