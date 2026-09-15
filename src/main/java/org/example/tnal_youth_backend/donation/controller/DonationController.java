@@ -117,6 +117,20 @@ public class DonationController {
         return ResponseEntity.ok(ApiResponse.ok(service.activityBranchTotals(activityId)));
     }
 
+    /**
+     * The activity's grand total across every donation type (member/branch
+     * donations plus sponsor donations earmarked for it) — powers the
+     * top-level summary cards shown above the Members/Branch tab switcher,
+     * as opposed to {@link #activityBranchTotals}'s per-branch,
+     * member-donation-only breakdown.
+     */
+    @GetMapping("/activity/{activityId}/total")
+    @PreAuthorize(READ_ACCESS)
+    public ResponseEntity<ApiResponse<DonationSummaryResponse>> activityDonationTotal(
+            @PathVariable Long activityId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.activityDonationTotal(activityId)));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<ApiResponse<DonationResponse>> update(
