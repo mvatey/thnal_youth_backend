@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
+import org.example.tnal_youth_backend.member.branch.BranchLabels;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
@@ -46,7 +47,6 @@ public class NotificationEmailSender {
     private final BranchRepository branchRepository;
     private final DocumentRepository documentRepository;
     private final ActivityInvitationEmailBuilder activityInvitationEmailBuilder;
-    private final ActivityBranchInvitationEmailBuilder activityBranchInvitationEmailBuilder;
     private final ActivityRescheduledEmailBuilder activityRescheduledEmailBuilder;
     private final CertificateReadyEmailBuilder certificateReadyEmailBuilder;
     private final DocumentIssuedEmailBuilder documentIssuedEmailBuilder;
@@ -157,14 +157,18 @@ public class NotificationEmailSender {
     }
 
     /**
-     * @return true if the rich HTML branch co-hosting invitation was sent —
-     * false only when the activity or the invited branch can no longer be
-     * found, in which case the caller falls back to the plain-text email
-     * instead of sending nothing. The organizer branch is looked up from
-     * the activity's own {@code branchId} (the host extending the
-     * invitation); notification.getBranchId() is the recipient (invited)
-     * branch, not the organizer — see ActivityInvitedBranchServiceImpl#
-     * notifyBranchInvited.
+     * @return true if the rich HTML invitation was sent — false only when
+     * the activity or the invited branch can no longer be found, in which
+     * case the caller falls back to the plain-text email instead of sending
+     * nothing. Reuses the exact same member-invitation letter/formality
+     * (see {@link ActivityInvitationEmailBuilder}) rather than a separate
+     * branch-specific template — only the greeting's "name" differs, filled
+     * with the invited branch's own label instead of the recipient's
+     * personal name, since this letter is addressed to the branch itself.
+     * The organizer branch is looked up from the activity's own
+     * {@code branchId} (the host extending the invitation);
+     * notification.getBranchId() is the recipient (invited) branch, not the
+     * organizer — see ActivityInvitedBranchServiceImpl#notifyBranchInvited.
      */
     private boolean sendActivityBranchInvitation(User user, NotificationModel notification) {
         Activity activity = activityRepository
@@ -187,7 +191,9 @@ public class NotificationEmailSender {
                 ? null
                 : branchRepository.findById(activity.getBranchId()).orElse(null);
 
-        String html = activityBranchInvitationEmailBuilder.build(activity, organizerBranch, invitedBranch, user.getFullNameKm());
+        String invitedBranchLabel = BranchLabels.withBranchPrefixKm(invitedBranch.getNameKm());
+
+        String html = activityInvitationEmailBuilder.build(activity, organizerBranch, invitedBranchLabel);
 
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();

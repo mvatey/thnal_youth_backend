@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.document.document.entity.Document;
 import org.example.tnal_youth_backend.document.document.repository.DocumentRepository;
+import org.example.tnal_youth_backend.member.branch.BranchLabels;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
@@ -54,7 +55,6 @@ public class TelegramMessageSender {
     private final BranchRepository branchRepository;
     private final DocumentRepository documentRepository;
     private final ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder;
-    private final ActivityBranchInvitationTelegramBuilder activityBranchInvitationTelegramBuilder;
     private final ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder;
     private final ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder;
     private final CertificateReadyTelegramBuilder certificateReadyTelegramBuilder;
@@ -67,7 +67,6 @@ public class TelegramMessageSender {
             BranchRepository branchRepository,
             DocumentRepository documentRepository,
             ActivityInvitationTelegramBuilder activityInvitationTelegramBuilder,
-            ActivityBranchInvitationTelegramBuilder activityBranchInvitationTelegramBuilder,
             ActivityRescheduledTelegramBuilder activityRescheduledTelegramBuilder,
             ActivityCancelledTelegramBuilder activityCancelledTelegramBuilder,
             CertificateReadyTelegramBuilder certificateReadyTelegramBuilder,
@@ -82,7 +81,6 @@ public class TelegramMessageSender {
         this.branchRepository = branchRepository;
         this.documentRepository = documentRepository;
         this.activityInvitationTelegramBuilder = activityInvitationTelegramBuilder;
-        this.activityBranchInvitationTelegramBuilder = activityBranchInvitationTelegramBuilder;
         this.activityRescheduledTelegramBuilder = activityRescheduledTelegramBuilder;
         this.activityCancelledTelegramBuilder = activityCancelledTelegramBuilder;
         this.certificateReadyTelegramBuilder = certificateReadyTelegramBuilder;
@@ -137,7 +135,7 @@ public class TelegramMessageSender {
         if (ACTIVITY_BRANCH_INVITATION_TYPE_CODE.equals(typeCode)) {
             return notification.getBranchId() == null
                     ? null
-                    : buildActivityBranchInvitationText(notification.getActivityId(), notification.getBranchId(), user.getFullNameKm());
+                    : buildActivityBranchInvitationText(notification.getActivityId(), notification.getBranchId());
         }
 
         if (ACTIVITY_UPDATED_TYPE_CODE.equals(typeCode)) {
@@ -210,11 +208,16 @@ public class TelegramMessageSender {
     }
 
     /**
+     * Reuses the exact same member-invitation letter (see
+     * {@link #buildActivityInvitationText}) rather than a separate
+     * branch-specific template — only the greeting's "name" differs, filled
+     * with the invited branch's own label instead of a personal name, since
+     * this letter is addressed to the branch itself.
      * notification.getBranchId() is the recipient (invited) branch, not the
      * organizer — the organizer is looked up from the activity's own
      * branchId, same as {@link #buildActivityInvitationText}.
      */
-    private String buildActivityBranchInvitationText(Long activityId, Long invitedBranchId, String recipientNameKm) {
+    private String buildActivityBranchInvitationText(Long activityId, Long invitedBranchId) {
         Activity activity = activityRepository.findById(activityId).orElse(null);
 
         if (activity == null) {
@@ -231,7 +234,9 @@ public class TelegramMessageSender {
                 ? null
                 : branchRepository.findById(activity.getBranchId()).orElse(null);
 
-        return activityBranchInvitationTelegramBuilder.build(activity, organizerBranch, invitedBranch, recipientNameKm);
+        String invitedBranchLabel = BranchLabels.withBranchPrefixKm(invitedBranch.getNameKm());
+
+        return activityInvitationTelegramBuilder.build(activity, organizerBranch, invitedBranchLabel);
     }
 
     private String buildActivityRescheduledText(Long activityId, String recipientNameKm) {
