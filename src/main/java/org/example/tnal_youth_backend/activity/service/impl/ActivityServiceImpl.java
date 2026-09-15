@@ -301,7 +301,28 @@ public class ActivityServiceImpl implements ActivityService {
                         "Authenticated user could not be found"
                 ));
 
-        if (branchId != null) {
+        boolean isBranchStaffCaller =
+                currentUser.getRole() == UserRole.SECRETARY
+                        || currentUser.getRole() == UserRole.BRANCH_LEADER;
+
+        if (branchId != null && !isBranchStaffCaller) {
+            /*
+             * ADMIN/VIEWER filtering the page by a branch is only ever
+             * browsing that branch's own activities -- they never receive
+             * an invitation and can't accept/decline one, so this must
+             * stay host-only. Reusing the branch-staff path below (with its
+             * PENDING/DECLINED invitation lookup and ownBranch/
+             * invitationStatus fields) would make the frontend's Action
+             * column render Accept/Decline buttons for admin too, on
+             * another branch's still-pending invitation.
+             */
+            validateExplicitBranchAccess(currentUser, branchId);
+
+            activityPage = activityRepository.findAllByBranchIdIn(
+                    Set.of(branchId),
+                    pageable
+            );
+        } else if (branchId != null) {
             /*
              * An explicit branchId narrows the list to exactly that
              * branch's own-hosted activities plus activities it was

@@ -434,7 +434,7 @@ public class DashboardRepository {
                             FROM activity_invited_branches aib
                             WHERE aib.activity_id = a.id
                               AND aib.branch_id IN (:branchIds)
-                              AND aib.invitation_status IN ('PENDING', 'ACCEPTED')
+                              AND aib.invitation_status = 'ACCEPTED'
                         )
                   )
                 GROUP BY
@@ -549,7 +549,7 @@ public class DashboardRepository {
                             FROM activity_invited_branches aib
                             WHERE aib.activity_id = a.id
                               AND aib.branch_id IN (:branchIds)
-                              AND aib.invitation_status IN ('PENDING', 'ACCEPTED')
+                              AND aib.invitation_status = 'ACCEPTED'
                         )
                   )
                   AND a.starts_at >= :now
