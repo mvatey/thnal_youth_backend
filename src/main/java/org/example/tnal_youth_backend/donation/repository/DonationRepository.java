@@ -452,14 +452,22 @@ public interface DonationRepository {
                                @Param("search") String search);
 
     /**
-     * One row per branch_id that has recorded at least one donation for this
-     * activity — the "activity donation branches" summary (see
+     * One row per branch_id that has recorded at least one MEMBER donation
+     * for this activity — the "activity donation branches" summary (see
      * DonationServiceImpl#activityBranchTotals). No new table: donations
      * already carries both activity_id and branch_id (V8), so this is a
      * plain GROUP BY. A branch with zero donations recorded so far has no
      * row here at all — the service fills that in against the activity's
      * full eligible-branch list, so the API response still lists it with a
      * zero total.
+     *
+     * Restricted to donation_type ACTIVITY_DONATION on purpose: a sponsor
+     * can also earmark a donation for this same activity_id, but that money
+     * has its own dedicated Sponsor tab (see SponsorPanel's activityId
+     * filter) and must not be folded into this branch/member total too —
+     * previously summed every type together, silently double-presenting
+     * sponsor money as if it were part of the branch's member-donation
+     * total.
      */
     @Select("""
         SELECT
@@ -469,7 +477,9 @@ public interface DonationRepository {
             COALESCE(SUM(n.amount_usd), 0)       AS amountUsd,
             COALESCE(SUM(n.total_amount_usd), 0) AS totalAmountUsd
         FROM donations n
+        JOIN donation_types dt ON dt.id = n.donation_type_id
         WHERE n.activity_id = #{activityId}
+          AND dt.code = 'ACTIVITY_DONATION'
         GROUP BY n.branch_id
         """)
     List<BranchDonationTotalRow> sumByActivityGroupedByBranch(@Param("activityId") Long activityId);
