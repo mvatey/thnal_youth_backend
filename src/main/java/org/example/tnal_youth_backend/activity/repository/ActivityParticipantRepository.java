@@ -43,6 +43,18 @@ public interface ActivityParticipantRepository
      * - search
      * - activity type filter
      * - attendance status filter
+     * - completion filter -- a member's participation HISTORY should
+     *   only ever show activities that have actually happened; being
+     *   invited to or pre-registered for something upcoming is not
+     *   "participation" yet. Same completion criterion the frontend's
+     *   own effective-status display already uses (endsAt in the
+     *   past), so a row appears here at exactly the point the activity
+     *   itself would show as completed. (Keep this explanation as a
+     *   plain Java comment, not inside the @Query text block below --
+     *   Spring Data's query parser scans the whole query string,
+     *   comments included, for quoted literals, and an apostrophe in
+     *   an embedded comment breaks its quote-matching and fails
+     *   repository bootstrap at startup.)
      */
     @EntityGraph(
             attributePaths = {
@@ -114,15 +126,6 @@ public interface ActivityParticipantRepository
                         = :attendanceStatusId
               )
 
-              /*
-               * A member's participation HISTORY should only ever show
-               * activities that have actually happened -- being invited
-               * to or pre-registered for something upcoming isn't
-               * "participation" yet. Same completion criterion the
-               * frontend's own effective-status display already uses
-               * (endsAt in the past), so a row appears here at exactly
-               * the point the activity itself would show as completed.
-               */
               AND activity.endsAt <= CURRENT_TIMESTAMP
 
             ORDER BY
