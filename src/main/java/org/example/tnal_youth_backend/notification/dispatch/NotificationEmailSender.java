@@ -35,6 +35,7 @@ import org.springframework.stereotype.Component;
 public class NotificationEmailSender {
 
     private static final String ACTIVITY_INVITATION_TYPE_CODE = "ACTIVITY_INVITATION";
+    private static final String ACTIVITY_BRANCH_INVITATION_TYPE_CODE = "ACTIVITY_BRANCH_INVITATION";
     private static final String ACTIVITY_UPDATED_TYPE_CODE = "ACTIVITY_UPDATED";
     private static final String CERTIFICATE_READY_TYPE_CODE = "ACTIVITY_CERTIFICATE_READY";
     private static final String DOCUMENT_ADDED_TYPE_CODE = "DOCUMENT_ADDED";
@@ -45,6 +46,7 @@ public class NotificationEmailSender {
     private final BranchRepository branchRepository;
     private final DocumentRepository documentRepository;
     private final ActivityInvitationEmailBuilder activityInvitationEmailBuilder;
+    private final ActivityBranchInvitationEmailBuilder activityBranchInvitationEmailBuilder;
     private final ActivityRescheduledEmailBuilder activityRescheduledEmailBuilder;
     private final CertificateReadyEmailBuilder certificateReadyEmailBuilder;
     private final DocumentIssuedEmailBuilder documentIssuedEmailBuilder;
@@ -67,6 +69,13 @@ public class NotificationEmailSender {
         if (ACTIVITY_INVITATION_TYPE_CODE.equals(notification.getTypeCode())
                 && notification.getActivityId() != null
                 && sendActivityInvitation(user, notification)) {
+            return;
+        }
+
+        if (ACTIVITY_BRANCH_INVITATION_TYPE_CODE.equals(notification.getTypeCode())
+                && notification.getActivityId() != null
+                && notification.getBranchId() != null
+                && sendActivityBranchInvitation(user, notification)) {
             return;
         }
 
@@ -142,6 +151,58 @@ public class NotificationEmailSender {
             log.warn("NotificationEmailSender: failed to send activity invitation to {}", user.getEmail(), e);
             throw new IllegalStateException(
                     "Failed to send activity invitation email: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
+                    e
+            );
+        }
+    }
+
+    /**
+     * @return true if the rich HTML branch co-hosting invitation was sent —
+     * false only when the activity or the invited branch can no longer be
+     * found, in which case the caller falls back to the plain-text email
+     * instead of sending nothing. The organizer branch is looked up from
+     * the activity's own {@code branchId} (the host extending the
+     * invitation); notification.getBranchId() is the recipient (invited)
+     * branch, not the organizer — see ActivityInvitedBranchServiceImpl#
+     * notifyBranchInvited.
+     */
+    private boolean sendActivityBranchInvitation(User user, NotificationModel notification) {
+        Activity activity = activityRepository
+                .findById(notification.getActivityId())
+                .orElse(null);
+
+        if (activity == null) {
+            return false;
+        }
+
+        Branch invitedBranch = branchRepository
+                .findById(notification.getBranchId())
+                .orElse(null);
+
+        if (invitedBranch == null) {
+            return false;
+        }
+
+        Branch organizerBranch = activity.getBranchId() == null
+                ? null
+                : branchRepository.findById(activity.getBranchId()).orElse(null);
+
+        String html = activityBranchInvitationEmailBuilder.build(activity, organizerBranch, invitedBranch, user.getFullNameKm());
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(user.getEmail());
+            helper.setSubject(activity.getTitleKm());
+            helper.setText(html, true);
+
+            mailSender.send(mimeMessage);
+            return true;
+        } catch (Exception e) {
+            log.warn("NotificationEmailSender: failed to send branch invitation to {}", user.getEmail(), e);
+            throw new IllegalStateException(
+                    "Failed to send branch invitation email: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
                     e
             );
         }
