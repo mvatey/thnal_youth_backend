@@ -114,6 +114,17 @@ public interface ActivityParticipantRepository
                         = :attendanceStatusId
               )
 
+              /*
+               * A member's participation HISTORY should only ever show
+               * activities that have actually happened -- being invited
+               * to or pre-registered for something upcoming isn't
+               * "participation" yet. Same completion criterion the
+               * frontend's own effective-status display already uses
+               * (endsAt in the past), so a row appears here at exactly
+               * the point the activity itself would show as completed.
+               */
+              AND activity.endsAt <= CURRENT_TIMESTAMP
+
             ORDER BY
                 activity.startsAt DESC,
                 participant.id DESC
