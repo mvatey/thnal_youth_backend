@@ -485,6 +485,28 @@ public interface DonationRepository {
     List<BranchDonationTotalRow> sumByActivityGroupedByBranch(@Param("activityId") Long activityId);
 
     /**
+     * Grand total for one activity across EVERY donation type recorded
+     * against it (ACTIVITY_DONATION *and* SPONSOR_DONATION) — "how much has
+     * this activity raised, period," for the top-level summary cards above
+     * the Members/Branch tab switcher (EventDonationDetailCards on the
+     * frontend). Deliberately type-unfiltered, unlike {@link
+     * #sumByActivityGroupedByBranch}: a sponsor donation earmarked for this
+     * activity is still money the activity raised, even though it is kept
+     * out of any branch's member-donation total so it isn't double-counted
+     * there (it has its own Sponsor tab instead).
+     */
+    @Select("""
+        SELECT
+            COUNT(*)                             AS count,
+            COALESCE(SUM(n.total_amount_usd), 0) AS sumTotalUsd,
+            COALESCE(SUM(n.amount_khr), 0)       AS sumAmountKhr,
+            COALESCE(SUM(n.amount_usd), 0)       AS sumAmountUsd
+        FROM donations n
+        WHERE n.activity_id = #{activityId}
+        """)
+    DonationSummaryResponse sumActivityTotalAllTypes(@Param("activityId") Long activityId);
+
+    /**
      * All-time USD-normalised donation total for one branch, across every
      * donation type (monthly/activity/sponsor) -- the same total_amount_usd
      * convention used everywhere else in this module. Powers the branch

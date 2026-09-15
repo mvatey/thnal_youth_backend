@@ -399,6 +399,37 @@ public class DonationServiceImpl implements DonationService {
                 .toList();
     }
 
+    /**
+     * See {@link DonationService#activityDonationTotal}. Same "does this
+     * viewer's branch have a stake in the activity" access check as {@link
+     * #activityBranchTotals}, just without building the per-branch rows —
+     * this one only needs a single grand total, summed across every
+     * donation type by {@link DonationRepository#sumActivityTotalAllTypes}.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public DonationSummaryResponse activityDonationTotal(Long activityId) {
+        if (isCancelledActivity(activityId)) {
+            return new DonationSummaryResponse(0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        User currentUser = SecurityUtil.getCurrentUser();
+        UserRole effectiveRole = viewerAccessService.effectiveReadRole(currentUser);
+
+        if (effectiveRole == UserRole.SECRETARY || effectiveRole == UserRole.BRANCH_LEADER) {
+            var staffScope = staffBranchScopeService.staffBranchIds(currentUser);
+            boolean hasStake = activityInvitedBranchService.getActivityBranches(activityId).stream()
+                    .filter(branch -> branch.getRole() == ActivityBranchRole.ORGANIZER
+                            || branch.getInvitationStatus() == ActivityInvitationStatus.ACCEPTED)
+                    .anyMatch(branch -> staffScope.contains(branch.getBranchId()));
+            if (!hasStake) {
+                throw new AccessDeniedException("Your branch has no stake in this activity");
+            }
+        }
+
+        return repo.sumActivityTotalAllTypes(activityId);
+    }
+
     // ===================================================================
     // internals
     // ===================================================================
