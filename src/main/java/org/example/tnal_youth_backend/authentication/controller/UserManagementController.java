@@ -140,4 +140,31 @@ public class UserManagementController {
                 userManagementService.updateUser(id, request)
         );
     }
+
+
+    /*
+     * ==========================================================
+     * DELETE USER
+     * ==========================================================
+     *
+     * DELETE /api/admin/users/{id}
+     *
+     * A soft delete -- sets the account's status to INACTIVE rather than
+     * removing the row (users.id is an audit-trail FK target for roughly
+     * twenty other tables, so a real delete would fail for any account
+     * that's ever recorded a donation, created an activity, etc.). Works
+     * for standalone AND member-linked accounts alike; the linked Member
+     * record and all of that person's history are left untouched.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable
+            Long id
+    ) {
+
+        userManagementService.deleteUser(id);
+
+        return ResponseEntity.noContent().build();
+    }
 }
