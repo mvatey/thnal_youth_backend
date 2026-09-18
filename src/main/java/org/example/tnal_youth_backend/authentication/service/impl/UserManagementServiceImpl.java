@@ -72,7 +72,10 @@ public class UserManagementServiceImpl
          * Standalone account    -> users.status.
          */
         List<User> users =
-                userRepository.findAllByOrderByCreatedAtDescIdDesc();
+                userRepository.findAllByOrderByCreatedAtDescIdDesc()
+                        .stream()
+                        .filter(user -> user.getStatus() != UserStatus.INACTIVE)
+                        .toList();
 
         long total = users.size();
 
@@ -124,6 +127,11 @@ public class UserManagementServiceImpl
         return userRepository
                 .findAllByOrderByCreatedAtDescIdDesc()
                 .stream()
+                // A "deleted" account (see deleteUser) is users.status ==
+                // INACTIVE -- excluded here unconditionally, even from an
+                // explicit status=INACTIVE filter, so it's gone from the
+                // Users page for good rather than just hidden by default.
+                .filter(user -> user.getStatus() != UserStatus.INACTIVE)
                 .filter(user ->
                         normalizedRole == null
                                 || (user.getRole() != null
@@ -331,6 +339,27 @@ public class UserManagementServiceImpl
         User saved = userRepository.saveAndFlush(user);
 
         return toListItem(saved);
+    }
+
+    // =========================================================
+    // DELETE (soft -- see the interface javadoc for why)
+    // =========================================================
+
+    @Override
+    @Transactional
+    public void deleteUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found with ID: " + id
+                ));
+
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            return;
+        }
+
+        user.setStatus(UserStatus.INACTIVE);
+        userRepository.saveAndFlush(user);
     }
 
     // Admin can only toggle between ACTIVE and INACTIVE — PENDING_ACTIVATION
