@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.member.member.repository;
 
 import org.example.tnal_youth_backend.authentication.model.entity.Role;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -740,6 +741,20 @@ public interface MemberRepository
                 OR u.status = :accountStatus
             )
 
+            /*
+             * A deleted (soft-removed) login account permanently hides its
+             * member from this list, regardless of any accountStatus filter
+             * the caller passed -- same rule as the Users page's own
+             * unconditional INACTIVE exclusion. The member row and all its
+             * other data (donations, participation, ...) is untouched; it
+             * just no longer shows up here or in any member picker built on
+             * this same query.
+             */
+            AND (
+                u.status IS NULL
+                OR u.status <> 'INACTIVE'
+            )
+
             AND (
                 :gender IS NULL
                 OR m.gender = :gender
@@ -796,6 +811,11 @@ public interface MemberRepository
             AND (
                 :accountStatus IS NULL
                 OR u.status = :accountStatus
+            )
+
+            AND (
+                u.status IS NULL
+                OR u.status <> 'INACTIVE'
             )
 
             AND (
@@ -887,6 +907,11 @@ WHERE m.branchId = :branchId
   )
 
   AND (
+      u.id IS NULL
+      OR u.status <> :deletedStatus
+  )
+
+  AND (
       :search = ''
       OR LOWER(m.fullNameKm)
             LIKE CONCAT('%', LOWER(:search), '%')
@@ -917,6 +942,9 @@ ORDER BY
 
             @Param("excludedRole")
             UserRole excludedRole,
+
+            @Param("deletedStatus")
+            UserStatus deletedStatus,
 
             @Param("search")
             String search,
