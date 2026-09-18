@@ -90,13 +90,13 @@ public class DashboardServiceImpl implements DashboardService {
         ) {
             currentMembers =
                     dashboardRepository
-                            .countAllActiveMembersBefore(
+                            .countAllMembersBefore(
                                     range.nextMonthStartDate()
                             );
 
             previousMembers =
                     dashboardRepository
-                            .countAllActiveMembersBefore(
+                            .countAllMembersBefore(
                                     range.selectedMonthStartDate()
                             );
 
@@ -154,14 +154,14 @@ public class DashboardServiceImpl implements DashboardService {
              */
             currentMembers =
                     dashboardRepository
-                            .countActiveMembersByBranchesBefore(
+                            .countMembersByBranchesBefore(
                                     branchIds,
                                     range.nextMonthStartDate()
                             );
 
             previousMembers =
                     dashboardRepository
-                            .countActiveMembersByBranchesBefore(
+                            .countMembersByBranchesBefore(
                                     branchIds,
                                     range.selectedMonthStartDate()
                             );
@@ -707,13 +707,13 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentMembers =
                     dashboardRepository
-                            .countAllActiveMembersBefore(
+                            .countAllMembersBefore(
                                     range.nextMonthStartDate()
                             );
 
             previousMembers =
                     dashboardRepository
-                            .countAllActiveMembersBefore(
+                            .countAllMembersBefore(
                                     range.selectedMonthStartDate()
                             );
 
@@ -749,14 +749,14 @@ public class DashboardServiceImpl implements DashboardService {
 
             currentMembers =
                     dashboardRepository
-                            .countActiveMembersByBranchesBefore(
+                            .countMembersByBranchesBefore(
                                     selectedBranchIds,
                                     range.nextMonthStartDate()
                             );
 
             previousMembers =
                     dashboardRepository
-                            .countActiveMembersByBranchesBefore(
+                            .countMembersByBranchesBefore(
                                     selectedBranchIds,
                                     range.selectedMonthStartDate()
                             );
