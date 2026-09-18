@@ -57,22 +57,62 @@ public class ActivityStatusScheduler {
     }
 
     /*
-     * Runs every minute, alongside the transition above.
+     * Runs every minute, alongside the other transitions in this class.
+     *
+     * UPCOMING or ONGOING activities whose endsAt has passed automatically
+     * become COMPLETED -- previously this only ever happened when staff
+     * manually clicked Complete (see ActivityServiceImpl#completeActivity),
+     * which nothing required them to do. The frontend's own "effective
+     * status" already displayed a past-endsAt activity as completed
+     * regardless of the real stored status, which meant anything reading
+     * the actual database status directly (the dashboard's Recent
+     * Completed count, notably) silently fell behind whenever nobody
+     * pressed the button. This keeps the real status in sync with what
+     * the UI already implied, the same way the ONGOING transition above
+     * keeps UPCOMING from lingering past its startsAt.
+     */
+    @Scheduled(cron = "0 * * * * *")
+    @Transactional
+    public void updateEndedActivitiesToCompleted() {
+
+        ActivityStatus completedStatus =
+                activityStatusRepository
+                        .findByCodeIgnoreCase("COMPLETED")
+                        .filter(status ->
+                                Boolean.TRUE.equals(
+                                        status.getActive()
+                                )
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "COMPLETED activity status is missing or inactive"
+                                )
+                        );
+
+        activityRepository
+                .findAllByStatus_CodeInAndEndsAtLessThanEqual(
+                        List.of("UPCOMING", "ONGOING"),
+                        OffsetDateTime.now()
+                )
+                .forEach(activity ->
+                        activity.setStatus(completedStatus)
+                );
+    }
+
+    /*
+     * Runs every minute, alongside the transitions above.
      *
      * A branch invitation left PENDING once its activity has already
      * ended is auto-declined -- accepting an invitation to something that
      * already happened makes no sense, and leaving it PENDING would keep
      * showing an actionable Accept/Decline control (on the activity list
      * and the invited branch's notification) for nothing the invited
-     * branch can still act on.
-     *
-     * ActivityServiceImpl#completeActivity already does this same decline
-     * when staff manually mark an activity COMPLETED, but that's a manual
-     * action nothing requires them to ever take -- the frontend's own
-     * "effective status" already displays an activity as completed once
-     * its end time passes, with or without that button being pressed. This
-     * job is the actual, unconditional guarantee: keyed on endsAt, not on
-     * whether anyone remembered to click Complete.
+     * branch can still act on. Now redundant with
+     * updateEndedActivitiesToCompleted() above for most cases (completing
+     * an activity already declines its stale invitations via
+     * ActivityServiceImpl#completeActivity), but kept as the same
+     * unconditional, endsAt-keyed guarantee regardless of which job
+     * happens to run first within the same minute.
      */
     @Scheduled(cron = "0 * * * * *")
     @Transactional

@@ -37,6 +37,15 @@ public interface ActivityRepository
             OffsetDateTime currentTime
     );
 
+    // Used by ActivityStatusScheduler#updateEndedActivitiesToCompleted --
+    // any activity still UPCOMING or ONGOING whose endsAt has passed.
+    // CANCELLED is deliberately excluded by only ever passing those two
+    // codes; a cancelled activity must never auto-flip to COMPLETED.
+    List<Activity> findAllByStatus_CodeInAndEndsAtLessThanEqual(
+            Collection<String> statusCodes,
+            OffsetDateTime currentTime
+    );
+
     long countByBranchId(Long branchId);
 
     @Query(
