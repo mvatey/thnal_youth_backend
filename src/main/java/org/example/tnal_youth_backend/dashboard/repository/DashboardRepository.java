@@ -47,6 +47,11 @@ public class DashboardRepository {
                         m.joined_on,
                         m.created_at::date
                   ) < :exclusiveEndDate
+                  AND NOT EXISTS (
+                        SELECT 1 FROM users u
+                        WHERE u.member_id = m.id
+                          AND u.status = 'INACTIVE'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
@@ -75,6 +80,11 @@ public class DashboardRepository {
                         m.joined_on,
                         m.created_at::date
                   ) < :exclusiveEndDate
+                  AND NOT EXISTS (
+                        SELECT 1 FROM users u
+                        WHERE u.member_id = m.id
+                          AND u.status = 'INACTIVE'
+                  )
                 """;
 
         MapSqlParameterSource parameters =
