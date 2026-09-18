@@ -29,16 +29,21 @@ public class DashboardRepository {
     // MEMBERS
     // =========================================================
 
-    public long countAllActiveMembersBefore(
+    // Every member regardless of status (ACTIVE, INACTIVE, RESIGNED,
+    // whatever else member_statuses holds) -- this is the dashboard's
+    // "total members" card, which is meant to be the org's whole roster,
+    // not a subset. Previously joined member_statuses and filtered to
+    // ms.code = 'ACTIVE' despite being named "countAll" and documented
+    // at every call site as "ADMIN sees: - all members" -- silently
+    // undercounting every inactive/resigned member. No status filter (or
+    // join) needed at all now that it genuinely counts everyone.
+    public long countAllMembersBefore(
             LocalDate exclusiveEndDate
     ) {
         String sql = """
                 SELECT COUNT(*)
                 FROM members m
-                JOIN member_statuses ms
-                    ON ms.id = m.status_id
-                WHERE ms.code = 'ACTIVE'
-                  AND COALESCE(
+                WHERE COALESCE(
                         m.joined_on,
                         m.created_at::date
                   ) < :exclusiveEndDate
@@ -54,7 +59,9 @@ public class DashboardRepository {
         return queryCount(sql, parameters);
     }
 
-    public long countActiveMembersByBranchesBefore(
+    // Branch-scoped sibling of countAllMembersBefore -- same fix, same
+    // reasoning: every member of these branches, not just ACTIVE ones.
+    public long countMembersByBranchesBefore(
             Collection<Long> branchIds,
             LocalDate exclusiveEndDate
     ) {
@@ -63,10 +70,7 @@ public class DashboardRepository {
         String sql = """
                 SELECT COUNT(*)
                 FROM members m
-                JOIN member_statuses ms
-                    ON ms.id = m.status_id
-                WHERE ms.code = 'ACTIVE'
-                  AND m.branch_id IN (:branchIds)
+                WHERE m.branch_id IN (:branchIds)
                   AND COALESCE(
                         m.joined_on,
                         m.created_at::date
@@ -234,7 +238,7 @@ public class DashboardRepository {
             OffsetDateTime exclusiveEnd
     ) {
         // Cumulative, same shape as countAllActivitiesBefore() /
-        // countAllActiveMembersBefore() -- the donation card is the
+        // countAllMembersBefore() -- the donation card is the
         // all-time running total as of the selected month, not a
         // month-only window like the other cards never were either.
         //
