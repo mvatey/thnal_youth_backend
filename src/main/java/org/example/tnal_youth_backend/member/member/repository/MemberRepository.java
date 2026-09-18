@@ -402,21 +402,55 @@ public interface MemberRepository
      * ==========================================================
      */
 
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM users u
+                        WHERE u.member_id = m.id
+                          AND u.status = 'INACTIVE'
+                    )
+                    """,
+            nativeQuery = true
+    )
+    long countAllMembers();
+
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE UPPER(m.gender) = UPPER(:gender)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
+                    """,
+            nativeQuery = true
+    )
     long countByGender(
-            Gender gender
+            @Param("gender") String gender
     );
 
     @Query(
             value = """
                     SELECT COUNT(*)
                     FROM members m
-                    WHERE m.branch_id = :branchId
-                       OR EXISTS (
-                           SELECT 1 FROM branch_staff bs
-                           WHERE bs.member_id = m.id
-                             AND bs.branch_id = :branchId
-                             AND bs.ended_on IS NULL
-                       )
+                    WHERE (
+                        m.branch_id = :branchId
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id = :branchId
+                              AND bs.ended_on IS NULL
+                        )
+                    )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -438,6 +472,11 @@ public interface MemberRepository
                                 AND bs.ended_on IS NULL
                           )
                       )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -446,13 +485,20 @@ public interface MemberRepository
             @Param("branchId") Long branchId
     );
 
-    @Query("""
-            SELECT COUNT(member)
-            FROM Member member
-            JOIN member.religion religion
-            WHERE UPPER(religion.code) =
-                  UPPER(:religionCode)
-            """)
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    JOIN religions r ON r.id = m.religion_id
+                    WHERE UPPER(r.code) = UPPER(:religionCode)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
+                    """,
+            nativeQuery = true
+    )
     long countByReligionCode(
             @Param("religionCode")
             String religionCode
@@ -472,6 +518,11 @@ public interface MemberRepository
                                 AND bs.branch_id = :branchId
                                 AND bs.ended_on IS NULL
                           )
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
                       )
                     """,
             nativeQuery = true
@@ -495,6 +546,11 @@ public interface MemberRepository
                     FROM members m
                     WHERE COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -517,6 +573,11 @@ public interface MemberRepository
                     )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -532,6 +593,11 @@ public interface MemberRepository
                     WHERE UPPER(m.gender) = UPPER(:gender)
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -556,6 +622,11 @@ public interface MemberRepository
                       )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -573,6 +644,11 @@ public interface MemberRepository
                     WHERE UPPER(r.code) = UPPER(:religionCode)
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -598,6 +674,11 @@ public interface MemberRepository
                       )
                       AND COALESCE(m.joined_on, m.created_at::date)
                           < :exclusiveEndDate
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
                     """,
             nativeQuery = true
     )
@@ -851,8 +932,21 @@ public interface MemberRepository
             Pageable pageable
     );
 
+    @Query(
+            value = """
+                    SELECT COUNT(*)
+                    FROM members m
+                    WHERE m.branch_id IN (:branchIds)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
+                    """,
+            nativeQuery = true
+    )
     long countByBranchIdIn(
-            Iterable<Long> branchIds
+            @Param("branchIds") Iterable<Long> branchIds
     );
 
     @Query("""

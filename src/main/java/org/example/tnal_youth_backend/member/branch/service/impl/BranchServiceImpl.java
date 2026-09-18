@@ -761,7 +761,7 @@ public class BranchServiceImpl implements BranchService {
                             );
 
             long totalMembers =
-                    memberRepository.count();
+                    memberRepository.countAllMembers();
 
             return new BranchSummaryResponse(
                     totalBranches,

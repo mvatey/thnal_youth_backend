@@ -193,7 +193,7 @@ public class MemberServiceImpl implements MemberService {
         long totalMembers =
                 effectiveBranchId == null
                         ? memberRepository
-                        .count()
+                        .countAllMembers()
                         : memberRepository
                         .countByBranchId(
                                 effectiveBranchId
@@ -203,7 +203,7 @@ public class MemberServiceImpl implements MemberService {
                 effectiveBranchId == null
                         ? memberRepository
                         .countByGender(
-                                Gender.FEMALE
+                                Gender.FEMALE.name()
                         )
                         : memberRepository
                         .countByGenderAndBranchId(
@@ -215,7 +215,7 @@ public class MemberServiceImpl implements MemberService {
                 effectiveBranchId == null
                         ? memberRepository
                         .countByGender(
-                                Gender.MONK
+                                Gender.MONK.name()
                         )
                         : memberRepository
                         .countByGenderAndBranchId(
