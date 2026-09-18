@@ -744,8 +744,8 @@ public interface MemberRepository
             /*
              * A deleted (soft-removed) login account permanently hides its
              * member from this list, regardless of any accountStatus filter
-             * the caller passed -- same rule as the Users page's own
-             * unconditional INACTIVE exclusion. The member row and all its
+             * the caller passed -- same unconditional INACTIVE exclusion
+             * rule the Users page itself uses. The member row and all its
              * other data (donations, participation, ...) is untouched; it
              * just no longer shows up here or in any member picker built on
              * this same query.
