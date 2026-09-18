@@ -88,7 +88,15 @@ public interface MonthlyDonationRepository {
             // for this period stays visible (with their existing amount) so
             // that record isn't lost just because the account went
             // inactive afterward -- the frontend renders that row locked.
-            "  AND (ms.code = 'ACTIVE' OR d.id IS NOT NULL)",
+            // Same rule for a deleted (soft-removed) login account: hidden
+            // as a pick for a NEW donation, but an already-recorded one
+            // stays visible so that record isn't lost.
+            "  AND (",
+            "    (ms.code = 'ACTIVE' AND NOT EXISTS (",
+            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'INACTIVE'",
+            "    ))",
+            "    OR d.id IS NOT NULL",
+            "  )",
             "  <if test='search != null and search != \"\"'>",
             "    AND (",
             "      m.member_no ILIKE ('%' || #{search} || '%')",
@@ -118,7 +126,9 @@ public interface MonthlyDonationRepository {
             // Kept in lockstep with listMembers' own inclusion rule above --
             // otherwise the count and the actual page of rows disagree.
             "  AND (",
-            "    ms.code = 'ACTIVE'",
+            "    (ms.code = 'ACTIVE' AND NOT EXISTS (",
+            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'INACTIVE'",
+            "    ))",
             "    OR EXISTS (",
             "      SELECT 1",
             "      FROM donations d2",

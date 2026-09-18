@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.Role;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.branch.dto.projection.BranchManagementProjection;
@@ -1281,6 +1282,7 @@ public class BranchServiceImpl implements BranchService {
                         .findBranchMembersExcludingRole(
                                 branchId,
                                 UserRole.BRANCH_LEADER,
+                                UserStatus.INACTIVE,
                                 normalizedSearch,
                                 gender,
                                 statusId,

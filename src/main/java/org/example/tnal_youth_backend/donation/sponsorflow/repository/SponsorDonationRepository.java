@@ -609,6 +609,11 @@ public interface SponsorDonationRepository {
         JOIN member_statuses ms
           ON ms.id = m.status_id
         WHERE m.branch_id = #{branchId}
+          AND NOT EXISTS (
+              SELECT 1 FROM users u
+              WHERE u.member_id = m.id
+                AND u.status = 'INACTIVE'
+          )
           AND (
               CAST(#{search} AS TEXT) IS NULL
               OR m.full_name_km ILIKE ('%' || #{search} || '%')
