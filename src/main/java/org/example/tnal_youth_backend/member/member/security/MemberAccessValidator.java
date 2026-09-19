@@ -5,6 +5,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
@@ -23,6 +24,8 @@ public class MemberAccessValidator {
     private final UserRepository userRepository;
 
     private final MemberRepository memberRepository;
+
+    private final BranchStaffRepository branchStaffRepository;
 
     private final StaffBranchScopeService staffBranchScopeService;
 
@@ -67,14 +70,76 @@ public class MemberAccessValidator {
         }
 
         /*
-         * Secretary and Branch Leader use branch scope.
+         * Secretary and Branch Leader use branch scope. The target may be
+         * accessible through more than one branch (a secretary staffing a
+         * second branch beyond their own members.branchId), so this checks
+         * every branch the target actually belongs to, not just their
+         * primary one.
          */
-        validateManagementBranchAccess(
+        validateManagementMemberAccess(
                 currentUser,
-                targetMember.getBranchId()
+                targetMember
         );
 
         return targetMember;
+    }
+
+    /**
+     * Grants access if the viewer manages ANY branch the target member
+     * belongs to -- their primary branch OR an active branch_staff
+     * assignment -- instead of only the target's primary branch. Without
+     * this, a secretary/branch leader of a branch that a multi-branch
+     * secretary ALSO staffs (but doesn't primarily belong to) would get a
+     * 403 opening that person's member detail page, even though the
+     * dashboard already counts them as that branch's member.
+     */
+    private void validateManagementMemberAccess(
+            User currentUser,
+            Member targetMember
+    ) {
+        UserRole role =
+                viewerAccessService.effectiveReadRole(currentUser);
+
+        if (role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to manage members"
+            );
+        }
+
+        Set<Long> targetBranchIds =
+                new LinkedHashSet<>(
+                        branchStaffRepository
+                                .findActiveBranchIdsByMemberId(
+                                        targetMember.getId()
+                                )
+                );
+
+        if (targetMember.getBranchId() != null) {
+            targetBranchIds.add(targetMember.getBranchId());
+        }
+
+        if (targetBranchIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "This member is not assigned to any branch"
+            );
+        }
+
+        Set<Long> viewerBranchIds =
+                staffBranchScopeService.staffBranchIds(currentUser);
+
+        boolean hasOverlap =
+                targetBranchIds.stream()
+                        .anyMatch(viewerBranchIds::contains);
+
+        if (!hasOverlap) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have access to this branch"
+            );
+        }
     }
 
     public void validateBranchAccess(
