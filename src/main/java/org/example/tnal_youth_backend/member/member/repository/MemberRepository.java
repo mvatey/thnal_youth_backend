@@ -433,23 +433,19 @@ public interface MemberRepository
             @Param("gender") String gender
     );
 
-    /*
-     * Deliberately primary-branch only, no branch_staff fallback -- a
-     * multi-branch secretary is one account and must count as exactly one
-     * member in exactly one branch's number, even though they legitimately
-     * show up in the actual member LIST/rows of every branch they're
-     * assigned to (see findMemberPage/findBranchMembersExcludingRole, which
-     * DO include branch_staff). This single count feeds the branch detail
-     * page's own summary card, the branches list table's per-row count, and
-     * member/list's branch-scoped total -- all three need to agree with
-     * each other and with the org-wide total, not double-count someone
-     * staffing two branches.
-     */
     @Query(
             value = """
                     SELECT COUNT(*)
                     FROM members m
-                    WHERE m.branch_id = :branchId
+                    WHERE (
+                        m.branch_id = :branchId
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id = :branchId
+                              AND bs.ended_on IS NULL
+                        )
+                    )
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
