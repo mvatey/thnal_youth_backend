@@ -513,7 +513,7 @@ public class DashboardRepository {
                     a.location_name,
                     at.code
                 ORDER BY a.starts_at ASC
-                LIMIT 5
+                LIMIT 7
                 """;
 
         MapSqlParameterSource parameters =
@@ -574,7 +574,7 @@ public class DashboardRepository {
                     a.location_name,
                     at.code
                 ORDER BY a.starts_at ASC
-                LIMIT 5
+                LIMIT 7
                 """;
 
         MapSqlParameterSource parameters =
