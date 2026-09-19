@@ -608,7 +608,15 @@ public interface SponsorDonationRepository {
           ON b.id = m.branch_id
         JOIN member_statuses ms
           ON ms.id = m.status_id
-        WHERE m.branch_id = #{branchId}
+        WHERE (
+              m.branch_id = #{branchId}
+              OR EXISTS (
+                  SELECT 1 FROM branch_staff bs
+                  WHERE bs.member_id = m.id
+                    AND bs.branch_id = #{branchId}
+                    AND bs.ended_on IS NULL
+              )
+          )
           AND NOT EXISTS (
               SELECT 1 FROM users u
               WHERE u.member_id = m.id

@@ -287,6 +287,37 @@ public class BranchStaffRepository {
     }
 
     /**
+     * The member IDs with an active (non-primary or primary, either way)
+     * branch_staff assignment to this branch -- e.g. a secretary staffing
+     * a second branch beyond their own members.branch_id. Used to extend
+     * "members of branch X" queries so a multi-branch secretary shows up
+     * everywhere their primary-branch_id counterpart already would.
+     */
+    public Set<Long> findMemberIdsByBranchId(
+            Long branchId
+    ) {
+        if (branchId == null) {
+            return Set.of();
+        }
+
+        String sql = """
+                SELECT DISTINCT bs.member_id
+                FROM branch_staff bs
+                WHERE bs.branch_id = :branchId
+                  AND bs.ended_on IS NULL
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchId", branchId);
+
+        List<Long> memberIds =
+                jdbcTemplate.queryForList(sql, parameters, Long.class);
+
+        return new LinkedHashSet<>(memberIds);
+    }
+
+    /**
      * Checks whether a member currently has access
      * to a specific branch.
      */

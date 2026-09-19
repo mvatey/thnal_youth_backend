@@ -81,7 +81,13 @@ public interface MonthlyDonationRepository {
             ")",
             "LEFT JOIN payment_methods pm",
             "  ON pm.id = d.payment_method_id",
-            "WHERE m.branch_id = #{branchId}",
+            "WHERE (",
+            "  m.branch_id = #{branchId}",
+            "  OR EXISTS (",
+            "    SELECT 1 FROM branch_staff bs",
+            "    WHERE bs.member_id = m.id AND bs.branch_id = #{branchId} AND bs.ended_on IS NULL",
+            "  )",
+            ")",
             // An inactive member with no donation already recorded for this
             // exact period offers nothing to fill in and must not be
             // addable as a new entry. One who DOES already have a donation
@@ -122,7 +128,13 @@ public interface MonthlyDonationRepository {
             "FROM members m",
             "JOIN member_statuses ms",
             "  ON ms.id = m.status_id",
-            "WHERE m.branch_id = #{branchId}",
+            "WHERE (",
+            "  m.branch_id = #{branchId}",
+            "  OR EXISTS (",
+            "    SELECT 1 FROM branch_staff bs",
+            "    WHERE bs.member_id = m.id AND bs.branch_id = #{branchId} AND bs.ended_on IS NULL",
+            "  )",
+            ")",
             // Kept in lockstep with listMembers' own inclusion rule above --
             // otherwise the count and the actual page of rows disagree.
             "  AND (",
