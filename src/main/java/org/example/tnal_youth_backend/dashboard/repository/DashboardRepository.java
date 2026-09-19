@@ -403,7 +403,7 @@ public class DashboardRepository {
                     a.location_name,
                     at.code
                 ORDER BY a.ends_at DESC
-                LIMIT 5
+                LIMIT 7
                 """;
 
         return jdbcTemplate.query(
@@ -458,7 +458,7 @@ public class DashboardRepository {
                     a.location_name,
                     at.code
                 ORDER BY a.ends_at DESC
-                LIMIT 5
+                LIMIT 7
                 """;
 
         MapSqlParameterSource parameters =
