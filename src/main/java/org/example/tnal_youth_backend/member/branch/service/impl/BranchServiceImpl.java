@@ -1278,10 +1278,16 @@ public class BranchServiceImpl implements BranchService {
          *
          * through BranchManagementProjection.
          */
+        Set<Long> branchStaffMemberIds =
+                branchStaffRepository.findMemberIdsByBranchId(branchId);
+
         Page<BranchManagementProjection> result =
                 memberRepository
                         .findBranchMembersExcludingRole(
                                 branchId,
+                                branchStaffMemberIds.isEmpty()
+                                        ? Set.of(-1L)
+                                        : branchStaffMemberIds,
                                 UserRole.BRANCH_LEADER,
                                 UserStatus.INACTIVE,
                                 normalizedSearch,

@@ -792,10 +792,20 @@ public interface MemberRepository
              * Security scope:
              * Admin bypasses this condition.
              * Secretary/branch leader only see accessible branches.
+             * A member whose PRIMARY branch is outside scope still counts
+             * if they have an active branch_staff assignment to one that
+             * is in scope -- e.g. a secretary staffing a second branch
+             * beyond their own members.branch_id.
              */
             AND (
                 :unrestrictedScope = TRUE
                 OR m.branch_id IN (:branchScope)
+                OR EXISTS (
+                    SELECT 1 FROM branch_staff bs
+                    WHERE bs.member_id = m.id
+                      AND bs.branch_id IN (:branchScope)
+                      AND bs.ended_on IS NULL
+                )
             )
 
             /*
@@ -871,6 +881,12 @@ public interface MemberRepository
             AND (
                 :unrestrictedScope = TRUE
                 OR m.branch_id IN (:branchScope)
+                OR EXISTS (
+                    SELECT 1 FROM branch_staff bs
+                    WHERE bs.member_id = m.id
+                      AND bs.branch_id IN (:branchScope)
+                      AND bs.ended_on IS NULL
+                )
             )
 
             AND (
@@ -995,7 +1011,10 @@ SELECT
 FROM Member m
 LEFT JOIN User u
     ON u.memberId = m.id
-WHERE m.branchId = :branchId
+WHERE (
+      m.branchId = :branchId
+      OR m.id IN :branchStaffMemberIds
+  )
 
   AND (
       u.id IS NULL
@@ -1035,6 +1054,9 @@ ORDER BY
     findBranchMembersExcludingRole(
             @Param("branchId")
             Long branchId,
+
+            @Param("branchStaffMemberIds")
+            Collection<Long> branchStaffMemberIds,
 
             @Param("excludedRole")
             UserRole excludedRole,
