@@ -1730,7 +1730,8 @@ public class MemberServiceImpl implements MemberService {
                 memberRepository
                         .findBranchManagementMembers(
                                 branchId,
-                                List.of(UserRole.BRANCH_LEADER)
+                                List.of(UserRole.BRANCH_LEADER),
+                                UserStatus.INACTIVE
                         )
                         .stream()
                         .findFirst()

@@ -1178,7 +1178,8 @@ public class BranchServiceImpl implements BranchService {
                                 List.of(
                                         UserRole.BRANCH_LEADER,
                                         UserRole.SECRETARY
-                                )
+                                ),
+                                UserStatus.INACTIVE
                         )
                         .stream()
                         .map(item ->

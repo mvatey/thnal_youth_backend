@@ -958,12 +958,14 @@ public interface MemberRepository
         ON u.memberId = m.id
     WHERE m.branchId = :branchId
       AND u.role IN :roles
+      AND u.status <> :deletedStatus
     ORDER BY m.fullNameKm ASC
 """)
     List<BranchManagementProjection>
     findBranchManagementMembers(
-            Long branchId,
-            Collection<UserRole> roles
+            @Param("branchId") Long branchId,
+            @Param("roles") Collection<UserRole> roles,
+            @Param("deletedStatus") UserStatus deletedStatus
     );
 
     @Query("""
