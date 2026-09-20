@@ -1,6 +1,7 @@
 package org.example.tnal_youth_backend.dashboard.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.dashboard.dto.*;
 import org.example.tnal_youth_backend.dashboard.exception.DashboardAccessException;
 import org.example.tnal_youth_backend.dashboard.model.DashboardScope;
@@ -183,19 +184,38 @@ public class DashboardServiceImpl implements DashboardService {
                                     range.selectedMonthStart()
                             );
 
+            /*
+             * ADMIN viewing one specific branch deliberately stays
+             * host-only, matching the org-wide admin dashboard above.
+             * SECRETARY/BRANCH_LEADER's own dashboard also counts an
+             * activity their scope was invited to and accepted -- they're
+             * genuinely involved in it, not just watching from outside.
+             */
             currentActivities =
-                    dashboardRepository
-                            .countActivitiesByBranchesBefore(
-                                    branchIds,
-                                    range.nextMonthStart()
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .countActivitiesByBranchesBefore(
+                                            branchIds,
+                                            range.nextMonthStart()
+                                    )
+                            : dashboardRepository
+                                    .countActivitiesByBranchesBeforeIncludingAcceptedInvites(
+                                            branchIds,
+                                            range.nextMonthStart()
+                                    );
 
             previousActivities =
-                    dashboardRepository
-                            .countActivitiesByBranchesBefore(
-                                    branchIds,
-                                    range.selectedMonthStart()
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .countActivitiesByBranchesBefore(
+                                            branchIds,
+                                            range.selectedMonthStart()
+                                    )
+                            : dashboardRepository
+                                    .countActivitiesByBranchesBeforeIncludingAcceptedInvites(
+                                            branchIds,
+                                            range.selectedMonthStart()
+                                    );
 
             currentDonations =
                     dashboardRepository
@@ -731,21 +751,39 @@ public class DashboardServiceImpl implements DashboardService {
 
         } else {
 
+            /*
+             * Same host-only-for-ADMIN, host-or-accepted-for-staff split
+             * as getSummary() above.
+             */
             currentActivities =
-                    dashboardRepository
-                            .countActivitiesByBranchesBetween(
-                                    selectedBranchIds,
-                                    range.selectedMonthStart(),
-                                    range.nextMonthStart()
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .countActivitiesByBranchesBetween(
+                                            selectedBranchIds,
+                                            range.selectedMonthStart(),
+                                            range.nextMonthStart()
+                                    )
+                            : dashboardRepository
+                                    .countActivitiesByBranchesBetweenIncludingAcceptedInvites(
+                                            selectedBranchIds,
+                                            range.selectedMonthStart(),
+                                            range.nextMonthStart()
+                                    );
 
             previousActivities =
-                    dashboardRepository
-                            .countActivitiesByBranchesBetween(
-                                    selectedBranchIds,
-                                    range.previousMonthStart(),
-                                    range.selectedMonthStart()
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .countActivitiesByBranchesBetween(
+                                            selectedBranchIds,
+                                            range.previousMonthStart(),
+                                            range.selectedMonthStart()
+                                    )
+                            : dashboardRepository
+                                    .countActivitiesByBranchesBetweenIncludingAcceptedInvites(
+                                            selectedBranchIds,
+                                            range.previousMonthStart(),
+                                            range.selectedMonthStart()
+                                    );
 
             currentMembers =
                     dashboardRepository
