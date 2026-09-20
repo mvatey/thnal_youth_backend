@@ -1171,10 +1171,16 @@ public class BranchServiceImpl implements BranchService {
         BigDecimal totalDonationsUsd =
                 donationRepository.sumTotalAmountUsdByBranchId(branchId);
 
+        Set<Long> managementBranchStaffMemberIds =
+                branchStaffRepository.findMemberIdsByBranchId(branchId);
+
         List<BranchLeaderResponse> leaders =
                 memberRepository
                         .findBranchManagementMembers(
                                 branchId,
+                                managementBranchStaffMemberIds.isEmpty()
+                                        ? Set.of(-1L)
+                                        : managementBranchStaffMemberIds,
                                 List.of(
                                         UserRole.BRANCH_LEADER,
                                         UserRole.SECRETARY

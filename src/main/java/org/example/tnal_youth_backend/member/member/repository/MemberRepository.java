@@ -972,7 +972,10 @@ public interface MemberRepository
     FROM Member m
     JOIN User u
         ON u.memberId = m.id
-    WHERE m.branchId = :branchId
+    WHERE (
+        m.branchId = :branchId
+        OR m.id IN :branchStaffMemberIds
+    )
       AND u.role IN :roles
       AND u.status <> :deletedStatus
     ORDER BY m.fullNameKm ASC
@@ -980,6 +983,7 @@ public interface MemberRepository
     List<BranchManagementProjection>
     findBranchManagementMembers(
             @Param("branchId") Long branchId,
+            @Param("branchStaffMemberIds") Collection<Long> branchStaffMemberIds,
             @Param("roles") Collection<UserRole> roles,
             @Param("deletedStatus") UserStatus deletedStatus
     );
