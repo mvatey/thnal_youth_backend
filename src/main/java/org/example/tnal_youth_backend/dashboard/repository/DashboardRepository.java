@@ -66,6 +66,10 @@ public class DashboardRepository {
 
     // Branch-scoped sibling of countAllMembersBefore -- same fix, same
     // reasoning: every member of these branches, not just ACTIVE ones.
+    // Also counts a member through an active branch_staff assignment, not
+    // just their primary branch_id -- a secretary staffing a second
+    // branch counts as that branch's member on its own card too, matching
+    // MemberRepository#countByBranchId (the branch detail page's card).
     public long countMembersByBranchesBefore(
             Collection<Long> branchIds,
             LocalDate exclusiveEndDate
@@ -75,7 +79,15 @@ public class DashboardRepository {
         String sql = """
                 SELECT COUNT(*)
                 FROM members m
-                WHERE m.branch_id IN (:branchIds)
+                WHERE (
+                        m.branch_id IN (:branchIds)
+                        OR EXISTS (
+                              SELECT 1 FROM branch_staff bs
+                              WHERE bs.member_id = m.id
+                                AND bs.branch_id IN (:branchIds)
+                                AND bs.ended_on IS NULL
+                        )
+                  )
                   AND COALESCE(
                         m.joined_on,
                         m.created_at::date
