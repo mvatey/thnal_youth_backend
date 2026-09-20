@@ -425,13 +425,24 @@ public class DashboardServiceImpl implements DashboardService {
 
         } else {
 
+            /*
+             * Same host-only-for-ADMIN, host-or-accepted-for-staff split
+             * as the activity count cards.
+             */
             rows =
-                    dashboardRepository
-                            .findActivityTypeBreakdownByBranches(
-                                    branchIds,
-                                    range.selectedMonthStart(),
-                                    range.nextMonthStart()
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .findActivityTypeBreakdownByBranches(
+                                            branchIds,
+                                            range.selectedMonthStart(),
+                                            range.nextMonthStart()
+                                    )
+                            : dashboardRepository
+                                    .findActivityTypeBreakdownByBranchesIncludingAcceptedInvites(
+                                            branchIds,
+                                            range.selectedMonthStart(),
+                                            range.nextMonthStart()
+                                    );
         }
 
         Map<String, Long> counts =
@@ -517,13 +528,24 @@ public class DashboardServiceImpl implements DashboardService {
 
         } else {
 
+            /*
+             * Same host-only-for-ADMIN, host-or-accepted-for-staff split
+             * as the activity count cards.
+             */
             rows =
-                    dashboardRepository
-                            .findParticipationTrendByBranches(
-                                    branchIds,
-                                    start,
-                                    end
-                            );
+                    scope.role() == UserRole.ADMIN
+                            ? dashboardRepository
+                                    .findParticipationTrendByBranches(
+                                            branchIds,
+                                            start,
+                                            end
+                                    )
+                            : dashboardRepository
+                                    .findParticipationTrendByBranchesIncludingAcceptedInvites(
+                                            branchIds,
+                                            start,
+                                            end
+                                    );
         }
 
         Map<Integer, Long> countsByMonth =
