@@ -1756,10 +1756,16 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
 
+        Set<Long> leaderCheckBranchStaffMemberIds =
+                branchStaffRepository.findMemberIdsByBranchId(branchId);
+
         Optional<String> existingLeaderName =
                 memberRepository
                         .findBranchManagementMembers(
                                 branchId,
+                                leaderCheckBranchStaffMemberIds.isEmpty()
+                                        ? Set.of(-1L)
+                                        : leaderCheckBranchStaffMemberIds,
                                 List.of(UserRole.BRANCH_LEADER),
                                 UserStatus.INACTIVE
                         )
