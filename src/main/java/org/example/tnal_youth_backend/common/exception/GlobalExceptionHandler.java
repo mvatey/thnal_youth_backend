@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.common.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.example.tnal_youth_backend.common.response.ApiResponse;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
@@ -193,6 +196,43 @@ public class GlobalExceptionHandler {
      * ==========================================================
      */
 
+    /*
+     * A duplicate value SHOULD already be caught by a proactive
+     * existsBy...() check in the service layer before it ever reaches the
+     * database -- that's what produces the specific "X already exists"
+     * ResponseStatusExceptions elsewhere in this file. This handler is the
+     * fallback for whenever a proactive check is missing or has a gap
+     * (this codebase has found more than one such gap already): rather
+     * than always showing the same generic message, name the actual
+     * duplicated field when the violated constraint is one we recognize,
+     * so a real bug in a proactive check doesn't also hide which field
+     * broke from the person trying to fix it.
+     */
+    private static final Map<String, String>
+            KNOWN_UNIQUE_CONSTRAINT_MESSAGES =
+            Map.ofEntries(
+                    Map.entry(
+                            "uq_members_phone",
+                            "This phone number already exists. Please use a different one."
+                    ),
+                    Map.entry(
+                            "uq_members_email",
+                            "This email already exists. Please use a different one."
+                    ),
+                    Map.entry(
+                            "users_phone_key",
+                            "This phone number is already used by another account"
+                    ),
+                    Map.entry(
+                            "uq_users_email_lower",
+                            "This email is already used by another account"
+                    ),
+                    Map.entry(
+                            "uq_users_username",
+                            "This username is already used by another account"
+                    )
+            );
+
     @ExceptionHandler(
             DataIntegrityViolationException.class
     )
@@ -205,6 +245,18 @@ public class GlobalExceptionHandler {
                 exception
         );
 
+        String constraintName =
+                extractConstraintName(exception);
+
+        String message =
+                constraintName != null
+                        ? KNOWN_UNIQUE_CONSTRAINT_MESSAGES
+                                .getOrDefault(
+                                        constraintName,
+                                        "The request conflicts with existing data"
+                                )
+                        : "The request conflicts with existing data";
+
         return ResponseEntity
                 .status(
                         HttpStatus.CONFLICT
@@ -212,9 +264,25 @@ public class GlobalExceptionHandler {
                 .body(
                         ApiResponse.error(
                                 "DATA_INTEGRITY_VIOLATION",
-                                "The request conflicts with existing data"
+                                message
                         )
                 );
+    }
+
+    private String extractConstraintName(
+            Throwable exception
+    ) {
+        Throwable current = exception;
+
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolation) {
+                return constraintViolation.getConstraintName();
+            }
+
+            current = current.getCause();
+        }
+
+        return null;
     }
 
 
