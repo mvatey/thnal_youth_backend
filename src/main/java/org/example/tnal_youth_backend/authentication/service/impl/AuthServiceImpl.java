@@ -79,11 +79,11 @@ public class AuthServiceImpl implements AuthService {
                 request.getPhoneOrEmail().trim();
 
         User user = userRepository
-                .findByEmailOrPhone(identifier, identifier)
+                .findByLoginUsernameOrEmailOrPhone(identifier, identifier, identifier)
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.UNAUTHORIZED,
-                                "Invalid phone/email or password"
+                                "Invalid username/phone/email or password"
                         )
                 );
 

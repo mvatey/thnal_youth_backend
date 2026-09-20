@@ -763,7 +763,8 @@ public class MemberServiceImpl implements MemberService {
 
             createPendingUserAccount(
                     savedMember,
-                    requestedRole
+                    requestedRole,
+                    request.username()
             );
 
             if (requestedRole == UserRole.BRANCH_LEADER) {
@@ -1447,7 +1448,8 @@ public class MemberServiceImpl implements MemberService {
 
     private void createPendingUserAccount(
             Member member,
-            UserRole requestedRole
+            UserRole requestedRole,
+            String requestedUsername
     ) {
 
         if (
@@ -1460,6 +1462,11 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
+        String username =
+                trimToNull(
+                        requestedUsername
+                );
+
         String phone =
                 trimToNull(
                         member.getPhone()
@@ -1469,6 +1476,13 @@ public class MemberServiceImpl implements MemberService {
                 normalizeEmail(
                         member.getEmail()
                 );
+
+        if (username == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Username is required to create a user account"
+            );
+        }
 
         if (phone == null) {
             throw new ResponseStatusException(
@@ -1532,6 +1546,18 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
+        if (
+                userRepository
+                        .existsByLoginUsernameIgnoreCase(
+                                username
+                        )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This username is already used by another account"
+            );
+        }
+
         String unusablePasswordHash =
                 passwordEncoder
                         .encode(
@@ -1548,6 +1574,10 @@ public class MemberServiceImpl implements MemberService {
 
                         .branchId(
                                 member.getBranchId()
+                        )
+
+                        .loginUsername(
+                                username
                         )
 
                         .phone(

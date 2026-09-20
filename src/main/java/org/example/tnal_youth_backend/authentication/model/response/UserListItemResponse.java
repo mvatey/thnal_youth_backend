@@ -21,6 +21,8 @@ public class UserListItemResponse {
 
     private Long branchId;
 
+    private String username;
+
     private String phone;
 
     private String email;

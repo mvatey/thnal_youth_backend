@@ -23,6 +23,7 @@ public record CreateMemberRequest(
         @JsonProperty("date_of_birth")
         LocalDate dateOfBirth,
 
+        String username,
         String phone,
         String email,
 

@@ -21,6 +21,12 @@ public interface UserRepository
             String phone
     );
 
+    Optional<User> findByLoginUsernameOrEmailOrPhone(
+            String loginUsername,
+            String email,
+            String phone
+    );
+
     Optional<User> findByMemberId(
             Long memberId
     );
@@ -52,6 +58,15 @@ public interface UserRepository
 
     boolean existsByEmailIgnoreCaseAndIdNot(
             String email,
+            Long id
+    );
+
+    boolean existsByLoginUsernameIgnoreCase(
+            String loginUsername
+    );
+
+    boolean existsByLoginUsernameIgnoreCaseAndIdNot(
+            String loginUsername,
             Long id
     );
 
