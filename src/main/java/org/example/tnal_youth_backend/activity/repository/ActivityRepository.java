@@ -46,7 +46,30 @@ public interface ActivityRepository
             OffsetDateTime currentTime
     );
 
-    long countByBranchId(Long branchId);
+    // The branch detail page's own "Total Activities" card -- counts an
+    // activity this branch hosts OR was invited to and accepted, same
+    // "host OR accepted co-host" rule already used for the dashboard's
+    // recent-activity lists (findRecentCompletedActivitiesByBranches) and
+    // a member's own relevant-activities count
+    // (countCompletedRelevantActivitiesNotJoined above). Deliberately NOT
+    // applied to the org-wide admin dashboard's own activity counts,
+    // which stay host-only by design.
+    @Query(
+            value = """
+        SELECT COUNT(*)
+        FROM activities activity
+        WHERE activity.branch_id = :branchId
+          OR EXISTS (
+                SELECT 1
+                FROM activity_invited_branches invited_branch
+                WHERE invited_branch.activity_id = activity.id
+                  AND invited_branch.branch_id = :branchId
+                  AND invited_branch.invitation_status = 'ACCEPTED'
+          )
+        """,
+            nativeQuery = true
+    )
+    long countByBranchId(@Param("branchId") Long branchId);
 
     @Query(
             value = """

@@ -252,6 +252,52 @@ public class DashboardRepository {
         return queryCount(sql, parameters);
     }
 
+    // Sibling of countActivitiesByBranchesBefore, for a SECRETARY/
+    // BRANCH_LEADER's own dashboard only -- also counts an activity this
+    // scope was invited to and accepted, not just one it hosts. Never used
+    // for ADMIN (org-wide stays host-only by definition since there's no
+    // "invited" outside your own branches, and ADMIN viewing one specific
+    // branch deliberately keeps the same host-only rule as the rest of the
+    // admin dashboard -- see DashboardServiceImpl#getSummary).
+    public long countActivitiesByBranchesBeforeIncludingAcceptedInvites(
+            Collection<Long> branchIds,
+            OffsetDateTime exclusiveEnd
+    ) {
+        requireBranchIds(branchIds);
+
+        String sql = """
+                SELECT COUNT(*)
+                FROM activities a
+                WHERE (
+                        a.branch_id IN (:branchIds)
+                        OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                        )
+                  )
+                  AND a.starts_at < :exclusiveEnd
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("branchIds", branchIds)
+                        .addValue(
+                                "exclusiveEnd",
+                                exclusiveEnd
+                        );
+
+        return queryCount(sql, parameters);
+    }
+
     // =========================================================
     // DONATION SUMMARY
     // =========================================================
@@ -959,6 +1005,57 @@ public class DashboardRepository {
             SELECT COUNT(*)
             FROM activities a
             WHERE a.branch_id IN (:branchIds)
+              AND a.starts_at >= :startInclusive
+              AND a.starts_at < :endExclusive
+              AND NOT EXISTS (
+                    SELECT 1 FROM activity_statuses activity_status
+                    WHERE activity_status.id = a.status_id
+                      AND UPPER(activity_status.code) = 'CANCELLED'
+              )
+            """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue(
+                                "branchIds",
+                                branchIds
+                        )
+                        .addValue(
+                                "startInclusive",
+                                startInclusive
+                        )
+                        .addValue(
+                                "endExclusive",
+                                endExclusive
+                        );
+
+        return queryCount(sql, parameters);
+    }
+
+    // Sibling of countActivitiesByBranchesBetween for the branch-performance
+    // widget, same reasoning as countActivitiesByBranchesBeforeIncludingAcceptedInvites
+    // above -- used only for a SECRETARY/BRANCH_LEADER's own scope, never
+    // for ADMIN (org-wide or a specific branch selected).
+    public long countActivitiesByBranchesBetweenIncludingAcceptedInvites(
+            Collection<Long> branchIds,
+            OffsetDateTime startInclusive,
+            OffsetDateTime endExclusive
+    ) {
+        requireBranchIds(branchIds);
+
+        String sql = """
+            SELECT COUNT(*)
+            FROM activities a
+            WHERE (
+                    a.branch_id IN (:branchIds)
+                    OR EXISTS (
+                          SELECT 1
+                          FROM activity_invited_branches aib
+                          WHERE aib.activity_id = a.id
+                            AND aib.branch_id IN (:branchIds)
+                            AND aib.invitation_status = 'ACCEPTED'
+                    )
+              )
               AND a.starts_at >= :startInclusive
               AND a.starts_at < :endExclusive
               AND NOT EXISTS (
