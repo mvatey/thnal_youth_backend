@@ -83,8 +83,17 @@ public class AccountActivationServiceImpl
                         request.phoneOrEmail()
                 );
 
+        OtpChannel channel =
+                request.deliveryChannel() == OtpChannel.SMS
+                        ? OtpChannel.SMS
+                        : OtpChannel.EMAIL;
+
         String destination =
-                requireEmail(user);
+                channel == OtpChannel.SMS
+                        ? PhoneNumberUtil.toSmsFormat(
+                                user.getPhone()
+                          )
+                        : requireEmail(user);
 
         OffsetDateTime now =
                 OffsetDateTime.now();
@@ -126,7 +135,7 @@ public class AccountActivationServiceImpl
                                 )
                         )
                         .deliveryChannel(
-                                OtpChannel.EMAIL
+                                channel
                         )
                         .expiresAt(
                                 now.plusMinutes(
@@ -143,7 +152,7 @@ public class AccountActivationServiceImpl
         );
 
         otpSender.send(
-                OtpChannel.EMAIL,
+                channel,
                 destination,
                 plainOtp
         );
@@ -347,7 +356,8 @@ public class AccountActivationServiceImpl
 
         User user =
                 userRepository
-                        .findByEmailOrPhone(
+                        .findByLoginUsernameOrEmailOrPhone(
+                                normalizedIdentifier,
                                 normalizedIdentifier,
                                 normalizedIdentifier
                         )

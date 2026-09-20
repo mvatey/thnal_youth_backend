@@ -27,6 +27,10 @@ public class UpdateUserRequest {
     @Size(max = 500, message = "English full name must not exceed 500 characters")
     private String fullNameEn;
 
+    @NotBlank(message = "Username is required")
+    @Size(max = 255, message = "Username must not exceed 255 characters")
+    private String username;
+
     @NotBlank(message = "Phone number is required")
     @Pattern(
             regexp = "^[0-9+() -]{6,20}$",

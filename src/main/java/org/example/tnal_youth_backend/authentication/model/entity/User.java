@@ -40,6 +40,13 @@ public class User implements UserDetails {
     @Column(unique = true, length = 255)
     private String email;
 
+    // Named loginUsername (not "username") to avoid colliding with the
+    // getUsername() override below, which UserDetails requires and which
+    // this class maps to phone instead -- an unrelated Spring Security
+    // concept, not this field. The DB column is still plain "username".
+    @Column(name = "username", nullable = false, unique = true, length = 255)
+    private String loginUsername;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

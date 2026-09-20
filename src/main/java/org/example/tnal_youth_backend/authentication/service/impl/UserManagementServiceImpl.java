@@ -210,6 +210,15 @@ public class UserManagementServiceImpl
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
 
+        String username = request.getUsername().trim();
+
+        if (userRepository.existsByLoginUsernameIgnoreCase(username)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This username is already used by another account"
+            );
+        }
+
         String phone = request.getPhone().trim();
 
         if (userRepository.existsByPhone(phone)) {
@@ -235,6 +244,7 @@ public class UserManagementServiceImpl
         User user = User.builder()
                 .memberId(null)
                 .branchId(branchId)
+                .loginUsername(username)
                 .phone(phone)
                 .email(email)
                 .passwordHash(passwordHash)
@@ -293,6 +303,15 @@ public class UserManagementServiceImpl
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
 
+        String username = request.getUsername().trim();
+
+        if (userRepository.existsByLoginUsernameIgnoreCaseAndIdNot(username, id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This username is already used by another account"
+            );
+        }
+
         String phone = request.getPhone().trim();
 
         if (userRepository.existsByPhoneAndIdNot(phone, id)) {
@@ -311,6 +330,7 @@ public class UserManagementServiceImpl
             );
         }
 
+        user.setLoginUsername(username);
         user.setFullNameKm(request.getFullNameKm().trim());
         user.setFullNameEn(
                 request.getFullNameEn() != null
@@ -460,6 +480,7 @@ public class UserManagementServiceImpl
                 .id(user.getId())
                 .memberId(user.getMemberId())
                 .branchId(user.getBranchId())
+                .username(user.getLoginUsername())
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .fullNameKm(user.getFullNameKm())

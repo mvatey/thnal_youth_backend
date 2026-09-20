@@ -30,7 +30,8 @@ public class AccountStatusServiceImpl
 
         User user =
                 userRepository
-                        .findByEmailOrPhone(
+                        .findByLoginUsernameOrEmailOrPhone(
+                                identifier,
                                 identifier,
                                 identifier
                         )
