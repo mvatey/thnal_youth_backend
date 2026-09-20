@@ -732,6 +732,62 @@ public class DashboardRepository {
         );
     }
 
+    // Sibling of findActivityTypeBreakdownByBranches -- the dashboard's
+    // internal/external pie chart -- for a SECRETARY/BRANCH_LEADER's own
+    // scope only, same host-or-accepted-co-host rule as the activity
+    // count cards. Never used for ADMIN, org-wide or one branch selected.
+    public List<ActivityTypeCountRow>
+    findActivityTypeBreakdownByBranchesIncludingAcceptedInvites(
+            Collection<Long> branchIds,
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+        requireBranchIds(branchIds);
+
+        String sql = """
+                SELECT
+                    at.code,
+                    COUNT(*) AS total
+                FROM activities a
+                JOIN activity_types at
+                    ON at.id = a.type_id
+                WHERE (
+                        a.branch_id IN (:branchIds)
+                        OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                        )
+                  )
+                  AND a.starts_at >= :start
+                  AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
+                GROUP BY at.code
+                ORDER BY at.code
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue(
+                                "branchIds",
+                                branchIds
+                        )
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                activityTypeMapper()
+        );
+    }
+
     // =========================================================
     // PARTICIPATION TREND
     // =========================================================
@@ -807,6 +863,73 @@ public class DashboardRepository {
                 LEFT JOIN attendance_statuses ast
                     ON ast.id = ap.attendance_status_id
                 WHERE a.branch_id IN (:branchIds)
+                  AND a.starts_at >= :start
+                  AND a.starts_at < :end
+                  AND NOT EXISTS (
+                        SELECT 1 FROM activity_statuses activity_status
+                        WHERE activity_status.id = a.status_id
+                          AND UPPER(activity_status.code) = 'CANCELLED'
+                  )
+                  AND (
+                        ast.code = 'PRESENT'
+                        OR (
+                            ap.attendance_status_id IS NULL
+                            AND ap.checked_in_at IS NOT NULL
+                        )
+                      )
+                GROUP BY month
+                ORDER BY month
+                """;
+
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue(
+                                "branchIds",
+                                branchIds
+                        )
+                        .addValue("start", start)
+                        .addValue("end", end);
+
+        return jdbcTemplate.query(
+                sql,
+                parameters,
+                participationTrendMapper()
+        );
+    }
+
+    // Sibling of findParticipationTrendByBranches -- the dashboard's
+    // monthly participation line chart -- for a SECRETARY/BRANCH_LEADER's
+    // own scope only, same host-or-accepted-co-host rule used throughout
+    // this file. Never used for ADMIN, org-wide or one branch selected.
+    public List<MonthlyParticipationRow>
+    findParticipationTrendByBranchesIncludingAcceptedInvites(
+            Collection<Long> branchIds,
+            OffsetDateTime start,
+            OffsetDateTime end
+    ) {
+        requireBranchIds(branchIds);
+
+        String sql = """
+                SELECT
+                    EXTRACT(
+                        MONTH FROM a.starts_at
+                    )::int AS month,
+                    COUNT(ap.id) AS participation_count
+                FROM activities a
+                JOIN activity_participants ap
+                    ON ap.activity_id = a.id
+                LEFT JOIN attendance_statuses ast
+                    ON ast.id = ap.attendance_status_id
+                WHERE (
+                        a.branch_id IN (:branchIds)
+                        OR EXISTS (
+                              SELECT 1
+                              FROM activity_invited_branches aib
+                              WHERE aib.activity_id = a.id
+                                AND aib.branch_id IN (:branchIds)
+                                AND aib.invitation_status = 'ACCEPTED'
+                        )
+                  )
                   AND a.starts_at >= :start
                   AND a.starts_at < :end
                   AND NOT EXISTS (
