@@ -18,6 +18,7 @@ import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkH
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.springframework.web.multipart.MultipartFile;
@@ -196,6 +197,19 @@ public interface MyAccountService {
      */
     void changeMyEmail(
             ChangeMyEmailRequest request
+    );
+
+    /**
+     * Changes the authenticated account's username directly — same
+     * reasoning as changeMyEmail: no OTP needed, works for both a
+     * member-linked and a standalone account, since it operates on the
+     * login account's own username column, not a member field. A
+     * member-linked account can also change it through personal-info
+     * (which a staff member editing someone else's account also uses) --
+     * this is the self-service, no-approval-needed path.
+     */
+    void changeMyUsername(
+            ChangeMyUsernameRequest request
     );
 
     MemberParticipationPageResponse

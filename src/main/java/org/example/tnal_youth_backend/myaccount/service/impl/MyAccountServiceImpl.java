@@ -31,6 +31,7 @@ import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkH
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
 import org.example.tnal_youth_backend.member.workhistory.service.MemberWorkHistoryService;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
@@ -182,6 +183,7 @@ public class MyAccountServiceImpl
         return UserProfileResponse.builder()
                 .id(savedUser.getId())
                 .memberId(savedUser.getMemberId())
+                .username(savedUser.getLoginUsername())
                 .phone(savedUser.getPhone())
                 .email(savedUser.getEmail())
                 .fullNameKm(savedUser.getFullNameKm())
@@ -841,6 +843,34 @@ public class MyAccountServiceImpl
         }
 
         currentUser.setEmail(newEmail);
+
+        userRepository.saveAndFlush(currentUser);
+    }
+
+    @Override
+    @Transactional
+    public void changeMyUsername(
+            ChangeMyUsernameRequest request
+    ) {
+        User currentUser = getCurrentUserEntity();
+
+        String newUsername = request.newUsername().trim();
+
+        if (newUsername.equalsIgnoreCase(currentUser.getLoginUsername())) {
+            return;
+        }
+
+        if (userRepository.existsByLoginUsernameIgnoreCaseAndIdNot(
+                newUsername,
+                currentUser.getId()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This username is already used by another account"
+            );
+        }
+
+        currentUser.setLoginUsername(newUsername);
 
         userRepository.saveAndFlush(currentUser);
     }
