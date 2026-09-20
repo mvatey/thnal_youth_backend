@@ -651,8 +651,24 @@ public class AccountActivationServiceImpl
             return trimmed.toLowerCase();
         }
 
-        return PhoneNumberUtil.toDatabaseFormat(
-                trimmed
+        // A username (e.g. "Phan Rithy") contains letters/spaces that
+        // PhoneNumberUtil.toDatabaseFormat rejects outright -- only run it
+        // through phone normalization when the input actually looks like
+        // one, otherwise pass it through as-is for the username match.
+        if (looksLikePhoneNumber(trimmed)) {
+            return PhoneNumberUtil.toDatabaseFormat(
+                    trimmed
+            );
+        }
+
+        return trimmed;
+    }
+
+    private boolean looksLikePhoneNumber(
+            String value
+    ) {
+        return value.matches(
+                "^[0-9+()\\- ]+$"
         );
     }
 }
