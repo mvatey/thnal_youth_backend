@@ -21,6 +21,7 @@ import org.example.tnal_youth_backend.member.workhistory.dto.request.MemberWorkH
 import org.example.tnal_youth_backend.member.workhistory.dto.response.MemberWorkHistoryResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.service.MyAccountService;
@@ -645,6 +646,22 @@ public class MyAccountController {
             ChangeMyEmailRequest request
     ) {
         myAccountService.changeMyEmail(request);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    /*
+     * Same reasoning as changeMyEmail above.
+     */
+    @PatchMapping("/username")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void>
+    changeMyUsername(
+            @Valid
+            @RequestBody
+            ChangeMyUsernameRequest request
+    ) {
+        myAccountService.changeMyUsername(request);
 
         return ResponseEntity.noContent().build();
     }

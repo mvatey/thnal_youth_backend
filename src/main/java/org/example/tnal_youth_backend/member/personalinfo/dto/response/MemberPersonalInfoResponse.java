@@ -24,6 +24,8 @@ public record MemberPersonalInfoResponse(
         @JsonProperty("date_of_birth")
         LocalDate dateOfBirth,
 
+        String username,
+
         String email,
 
         String phone,

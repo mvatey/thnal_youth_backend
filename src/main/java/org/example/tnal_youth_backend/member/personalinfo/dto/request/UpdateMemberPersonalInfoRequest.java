@@ -22,6 +22,8 @@ public record UpdateMemberPersonalInfoRequest(
         @JsonProperty("date_of_birth")
         LocalDate dateOfBirth,
 
+        String username,
+
         @Email(message = "Email format is invalid")
         String email,
 

@@ -33,6 +33,12 @@ public record UpdateMyPersonalInfoRequest(
         @JsonProperty("date_of_birth")
         LocalDate dateOfBirth,
 
+        @Size(
+                max = 255,
+                message = "Username must not exceed 255 characters"
+        )
+        String username,
+
         @Email(
                 message = "Email format is invalid"
         )

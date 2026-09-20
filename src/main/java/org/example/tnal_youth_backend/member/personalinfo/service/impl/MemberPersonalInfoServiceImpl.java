@@ -160,7 +160,8 @@ public class MemberPersonalInfoServiceImpl
                         );
 
         synchronizeLinkedAccount(
-                savedMember
+                savedMember,
+                request.username()
         );
 
         return toResponse(
@@ -584,6 +585,10 @@ public class MemberPersonalInfoServiceImpl
                 member.getGender(),
 
                 member.getDateOfBirth(),
+
+                user != null
+                        ? user.getLoginUsername()
+                        : null,
 
                 member.getEmail(),
 
@@ -1009,7 +1014,8 @@ public class MemberPersonalInfoServiceImpl
                         );
 
         synchronizeLinkedAccount(
-                savedMember
+                savedMember,
+                request.username()
         );
 
         return toResponse(
@@ -1061,7 +1067,8 @@ public class MemberPersonalInfoServiceImpl
     }
 
     private void synchronizeLinkedAccount(
-            Member member
+            Member member,
+            String requestedUsername
     ) {
         userRepository
                 .findByMemberId(
@@ -1073,6 +1080,11 @@ public class MemberPersonalInfoServiceImpl
 
                     String newEmail =
                             member.getEmail();
+
+                    String newUsername =
+                            requestedUsername == null
+                                    ? null
+                                    : requestedUsername.trim();
 
                     if (newPhone != null
                             && !newPhone.isBlank()
@@ -1098,6 +1110,22 @@ public class MemberPersonalInfoServiceImpl
                         );
                     }
 
+                    // Blank/omitted username means "leave it as-is" rather
+                    // than "clear it" -- unlike phone/email, users.username
+                    // is NOT NULL, so an empty value here must never reach
+                    // the save.
+                    if (newUsername != null
+                            && !newUsername.isBlank()
+                            && userRepository.existsByLoginUsernameIgnoreCaseAndIdNot(
+                                    newUsername,
+                                    user.getId()
+                            )) {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "This username already exists. Please use a different one."
+                        );
+                    }
+
                     user.setFullNameKm(
                             member.getFullNameKm()
                     );
@@ -1113,6 +1141,13 @@ public class MemberPersonalInfoServiceImpl
                     user.setEmail(
                             newEmail
                     );
+
+                    if (newUsername != null
+                            && !newUsername.isBlank()) {
+                        user.setLoginUsername(
+                                newUsername
+                        );
+                    }
 
                     user.setBranchId(
                             member.getBranchId()
