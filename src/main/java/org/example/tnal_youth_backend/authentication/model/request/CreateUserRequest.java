@@ -20,13 +20,11 @@ import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
  *
  * password is required and becomes the account's real password hash
  * immediately — the account is created ACTIVE and can log in right
- * away with phone/email + this password. Unlike member-linked
- * accounts (see MemberServiceImpl.createPendingUserAccount), a
- * standalone account created here never goes through OTP-based
- * activation: the admin already knows the password, so there's
- * nothing left to verify. OTP activation stays reserved for accounts
- * with a memberId, where the person setting up the account is not
- * the admin.
+ * away with phone/email + this password, same as a member-linked
+ * account (see MemberServiceImpl.createActiveUserAccount), which
+ * instead starts on a shared default password and is required to set
+ * a real one on first login (User.mustChangePassword) since the admin
+ * setting it up isn't the person who'll actually use it.
  *
  * Phone and email are each optional, but at least one is required
  * (see isPhoneOrEmailPresent below) — this is safe specifically

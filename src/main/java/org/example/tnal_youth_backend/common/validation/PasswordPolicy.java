@@ -28,6 +28,14 @@ public final class PasswordPolicy {
             "Password must be at least 6 characters and include "
                     + "at least one number and one symbol";
 
+    /**
+     * Shared starting password for every newly-created member-linked
+     * account (see MemberServiceImpl.createActiveUserAccount) -- paired
+     * with User.mustChangePassword, which forces a real one on first
+     * login. Satisfies REGEX itself (digit + symbol + 6+ chars).
+     */
+    public static final String DEFAULT_MEMBER_PASSWORD = "Tnal@123";
+
     private PasswordPolicy() {
     }
 

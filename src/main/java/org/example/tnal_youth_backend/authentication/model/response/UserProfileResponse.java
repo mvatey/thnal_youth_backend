@@ -34,4 +34,6 @@ public class UserProfileResponse {
     private String viewerScope;
 
     private Long branchId;
+
+    private boolean mustChangePassword;
 }

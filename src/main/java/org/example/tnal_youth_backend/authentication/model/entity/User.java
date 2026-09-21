@@ -50,6 +50,15 @@ public class User implements UserDetails {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    // True for a member-linked account still on the shared default
+    // password (see PasswordPolicy.DEFAULT_MEMBER_PASSWORD) -- the login
+    // flow forces a real password before letting them go anywhere else.
+    // Cleared the moment either the member sets their own password or an
+    // admin/secretary sets a real one for them.
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;

@@ -321,6 +321,7 @@ public class AuthServiceImpl implements AuthService {
                 .role(roleCode)
                 .viewerScope(user.getViewerScope() != null ? user.getViewerScope().name() : null)
                 .branchId(user.getBranchId())
+                .mustChangePassword(user.isMustChangePassword())
                 .build();
     }
 
@@ -563,6 +564,7 @@ public class AuthServiceImpl implements AuthService {
                 .role(roleCode)
                 .viewerScope(user.getViewerScope() != null ? user.getViewerScope().name() : null)
                 .branchId(user.getBranchId())
+                .mustChangePassword(user.isMustChangePassword())
                 .build();
     }
 
