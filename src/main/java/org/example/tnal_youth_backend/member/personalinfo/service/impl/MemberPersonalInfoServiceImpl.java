@@ -124,6 +124,12 @@ public class MemberPersonalInfoServiceImpl
                         memberId
                 );
 
+        validateMemberContactIsAvailable(
+                memberId,
+                normalizeText(request.phone()),
+                normalizeEmail(request.email())
+        );
+
         updateBasicInformation(member, request);
         updateReligion(member, request.religionId());
         updateEthnicity(member, request.ethnicityId());
@@ -148,10 +154,6 @@ public class MemberPersonalInfoServiceImpl
                     request.branchId()
             );
         }
-
-        validateMemberContactIsAvailable(
-                member
-        );
 
         Member savedMember =
                 memberRepository
@@ -932,6 +934,12 @@ public class MemberPersonalInfoServiceImpl
                         memberId
                 );
 
+        validateMemberContactIsAvailable(
+                memberId,
+                normalizeText(request.phone()),
+                normalizeEmail(request.email())
+        );
+
         member.setFullNameKm(
                 normalizeRequiredText(
                         request.fullNameKm(),
@@ -1003,10 +1011,6 @@ public class MemberPersonalInfoServiceImpl
 
           member.setJoinedOn(request.joinedOn());
 
-        validateMemberContactIsAvailable(
-                member
-        );
-
         Member savedMember =
                 memberRepository
                         .saveAndFlush(
@@ -1024,25 +1028,36 @@ public class MemberPersonalInfoServiceImpl
     }
 
     /**
-     * Runs before the member row itself is saved. members.phone/email each
-     * have their own unique index (uq_members_phone/uq_members_email),
-     * separate from the users table's uniqueness that
-     * synchronizeLinkedAccount below checks -- without this, a clash here
-     * hits that raw DB constraint first and falls through to
-     * GlobalExceptionHandler's generic "The request conflicts with
-     * existing data" instead of naming which field actually collided.
+     * Must run BEFORE anything sets phone/email on the managed member
+     * entity, and takes the raw normalized values rather than reading them
+     * off that entity -- members.phone/email each have their own unique
+     * index (uq_members_phone/uq_members_email), separate from the users
+     * table's uniqueness that synchronizeLinkedAccount below checks.
+     *
+     * <p>This used to take the Member entity and read member.getPhone()/
+     * getEmail() after those fields had already been set by
+     * updateBasicInformation -- which silently defeated the whole check:
+     * setting a field on a JPA-managed entity marks it dirty, and calling
+     * a repository query method (existsByPhoneAndIdNot) auto-flushes any
+     * dirty entity first, before running the SELECT. So the UPDATE
+     * (already carrying the new, colliding value) went to the database
+     * BEFORE this "pre"-check's SELECT ever ran, hit the raw DB
+     * constraint, and fell through to GlobalExceptionHandler's generic
+     * "The request conflicts with existing data" instead of the specific
+     * message below -- exactly backwards from what the check was meant to
+     * do. Running this first, before any entity mutation, means there's
+     * nothing dirty to auto-flush yet.
      */
     private void validateMemberContactIsAvailable(
-            Member member
+            Long memberId,
+            String phone,
+            String email
     ) {
-        String phone =
-                member.getPhone();
-
         if (phone != null
                 && !phone.isBlank()
                 && memberRepository.existsByPhoneAndIdNot(
                         phone,
-                        member.getId()
+                        memberId
                 )) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -1050,14 +1065,11 @@ public class MemberPersonalInfoServiceImpl
             );
         }
 
-        String email =
-                member.getEmail();
-
         if (email != null
                 && !email.isBlank()
                 && memberRepository.existsByEmailIgnoreCaseAndIdNot(
                         email,
-                        member.getId()
+                        memberId
                 )) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
