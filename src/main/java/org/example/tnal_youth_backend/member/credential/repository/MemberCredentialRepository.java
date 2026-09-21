@@ -81,4 +81,10 @@ public interface MemberCredentialRepository
             Long memberId,
             Long fileId
     );
+
+    // fk_member_credential_activity is ON DELETE RESTRICT -- deleting an
+    // activity must clear certificates issued for it first.
+    void deleteByActivity_Id(
+            Long activityId
+    );
 }

@@ -28,10 +28,13 @@ import org.example.tnal_youth_backend.activity.service.ActivityService;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.donation.repository.DonationRepository;
 import org.example.tnal_youth_backend.lookup.repository.ProvinceRepository;
+import org.example.tnal_youth_backend.member.branch.BranchLabels;
 import org.example.tnal_youth_backend.member.branch.entity.Branch;
 import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
+import org.example.tnal_youth_backend.member.credential.repository.MemberCredentialRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.notification.dto.NotificationCreateDTO;
@@ -79,6 +82,8 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivityInvitedBranchRepository activityInvitedBranchRepository;
     private final NotificationRepo notificationRepo;
     private final NotificationService notificationService;
+    private final DonationRepository donationRepository;
+    private final MemberCredentialRepository memberCredentialRepository;
 
     @Override
     @Transactional
@@ -1014,6 +1019,210 @@ public class ActivityServiceImpl implements ActivityService {
         return activityMapper.toResponse(
                 savedActivity
         );
+    }
+
+    @Override
+    @Transactional
+    public void deleteActivity(
+            Long activityId,
+            Long currentUserId
+    ) {
+        Activity activity = getActivity(activityId);
+
+        validateUpdatePermission(
+                activity,
+                currentUserId
+        );
+
+        // Captured before anything is deleted -- the entity/its relations
+        // won't be queryable once the delete below runs.
+        String titleKm = activity.getTitleKm();
+
+        String titleEn = hasText(activity.getTitleEn())
+                ? activity.getTitleEn()
+                : titleKm;
+
+        List<ActivityParticipant> participants =
+                activityParticipantRepository
+                        .findAllByActivity_IdOrderByRegisteredAtDesc(
+                                activityId
+                        );
+
+        List<ActivityInvitedBranch> invitedBranches =
+                activityInvitedBranchRepository
+                        .findAllByActivity_IdOrderByInvitedAtDesc(
+                                activityId
+                        );
+
+        notifyParticipantsOfActivityDeletion(
+                participants,
+                titleKm,
+                titleEn
+        );
+
+        notifyInvitedBranchesOfActivityDeletion(
+                invitedBranches,
+                titleKm,
+                titleEn
+        );
+
+        /*
+         * fk_donation_activity and fk_member_credential_activity are both
+         * ON DELETE RESTRICT, so they'd block the delete below unless
+         * cleared first. Everything else tied to this activity --
+         * participants, photos, expenses, attachments, invited branches,
+         * daily schedules, documents, and any notification still linked to
+         * this activity -- is ON DELETE CASCADE at the database level.
+         */
+        donationRepository.deleteAllByActivityId(activityId);
+        memberCredentialRepository.deleteByActivity_Id(activityId);
+
+        activityRepository.delete(activity);
+    }
+
+    /**
+     * Same "activity cancelled" notification type as the existing
+     * CANCELLED-status flow (see updateActivity), but deliberately does
+     * NOT set activityId on the notification -- the activity is about to
+     * be permanently deleted, and notifications.activity_id is itself ON
+     * DELETE CASCADE, so a notification linked to it would be destroyed
+     * the moment the delete below runs, before anyone could ever see it.
+     */
+    private void notifyParticipantsOfActivityDeletion(
+            List<ActivityParticipant> participants,
+            String titleKm,
+            String titleEn
+    ) {
+        if (participants.isEmpty()) {
+            return;
+        }
+
+        List<Long> userIds = new ArrayList<>();
+
+        for (ActivityParticipant participant : participants) {
+            Member member = participant.getMember();
+
+            if (member == null || member.getId() == null) {
+                continue;
+            }
+
+            userRepository
+                    .findByMemberId(member.getId())
+                    .ifPresent(user -> userIds.add(user.getId()));
+        }
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        Short typeId =
+                notificationRepo.findActiveTypeIdByCode("ACTIVITY_CANCELLED");
+
+        if (typeId == null) {
+            return;
+        }
+
+        try {
+            NotificationCreateDTO notification = new NotificationCreateDTO();
+            notification.setTypeId(typeId);
+            notification.setTitle("កម្មវិធីត្រូវបានលុបចោល");
+            notification.setBody(
+                    "កម្មវិធី \"" + titleKm + "\" ត្រូវបានលុបចោល។"
+            );
+            notification.setTitleEn("Activity Cancelled");
+            notification.setBodyEn(
+                    "The activity \"" + titleEn + "\" has been cancelled."
+            );
+            notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
+            notification.setTargetUserIds(userIds);
+
+            notificationService.create(notification);
+        } catch (RuntimeException ignored) {
+            /*
+             * Best-effort -- must never block the deletion.
+             */
+        }
+    }
+
+    /**
+     * Mirrors notifyBranchInvited (ActivityInvitedBranchServiceImpl) but
+     * with "cancelled" messaging instead of "invited" -- covers every
+     * invited branch's staff regardless of whether that branch ever
+     * accepted or added participants, which notifyParticipantsOfActivity
+     * Deletion alone would miss. Same activityId omission for the same
+     * cascade-safety reason.
+     */
+    private void notifyInvitedBranchesOfActivityDeletion(
+            List<ActivityInvitedBranch> invitedBranches,
+            String titleKm,
+            String titleEn
+    ) {
+        if (invitedBranches.isEmpty()) {
+            return;
+        }
+
+        Short typeId =
+                notificationRepo.findActiveTypeIdByCode("ACTIVITY_CANCELLED");
+
+        if (typeId == null) {
+            return;
+        }
+
+        for (ActivityInvitedBranch invitation : invitedBranches) {
+            Branch branch = invitation.getBranch();
+
+            if (branch == null || branch.getId() == null) {
+                continue;
+            }
+
+            Set<Long> userIds =
+                    branchStaffRepository.findActiveStaffUserIds(
+                            branch.getId()
+                    );
+
+            if (userIds.isEmpty()) {
+                continue;
+            }
+
+            try {
+                String invitedBranchLabel =
+                        BranchLabels.withBranchPrefixKm(branch.getNameKm());
+
+                String invitedBranchLabelEn =
+                        BranchLabels.withBranchPrefixEn(branch.getNameEn());
+
+                NotificationCreateDTO notification = new NotificationCreateDTO();
+                notification.setTypeId(typeId);
+                notification.setTitle("កម្មវិធីដែលបានអញ្ជើញត្រូវបានលុបចោល");
+                notification.setBody(
+                        (invitedBranchLabel.isBlank()
+                                ? "សាខារបស់អ្នក"
+                                : invitedBranchLabel)
+                                + "ត្រូវបានអញ្ជើញចូលរួមកម្មវិធី \""
+                                + titleKm
+                                + "\" ដែលឥឡូវនេះត្រូវបានលុបចោល។"
+                );
+                notification.setTitleEn("Invited Activity Cancelled");
+                notification.setBodyEn(
+                        "The activity \"" + titleEn
+                                + "\" that "
+                                + (invitedBranchLabelEn.isBlank()
+                                ? "your branch"
+                                : invitedBranchLabelEn)
+                                + " was invited to has been cancelled."
+                );
+                notification.setBranchId(branch.getId());
+                notification.setTarget(NotificationCreateDTO.TargetMode.USERS);
+                notification.setTargetUserIds(new ArrayList<>(userIds));
+
+                notificationService.create(notification);
+            } catch (RuntimeException ignored) {
+                /*
+                 * One branch's notification failure must not block the
+                 * others or the deletion itself.
+                 */
+            }
+        }
     }
 
     /**
