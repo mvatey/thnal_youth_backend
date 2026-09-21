@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.myaccount.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.model.response.UserProfileResponse;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
@@ -763,10 +764,10 @@ public class MyAccountServiceImpl
             );
         }
 
-        if (newPassword.length() < 6) {
+        if (!PasswordPolicy.isValid(newPassword)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "New password must contain at least 6 characters"
+                    PasswordPolicy.MESSAGE
             );
         }
 

@@ -159,4 +159,21 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return status == UserStatus.ACTIVE;
     }
+
+    /*
+     * Called when the account is soft-deleted ("delete" never removes
+     * the row -- status flips to INACTIVE instead, see
+     * UserManagementServiceImpl.deleteUser and
+     * MemberPasswordServiceImpl.disableAccount). Without this, the
+     * row's username/phone/email stay unique-constrained forever,
+     * permanently blocking anyone -- including the same person -- from
+     * reusing them on a new account. Stamping username with the row's
+     * own (always-unique) id frees the original value; phone/email are
+     * simply cleared since both are nullable.
+     */
+    public void freeIdentifiersForReuse() {
+        this.loginUsername = "deleted_user_" + this.id;
+        this.phone = null;
+        this.email = null;
+    }
 }

@@ -600,6 +600,13 @@ public class MemberServiceImpl implements MemberService {
                 request.dateOfBirth()
         );
 
+        if (request.gender() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Gender is required"
+            );
+        }
+
         String memberNo =
                 generateMemberNo();
 
@@ -620,10 +627,19 @@ public class MemberServiceImpl implements MemberService {
                 null
         );
 
+        /*
+         * statusId/levelId/nationalityId/dateOfBirth/joinedOn/fullNameEn
+         * are all editable later from the member's own personal-info
+         * page, so none of them need to block creation -- only status
+         * has a NOT NULL column with no natural "unset" value, so it
+         * falls back to the seeded ACTIVE status when omitted here.
+         */
         MemberStatus status =
-                findStatus(
-                        request.statusId()
-                );
+                request.statusId() != null
+                        ? findStatus(
+                                request.statusId()
+                        )
+                        : defaultMemberStatus();
 
         MemberLevel level =
                 findLevel(
@@ -2197,6 +2213,18 @@ public class MemberServiceImpl implements MemberService {
         if (!Objects.equals(previousStatusId, newStatus.getId())) {
             member.setStatusChangedAt(OffsetDateTime.now());
         }
+    }
+
+    private MemberStatus defaultMemberStatus() {
+        return memberStatusRepository
+                .findByCodeIgnoreCase(
+                        "ACTIVE"
+                )
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Default member status 'ACTIVE' is missing"
+                        )
+                );
     }
 
     private MemberStatus findStatus(

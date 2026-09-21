@@ -50,6 +50,7 @@ public class CreateActivityRequest {
 
     private List<ActivityDailyScheduleRequest> dailySchedules;
 
+    @NotNull(message = "Province is required")
     private Short provinceId;
 
     private Integer districtId;

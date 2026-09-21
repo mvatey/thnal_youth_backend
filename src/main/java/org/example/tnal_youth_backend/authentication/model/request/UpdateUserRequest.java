@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 
 /*
  * Request payload for an ADMIN editing an existing standalone login
@@ -59,7 +60,7 @@ public class UpdateUserRequest {
     private String viewerScope;
 
     /** Optional — leave blank to keep the current password unchanged. */
-    @Size(min = 6, message = "Password must contain at least 6 characters")
+    @Pattern(regexp = PasswordPolicy.REGEX_OR_BLANK, message = PasswordPolicy.MESSAGE)
     private String password;
 
     /**
