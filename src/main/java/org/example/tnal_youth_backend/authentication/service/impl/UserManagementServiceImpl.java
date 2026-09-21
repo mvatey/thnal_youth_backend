@@ -195,10 +195,12 @@ public class UserManagementServiceImpl
 
     /*
      * The admin supplies the password directly, so the account is
-     * created ACTIVE right away — no OTP-based activation. That flow
-     * stays reserved for member-linked accounts (see
-     * MemberServiceImpl.createPendingUserAccount), where the person
-     * setting up the login isn't the one creating it here.
+     * created ACTIVE right away with no forced change on first login.
+     * A member-linked account (see
+     * MemberServiceImpl.createActiveUserAccount) is also created ACTIVE,
+     * but starts on a shared default password and must set a real one
+     * on first login instead (User.mustChangePassword), since the admin
+     * setting it up isn't the person who'll actually use it.
      */
     @Override
     @Transactional

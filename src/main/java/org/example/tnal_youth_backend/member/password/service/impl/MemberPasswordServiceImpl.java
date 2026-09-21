@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -216,17 +217,20 @@ public class MemberPasswordServiceImpl
         );
 
         /*
-         * Staff must not bypass first-time OTP activation.
+         * New member accounts are created ACTIVE with a default password
+         * now (see MemberServiceImpl.createActiveUserAccount), so this
+         * only still matters for an account created before that change,
+         * still stuck PENDING_ACTIVATION with SMS/OTP unusable. Setting a
+         * real password here is the rescue path for one of those:
+         * activates it in the same step, rather than leaving it with a
+         * working password but still unable to log in.
          */
         if (
                 user.getStatus()
                         == UserStatus.PENDING_ACTIVATION
         ) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This account is pending activation. "
-                            + "The member must complete OTP activation first."
-            );
+            user.setStatus(UserStatus.ACTIVE);
+            user.setActivatedAt(OffsetDateTime.now());
         }
 
         user.setPasswordHash(
@@ -235,6 +239,7 @@ public class MemberPasswordServiceImpl
                 )
         );
 
+        user.setMustChangePassword(false);
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 

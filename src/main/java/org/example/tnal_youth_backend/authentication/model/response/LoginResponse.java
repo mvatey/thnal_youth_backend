@@ -26,4 +26,6 @@ public class LoginResponse {
     private String viewerScope;
 
     private Long branchId;
+
+    private boolean mustChangePassword;
 }

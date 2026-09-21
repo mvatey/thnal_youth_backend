@@ -12,6 +12,7 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
+import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 
 import org.example.tnal_youth_backend.dashboard.util.DashboardPercentageCalculator;
 
@@ -87,7 +88,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -777,7 +777,7 @@ public class MemberServiceImpl implements MemberService {
                                     member
                             );
 
-            createPendingUserAccount(
+            createActiveUserAccount(
                     savedMember,
                     requestedRole,
                     request.username()
@@ -1462,7 +1462,7 @@ public class MemberServiceImpl implements MemberService {
      * ==========================================================
      */
 
-    private void createPendingUserAccount(
+    private void createActiveUserAccount(
             Member member,
             UserRole requestedRole,
             String requestedUsername
@@ -1500,17 +1500,10 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (phone == null) {
+        if (phone == null && email == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Phone is required to create a user account"
-            );
-        }
-
-        if (email == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Email is required for account activation"
+                    "Phone or email is required to create a user account"
             );
         }
 
@@ -1535,7 +1528,8 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (
-                userRepository
+                phone != null
+                        && userRepository
                         .findByPhone(
                                 phone
                         )
@@ -1549,7 +1543,8 @@ public class MemberServiceImpl implements MemberService {
         }
 
         if (
-                userRepository
+                email != null
+                        && userRepository
                         .findByEmail(
                                 email
                         )
@@ -1574,14 +1569,10 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        String unusablePasswordHash =
-                passwordEncoder
-                        .encode(
-                                UUID.randomUUID()
-                                        .toString()
-                        );
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
-        User pendingUser =
+        User newUser =
                 User.builder()
 
                         .memberId(
@@ -1605,7 +1596,9 @@ public class MemberServiceImpl implements MemberService {
                         )
 
                         .passwordHash(
-                                unusablePasswordHash
+                                passwordEncoder.encode(
+                                        PasswordPolicy.DEFAULT_MEMBER_PASSWORD
+                                )
                         )
 
                         .role(
@@ -1613,8 +1606,15 @@ public class MemberServiceImpl implements MemberService {
                         )
 
                         .status(
-                                UserStatus
-                                        .PENDING_ACTIVATION
+                                UserStatus.ACTIVE
+                        )
+
+                        .activatedAt(
+                                now
+                        )
+
+                        .mustChangePassword(
+                                true
                         )
 
                         .fullNameKm(
@@ -1633,7 +1633,7 @@ public class MemberServiceImpl implements MemberService {
 
         userRepository
                 .saveAndFlush(
-                        pendingUser
+                        newUser
                 );
     }
 

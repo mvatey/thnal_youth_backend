@@ -193,6 +193,7 @@ public class MyAccountServiceImpl
                 .role(savedUser.getRole() != null ? savedUser.getRole().name() : null)
                 .viewerScope(savedUser.getViewerScope() != null ? savedUser.getViewerScope().name() : null)
                 .branchId(savedUser.getBranchId())
+                .mustChangePassword(savedUser.isMustChangePassword())
                 .build();
     }
 
@@ -795,6 +796,7 @@ public class MyAccountServiceImpl
         user.setPasswordHash(
                 passwordEncoder.encode(newPassword)
         );
+        user.setMustChangePassword(false);
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
 
