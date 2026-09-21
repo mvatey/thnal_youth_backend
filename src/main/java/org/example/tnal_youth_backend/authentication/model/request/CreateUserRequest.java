@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -25,6 +26,10 @@ import lombok.Setter;
  * nothing left to verify. OTP activation stays reserved for accounts
  * with a memberId, where the person setting up the account is not
  * the admin.
+ *
+ * Phone and email are each optional, but at least one is required
+ * (see isPhoneOrEmailPresent below) — this is safe specifically
+ * because this path never depends on OTP delivery at creation time.
  */
 @Getter
 @Setter
@@ -41,14 +46,12 @@ public class CreateUserRequest {
     @Size(max = 255, message = "Username must not exceed 255 characters")
     private String username;
 
-    @NotBlank(message = "Phone number is required")
     @Pattern(
-            regexp = "^[0-9+() -]{6,20}$",
+            regexp = "^$|^[0-9+() -]{6,20}$",
             message = "Phone number format is invalid"
     )
     private String phone;
 
-    @NotBlank(message = "Email is required to send the account activation code")
     @Email(message = "Email format is invalid")
     @Size(max = 255, message = "Email must not exceed 255 characters")
     private String email;
@@ -72,4 +75,10 @@ public class CreateUserRequest {
     @NotBlank(message = "Password is required")
     @Size(min = 6, message = "Password must contain at least 6 characters")
     private String password;
+
+    @AssertTrue(message = "Either phone number or email is required")
+    public boolean isPhoneOrEmailPresent() {
+        return (phone != null && !phone.isBlank())
+                || (email != null && !email.isBlank());
+    }
 }

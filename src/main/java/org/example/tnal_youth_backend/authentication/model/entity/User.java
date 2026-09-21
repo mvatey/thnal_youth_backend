@@ -34,7 +34,7 @@ public class User implements UserDetails {
     @Column(name = "branch_id")
     private Long branchId;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(unique = true, length = 20)
     private String phone;
 
     @Column(unique = true, length = 255)

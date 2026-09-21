@@ -97,6 +97,22 @@ public class GlobalExceptionHandler {
                                         + ": "
                                         + error.getDefaultMessage()
                         )
+                        .or(() ->
+                                /*
+                                 * A class-level constraint (e.g. @AssertTrue
+                                 * on a boolean method spanning multiple
+                                 * fields, like "phone or email required")
+                                 * surfaces as a global error, not a field
+                                 * error -- check here too so its message
+                                 * isn't silently dropped.
+                                 */
+                                exception
+                                        .getBindingResult()
+                                        .getGlobalErrors()
+                                        .stream()
+                                        .findFirst()
+                                        .map(org.springframework.validation.ObjectError::getDefaultMessage)
+                        )
                         .orElse(
                                 "Request validation failed"
                         );

@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -15,6 +16,10 @@ import lombok.Setter;
  *
  * password is optional, same as at creation — leave it blank to keep
  * the account's current password unchanged.
+ *
+ * Phone and email are each optional, but at least one is required —
+ * matches CreateUserRequest, so a user created with only one of them
+ * doesn't immediately fail validation on its next edit.
  */
 @Getter
 @Setter
@@ -31,14 +36,12 @@ public class UpdateUserRequest {
     @Size(max = 255, message = "Username must not exceed 255 characters")
     private String username;
 
-    @NotBlank(message = "Phone number is required")
     @Pattern(
-            regexp = "^[0-9+() -]{6,20}$",
+            regexp = "^$|^[0-9+() -]{6,20}$",
             message = "Phone number format is invalid"
     )
     private String phone;
 
-    @NotBlank(message = "Email is required")
     @Email(message = "Email format is invalid")
     @Size(max = 255, message = "Email must not exceed 255 characters")
     private String email;
@@ -66,4 +69,10 @@ public class UpdateUserRequest {
      * stay as-is, since those are system-managed, not admin-toggled).
      */
     private String status;
+
+    @AssertTrue(message = "Either phone number or email is required")
+    public boolean isPhoneOrEmailPresent() {
+        return (phone != null && !phone.isBlank())
+                || (email != null && !email.isBlank());
+    }
 }
