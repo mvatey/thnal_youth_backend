@@ -219,18 +219,21 @@ public class UserManagementServiceImpl
             );
         }
 
-        String phone = request.getPhone().trim();
+        String phone = normalizeBlankToNull(request.getPhone());
 
-        if (userRepository.existsByPhone(phone)) {
+        if (phone != null && userRepository.existsByPhone(phone)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This phone number is already used by another account"
             );
         }
 
-        String email = request.getEmail().trim().toLowerCase();
+        String email = normalizeBlankToNull(request.getEmail());
+        if (email != null) {
+            email = email.toLowerCase();
+        }
 
-        if (userRepository.existsByEmailIgnoreCase(email)) {
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This email is already used by another account"
@@ -312,18 +315,21 @@ public class UserManagementServiceImpl
             );
         }
 
-        String phone = request.getPhone().trim();
+        String phone = normalizeBlankToNull(request.getPhone());
 
-        if (userRepository.existsByPhoneAndIdNot(phone, id)) {
+        if (phone != null && userRepository.existsByPhoneAndIdNot(phone, id)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This phone number is already used by another account"
             );
         }
 
-        String email = request.getEmail().trim().toLowerCase();
+        String email = normalizeBlankToNull(request.getEmail());
+        if (email != null) {
+            email = email.toLowerCase();
+        }
 
-        if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
+        if (email != null && userRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This email is already used by another account"
@@ -405,6 +411,18 @@ public class UserManagementServiceImpl
         }
 
         return status;
+    }
+
+    // Phone/email are each optional (at least one required, enforced by
+    // CreateUserRequest/UpdateUserRequest's isPhoneOrEmailPresent) -- an
+    // absent one must be stored as NULL, never "", so the partial unique
+    // indexes on these columns behave correctly.
+    private String normalizeBlankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private UserRole parseRole(String rawRole) {
