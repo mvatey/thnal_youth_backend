@@ -6,6 +6,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.notification.model.NotificationModel;
 import org.example.tnal_youth_backend.notification.repo.NotificationRepo;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,11 @@ import java.util.List;
  * not part of the original transaction. Each recipient's email/Telegram send
  * is individually wrapped in try/catch: one member's bounced email or
  * unlinked Telegram must never stop the rest of the fan-out from going out.
+ *
+ * <p>Runs on {@code notificationDispatchExecutor} (see
+ * NotificationDispatchAsyncConfig), not the request thread: the HTTP
+ * response returns as soon as the triggering transaction commits, instead
+ * of waiting for every recipient's email/Telegram send to finish.
  */
 @Component
 @RequiredArgsConstructor
@@ -33,6 +39,7 @@ public class NotificationDispatchListener {
     private final NotificationEmailSender emailSender;
     private final TelegramMessageSender telegramMessageSender;
 
+    @Async("notificationDispatchExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onNotificationCreated(NotificationCreatedEvent event) {
         Long notificationId = event.notificationId();
