@@ -360,9 +360,10 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
 
-        requireMember(
-                memberId
-        );
+        Member member =
+                requireMember(
+                        memberId
+                );
 
         User user =
                 requireUserAccount(
@@ -399,6 +400,20 @@ public class MemberPasswordServiceImpl
 
         user.setLockedUntil(null);
         user.setFailedLoginCount(0);
+
+        /*
+         * The member's own phone/email (members.phone/email) are separate
+         * columns from the login's (users.phone/email) -- freeing only the
+         * login side left these still unique-constrained against reuse by
+         * anyone else, since disabling a login never touched the member
+         * profile record before.
+         */
+        member.setPhone(null);
+        member.setEmail(null);
+
+        memberRepository.saveAndFlush(
+                member
+        );
 
         User savedUser =
                 userRepository.saveAndFlush(
