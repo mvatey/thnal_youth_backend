@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.donation.repository;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -52,6 +53,15 @@ public interface DonationRepository {
         LIMIT 1
         """)
     Short findActiveTypeIdByCode(@Param("code") String code);
+
+    // fk_donation_activity is ON DELETE RESTRICT -- deleting an activity
+    // must clear its donations first (donation_sponsor_details cascades
+    // off donations itself, so nothing else is needed there).
+    @Delete("""
+        DELETE FROM donations
+        WHERE activity_id = #{activityId}
+        """)
+    void deleteAllByActivityId(@Param("activityId") Long activityId);
 
     @Select("""
         SELECT COUNT(*)

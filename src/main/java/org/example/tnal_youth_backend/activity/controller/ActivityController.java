@@ -72,6 +72,19 @@ public class ActivityController {
         );
     }
 
+    @DeleteMapping("/{activityId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SECRETARY', 'BRANCH_LEADER')")
+    public void deleteActivity(
+            @PathVariable Long activityId,
+            Authentication authentication
+    ) {
+        activityService.deleteActivity(
+                activityId,
+                extractCurrentUserId(authentication)
+        );
+    }
+
     @GetMapping("/{activityId}")
     public ActivityResponse getActivityById(
             @PathVariable Long activityId,

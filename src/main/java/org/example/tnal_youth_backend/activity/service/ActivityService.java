@@ -42,4 +42,18 @@ public interface ActivityService {
             Long currentUserId
     );
 
+    /**
+     * Permanently removes the activity and every piece of data tied to it
+     * (participation, attendance, expenses, invited branches, daily
+     * schedules, activity-scoped donations, and certificates issued for
+     * it). Notifies every current participant and every invited branch's
+     * staff that it's been cancelled before anything is deleted. Only the
+     * host branch's own Secretary/Branch Leader staff may do this -- see
+     * ActivityServiceImpl.validateUpdatePermission.
+     */
+    void deleteActivity(
+            Long activityId,
+            Long currentUserId
+    );
+
 }
