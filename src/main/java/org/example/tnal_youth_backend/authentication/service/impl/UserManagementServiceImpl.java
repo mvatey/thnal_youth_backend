@@ -384,6 +384,7 @@ public class UserManagementServiceImpl
             return;
         }
 
+        user.freeIdentifiersForReuse();
         user.setStatus(UserStatus.INACTIVE);
         userRepository.saveAndFlush(user);
     }

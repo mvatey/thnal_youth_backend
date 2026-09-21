@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 
 /*
  * Request payload for an ADMIN creating a standalone login account.
@@ -73,7 +74,7 @@ public class CreateUserRequest {
      * See the class-level note above.
      */
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must contain at least 6 characters")
+    @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
     private String password;
 
     @AssertTrue(message = "Either phone number or email is required")
