@@ -79,6 +79,13 @@ public class MemberMapper {
                         row[22]
                 ),
 
+                toListLookup(
+                        row.length > 28 ? row[25] : null,
+                        row.length > 28 ? row[26] : null,
+                        row.length > 28 ? row[27] : null,
+                        row.length > 28 ? row[28] : null
+                ),
+
                 toOffsetDateTime(
                         row.length > 24 ? row[24] : null
                 )

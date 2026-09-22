@@ -44,6 +44,9 @@ public record UpdateMemberPersonalInfoRequest(
         @JsonProperty("branch_id")
         Long branchId,
 
+        @JsonProperty("position_id")
+        Short positionId,
+
         @JsonProperty("tshirt_size")
         TshirtSize tshirtSize,
 

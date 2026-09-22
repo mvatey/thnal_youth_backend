@@ -755,7 +755,12 @@ public interface MemberRepository
 
                 b.name_en AS branch_name_en,
 
-                m.status_changed_at
+                m.status_changed_at,
+
+                pos.id AS position_id,
+                pos.code AS position_code,
+                pos.label_km AS position_label_km,
+                pos.label_en AS position_label_en
 
             FROM members m
 
@@ -772,6 +777,27 @@ public interface MemberRepository
                    ON f.id = m.profile_photo_id
             LEFT JOIN users u
                    ON u.member_id = m.id
+
+            /*
+             * The member's current job title within their own branch --
+             * excludes the primary (branch leader) row, a separate concept
+             * with its own dedicated assignment flow. LATERAL + LIMIT 1
+             * keeps this to at most one row per member even if the
+             * ended_on/is_primary invariant were ever violated, so this
+             * join can never itself multiply the member rows returned.
+             */
+            LEFT JOIN LATERAL (
+                SELECT p2.id, p2.code, p2.label_km, p2.label_en
+                FROM branch_staff bs2
+                JOIN positions p2
+                     ON p2.id = bs2.position_id
+                WHERE bs2.member_id = m.id
+                  AND bs2.branch_id = m.branch_id
+                  AND bs2.ended_on IS NULL
+                  AND bs2.is_primary = FALSE
+                ORDER BY bs2.started_on DESC, bs2.id DESC
+                LIMIT 1
+            ) pos ON TRUE
 
             WHERE (
                 :search IS NULL
