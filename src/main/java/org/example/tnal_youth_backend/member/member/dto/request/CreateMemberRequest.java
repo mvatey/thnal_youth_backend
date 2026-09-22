@@ -56,18 +56,6 @@ public record CreateMemberRequest(
         Short statusId,
 
         @JsonProperty("profile_photo_id")
-        Long profilePhotoId,
-
-        /**
-         * Only meaningful when the resolved role is BRANCH_LEADER and the
-         * target branch already has an active leader. The first attempt
-         * without this flag is rejected with a 409 naming the existing
-         * leader; the caller re-submits with this set to true to confirm
-         * replacing them (the old leader is demoted back to a regular
-         * member of the branch, matching the same pattern already used by
-         * BranchController's "assign leader" endpoint).
-         */
-        @JsonProperty("confirm_replace_leader")
-        Boolean confirmReplaceLeader
+        Long profilePhotoId
 ) {
 }

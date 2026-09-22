@@ -566,9 +566,9 @@ public class BranchServiceImpl implements BranchService {
 
     @Override
     @Transactional(readOnly = true)
-    public BranchLeaderResponse getLeader(Long branchId) {
+    public List<BranchLeaderResponse> getLeaders(Long branchId) {
         findBranchById(branchId);
-        return branchStaffRepository.findActiveLeader(branchId).orElse(null);
+        return branchStaffRepository.findActiveLeaders(branchId);
     }
 
     @Override
@@ -580,6 +580,10 @@ public class BranchServiceImpl implements BranchService {
                     "The branch leader must be an active member of this branch");
         }
 
+        // Still exclusive per member, just not per branch: one person
+        // can't simultaneously lead two DIFFERENT branches, but a branch
+        // can now have several different members leading it (see
+        // BranchStaffRepository#assignLeader).
         branchStaffRepository.findActiveLeaderBranchIdByMemberId(memberId)
                 .filter(existingBranchId -> !existingBranchId.equals(branchId))
                 .ifPresent(existingBranchId -> {
@@ -597,16 +601,19 @@ public class BranchServiceImpl implements BranchService {
                 branchId
         );
         branchStaffRepository.assignLeader(branchId, memberId, requireCurrentUserId());
-        return branchStaffRepository.findActiveLeader(branchId)
+        return branchStaffRepository.findActiveLeaders(branchId)
+                .stream()
+                .filter(leader -> memberId.equals(leader.memberId()))
+                .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Branch leader assignment could not be loaded"));
     }
 
     @Override
     @Transactional
-    public void removeLeader(Long branchId) {
+    public void removeLeader(Long branchId, Long memberId) {
         findBranchById(branchId);
-        branchStaffRepository.removeLeader(branchId);
+        branchStaffRepository.removeLeader(branchId, memberId);
     }
 
     private Long requireCurrentUserId() {
