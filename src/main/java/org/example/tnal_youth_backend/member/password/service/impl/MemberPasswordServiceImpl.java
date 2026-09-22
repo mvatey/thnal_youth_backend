@@ -355,7 +355,8 @@ public class MemberPasswordServiceImpl
 
             branchService.assignBranchLeader(
                     member.getBranchId(),
-                    memberId
+                    memberId,
+                    request.positionId()
             );
 
             User promotedUser =

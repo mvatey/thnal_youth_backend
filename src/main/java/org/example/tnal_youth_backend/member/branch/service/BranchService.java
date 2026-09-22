@@ -35,7 +35,7 @@ public interface BranchService {
 
     List<BranchLeaderResponse> getLeaders(Long branchId);
 
-    BranchLeaderResponse assignLeader(Long branchId, Long memberId);
+    BranchLeaderResponse assignLeader(Long branchId, Long memberId, Short positionId);
 
     void removeLeader(Long branchId, Long memberId);
 
@@ -68,7 +68,8 @@ public interface BranchService {
 
     void assignBranchLeader(
             Long branchId,
-            Long memberId
+            Long memberId,
+            Short positionId
     );
 
     List<BranchLeaderCandidateResponse>

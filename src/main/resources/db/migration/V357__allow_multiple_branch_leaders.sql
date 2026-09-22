@@ -1,0 +1,18 @@
+-- Fixes a gap in the "allow a branch to have multiple active leaders"
+-- change (see BranchStaffRepository#assignLeader in the application
+-- code, which stopped demoting whoever else currently led the branch).
+--
+-- That change was incomplete: this index still enforced, at the
+-- database level, at most one active is_primary=TRUE row per
+-- (branch_id, position_id) -- and every leader is always recorded under
+-- the same canonical BRANCH_LEADER-coded position_id (assignLeader
+-- hardcodes it), so in practice this was still a hard "one leader per
+-- branch" constraint no application code change could work around.
+-- Promoting a second person into an already-led branch failed outright
+-- with a raw unique-violation instead of the intended "add them
+-- alongside the existing leader" behavior.
+--
+-- uq_branch_staff_member_single_primary (V335) is untouched and still
+-- correctly enforces the constraint that IS still wanted: one member
+-- can't simultaneously be the primary/leader of two DIFFERENT branches.
+DROP INDEX IF EXISTS uq_branch_primary_position;

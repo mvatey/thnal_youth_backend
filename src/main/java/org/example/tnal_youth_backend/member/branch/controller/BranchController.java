@@ -220,7 +220,8 @@ public class BranchController {
     ) {
         branchService.assignBranchLeader(
                 branchId,
-                request.memberId()
+                request.memberId(),
+                request.positionId()
         );
 
         return ResponseEntity.noContent().build();
