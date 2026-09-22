@@ -124,14 +124,17 @@ public class BranchController {
 
     @GetMapping("/{id}/leader")
     @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
-    public ResponseEntity<BranchLeaderResponse> getLeader(@PathVariable Long id) {
-        return ResponseEntity.ok(branchService.getLeader(id));
+    public ResponseEntity<List<BranchLeaderResponse>> getLeader(@PathVariable Long id) {
+        return ResponseEntity.ok(branchService.getLeaders(id));
     }
 
     @DeleteMapping("/{id}/leader")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> removeLeader(@PathVariable Long id) {
-        branchService.removeLeader(id);
+    public ResponseEntity<Void> removeLeader(
+            @PathVariable Long id,
+            @RequestParam Long memberId
+    ) {
+        branchService.removeLeader(id, memberId);
         return ResponseEntity.noContent().build();
     }
 

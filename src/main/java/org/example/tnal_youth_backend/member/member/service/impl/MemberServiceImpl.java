@@ -690,13 +690,6 @@ public class MemberServiceImpl implements MemberService {
             validateMemberBranchAccess(branchIdToCheck);
         }
 
-        if (requestedRole == UserRole.BRANCH_LEADER) {
-            validateNoConflictingLeader(
-                    effectiveBranchIds.get(0),
-                    request.confirmReplaceLeader()
-            );
-        }
-
         Branch branch =
                 findBranch(
                         effectiveBranchIds.get(0)
@@ -1749,62 +1742,6 @@ public class MemberServiceImpl implements MemberService {
         }
     }
 
-    /**
-     * A branch can only have one active leader. Creating a new member as
-     * BRANCH_LEADER for a branch that already has one is rejected unless
-     * the caller explicitly confirms replacing them -- otherwise the old
-     * leader would silently get bumped with no warning, which is exactly
-     * what caused a real leader's account to become inaccessible before
-     * this check existed.
-     *
-     * Deliberately reads the same source the rest of the app treats as
-     * authoritative for "who is this branch's leader" -- Member.branchId +
-     * User.role, via findBranchManagementMembers (also used by
-     * getBranchDetails/LeaderCard) -- instead of the branch_staff table's
-     * is_primary flag. branch_staff can fall out of sync when a leader's
-     * role or branch is changed through a path that doesn't go through
-     * assignLeader/removeLeader (e.g. an admin editing a member's role or
-     * branch directly), which previously made this warning name a stale,
-     * already-replaced leader instead of the one actually shown everywhere
-     * else in the app.
-     */
-    private void validateNoConflictingLeader(
-            Long branchId,
-            Boolean confirmReplaceLeader
-    ) {
-        if (Boolean.TRUE.equals(confirmReplaceLeader)) {
-            return;
-        }
-
-        Set<Long> leaderCheckBranchStaffMemberIds =
-                branchStaffRepository.findMemberIdsByBranchId(branchId);
-
-        Optional<String> existingLeaderName =
-                memberRepository
-                        .findBranchManagementMembers(
-                                branchId,
-                                leaderCheckBranchStaffMemberIds.isEmpty()
-                                        ? Set.of(-1L)
-                                        : leaderCheckBranchStaffMemberIds,
-                                List.of(UserRole.BRANCH_LEADER),
-                                UserStatus.INACTIVE
-                        )
-                        .stream()
-                        .findFirst()
-                        .map(item -> item.getMember().getFullNameKm());
-
-        if (existingLeaderName.isEmpty()) {
-            return;
-        }
-
-        throw new ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "This branch already has an active leader: "
-                        + existingLeaderName.get()
-                        + ". Set confirm_replace_leader to true to replace them "
-                        + "(they will be demoted to a regular member of this branch)."
-        );
-    }
 
     private void validateAssignableRole(
             UserRole actorRole,

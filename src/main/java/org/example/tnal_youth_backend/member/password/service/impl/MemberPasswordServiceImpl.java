@@ -7,7 +7,6 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
-import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
@@ -51,8 +50,6 @@ public class MemberPasswordServiceImpl
             refreshTokenRepository;
 
     private final BranchService branchService;
-
-    private final BranchStaffRepository branchStaffRepository;
 
     /*
      * ==========================================================
@@ -337,16 +334,13 @@ public class MemberPasswordServiceImpl
          * SPECIAL CASE: BRANCH LEADER
          * =========================================
          *
-         * Promoting straight to BRANCH_LEADER can't be a plain
-         * targetUser.setRole() -- branch_staff (the primary/leader row)
-         * and any existing leader's own role both need updating too, and
+         * Promoting to BRANCH_LEADER can't be a plain targetUser.setRole()
+         * -- branch_staff (the leader row) needs its own row too, and
          * branchService.assignBranchLeader() already does exactly that
          * (same mechanism the branch detail page's "assign leader" action
-         * uses). Same confirm/replace-first pattern as creating a member
-         * straight into a leader position (see MemberServiceImpl
-         * #validateNoConflictingLeader), so replacing someone already
-         * leading this branch is a choice, not a silent side effect of
-         * changing a dropdown.
+         * uses). A branch can have more than one active leader now, so
+         * this simply adds one rather than replacing whoever else already
+         * leads it.
          */
         if (requestedRole == UserRole.BRANCH_LEADER) {
             if (member.getBranchId() == null) {
@@ -355,11 +349,6 @@ public class MemberPasswordServiceImpl
                         "Member must belong to a branch before becoming branch leader"
                 );
             }
-
-            validateNoConflictingLeader(
-                    member.getBranchId(),
-                    request.confirmReplaceLeader()
-            );
 
             branchService.assignBranchLeader(
                     member.getBranchId(),
@@ -402,50 +391,6 @@ public class MemberPasswordServiceImpl
         );
     }
 
-    /**
-     * Mirrors MemberServiceImpl#validateNoConflictingLeader for the same
-     * reason it exists there -- promoting someone into a branch that
-     * already has an active leader must be an explicit choice
-     * (confirmReplaceLeader), not a silent demotion of whoever currently
-     * holds it.
-     */
-    private void validateNoConflictingLeader(
-            Long branchId,
-            Boolean confirmReplaceLeader
-    ) {
-        if (Boolean.TRUE.equals(confirmReplaceLeader)) {
-            return;
-        }
-
-        Set<Long> leaderCheckBranchStaffMemberIds =
-                branchStaffRepository.findMemberIdsByBranchId(branchId);
-
-        Optional<String> existingLeaderName =
-                memberRepository
-                        .findBranchManagementMembers(
-                                branchId,
-                                leaderCheckBranchStaffMemberIds.isEmpty()
-                                        ? Set.of(-1L)
-                                        : leaderCheckBranchStaffMemberIds,
-                                List.of(UserRole.BRANCH_LEADER),
-                                UserStatus.INACTIVE
-                        )
-                        .stream()
-                        .findFirst()
-                        .map(item -> item.getMember().getFullNameKm());
-
-        if (existingLeaderName.isEmpty()) {
-            return;
-        }
-
-        throw new ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "This branch already has an active leader: "
-                        + existingLeaderName.get()
-                        + ". Set confirm_replace_leader to true to replace them "
-                        + "(they will be demoted to a regular member of this branch)."
-        );
-    }
 
     /*
      * ==========================================================

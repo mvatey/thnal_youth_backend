@@ -33,11 +33,11 @@ public interface BranchService {
 
     void deleteBranch(Long id);
 
-    BranchLeaderResponse getLeader(Long branchId);
+    List<BranchLeaderResponse> getLeaders(Long branchId);
 
     BranchLeaderResponse assignLeader(Long branchId, Long memberId);
 
-    void removeLeader(Long branchId);
+    void removeLeader(Long branchId, Long memberId);
 
     Branch getAccessibleBranchById(
             Long branchId

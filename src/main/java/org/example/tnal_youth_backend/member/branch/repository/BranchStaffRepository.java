@@ -18,7 +18,12 @@ public class BranchStaffRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
-    public Optional<BranchLeaderResponse> findActiveLeader(Long branchId) {
+    /**
+     * Every active branch leader for one branch -- a branch may now have
+     * more than one (see assignLeader below), so this returns all of
+     * them rather than picking just the most recent.
+     */
+    public List<BranchLeaderResponse> findActiveLeaders(Long branchId) {
         String sql = """
                 SELECT m.id, m.full_name_km, m.full_name_en, m.gender,
                        ms.code AS status, m.phone, m.email, m.date_of_birth,
@@ -31,10 +36,9 @@ public class BranchStaffRepository {
                 WHERE bs.branch_id = :branchId
                   AND bs.ended_on IS NULL
                   AND bs.is_primary = TRUE
-                ORDER BY bs.started_on DESC, bs.id DESC
-                LIMIT 1
+                ORDER BY bs.started_on ASC, bs.id ASC
                 """;
-        List<BranchLeaderResponse> rows = jdbcTemplate.query(
+        return jdbcTemplate.query(
                 sql,
                 new MapSqlParameterSource("branchId", branchId),
                 (rs, rowNum) -> new BranchLeaderResponse(
@@ -47,7 +51,6 @@ public class BranchStaffRepository {
                         "BRANCH_LEADER"
                 )
         );
-        return rows.stream().findFirst();
     }
 
 
@@ -112,22 +115,19 @@ public class BranchStaffRepository {
         );
     }
 
+    /**
+     * Adds memberId as an active branch leader of branchId, alongside any
+     * other current leaders -- a branch may have more than one now, so
+     * this no longer ends anyone else's leadership here. The only
+     * remaining exclusivity is per-member (see uq_branch_staff_member_
+     * single_primary and BranchServiceImpl#assignLeader's own check): one
+     * member can't simultaneously lead two DIFFERENT branches, but a
+     * branch can freely have several different members leading it.
+     */
     public void assignLeader(Long branchId, Long memberId, Long appointedBy) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("branchId", branchId).addValue("memberId", memberId)
                 .addValue("appointedBy", appointedBy);
-        jdbcTemplate.update("""
-                UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
-                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
-                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
-                  AND member_id <> :memberId
-                """, params);
-
-        // The previous leader's branch_staff row just ended above, but their
-        // login role was never reset -- without this they keep BRANCH_LEADER
-        // access (and show up as a leader in places that read users.role)
-        // even though branch_staff no longer records them as one.
-        demoteStaleLeaderRoles();
 
         int updated = jdbcTemplate.update("""
                 UPDATE branch_staff SET is_primary = TRUE, appointed_by = :appointedBy, updated_at = NOW()
@@ -167,11 +167,19 @@ public class BranchStaffRepository {
                 """, new MapSqlParameterSource());
     }
 
-    public void removeLeader(Long branchId) {
-        MapSqlParameterSource params = new MapSqlParameterSource("branchId", branchId);
+    /**
+     * Ends one specific leader's leadership of one branch. Needs memberId
+     * now that a branch can have more than one active leader -- there's
+     * no longer a single implicit "the leader" to remove.
+     */
+    public void removeLeader(Long branchId, Long memberId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("branchId", branchId)
+                .addValue("memberId", memberId);
         jdbcTemplate.update("""
                 UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
-                WHERE branch_id = :branchId AND ended_on IS NULL AND is_primary = TRUE
+                WHERE branch_id = :branchId AND member_id = :memberId
+                  AND ended_on IS NULL AND is_primary = TRUE
                   AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
                 """, params);
         demoteStaleLeaderRoles();
