@@ -174,15 +174,20 @@ public class User implements UserDetails {
      * the row -- status flips to INACTIVE instead, see
      * UserManagementServiceImpl.deleteUser and
      * MemberPasswordServiceImpl.disableAccount). Without this, the
-     * row's username/phone/email stay unique-constrained forever,
-     * permanently blocking anyone -- including the same person -- from
-     * reusing them on a new account. Stamping username with the row's
-     * own (always-unique) id frees the original value; phone/email are
-     * simply cleared since both are nullable.
+     * row's username/phone/email/telegramChatId stay unique-constrained
+     * forever, permanently blocking anyone -- including the same
+     * person -- from reusing them on a new account. Stamping username
+     * with the row's own (always-unique) id frees the original value;
+     * phone/email/telegramChatId are simply cleared since all three are
+     * nullable. telegramLinkedAt is cleared alongside telegramChatId
+     * since it only ever describes when that (now-cleared) chat was
+     * linked.
      */
     public void freeIdentifiersForReuse() {
         this.loginUsername = "deleted_user_" + this.id;
         this.phone = null;
         this.email = null;
+        this.telegramChatId = null;
+        this.telegramLinkedAt = null;
     }
 }
