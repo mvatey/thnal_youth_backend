@@ -7,7 +7,7 @@ import org.example.tnal_youth_backend.authentication.model.request.AccountStatus
 import org.example.tnal_youth_backend.authentication.model.response.AccountStatusResponse;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.AccountStatusService;
-import org.example.tnal_youth_backend.authentication.util.PhoneNumberUtil;
+import org.example.tnal_youth_backend.authentication.util.LoginIdentifierNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +24,7 @@ public class AccountStatusServiceImpl
             AccountStatusRequest request
     ) {
         String identifier =
-                normalizeIdentifier(
+                LoginIdentifierNormalizer.normalize(
                         request.phoneOrEmail()
                 );
 
@@ -99,36 +99,5 @@ public class AccountStatusServiceImpl
         }
 
         return "CONTACT_ADMIN";
-    }
-
-    private String normalizeIdentifier(
-            String identifier
-    ) {
-        String trimmed =
-                identifier.trim();
-
-        if (trimmed.contains("@")) {
-            return trimmed.toLowerCase();
-        }
-
-        // A username (e.g. "Phan Rithy") contains letters/spaces that
-        // PhoneNumberUtil.toDatabaseFormat rejects outright -- only run it
-        // through phone normalization when the input actually looks like
-        // one, otherwise pass it through as-is for the username match.
-        if (looksLikePhoneNumber(trimmed)) {
-            return PhoneNumberUtil.toDatabaseFormat(
-                    trimmed
-            );
-        }
-
-        return trimmed;
-    }
-
-    private boolean looksLikePhoneNumber(
-            String value
-    ) {
-        return value.matches(
-                "^[0-9+()\\- ]+$"
-        );
     }
 }

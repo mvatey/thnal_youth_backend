@@ -22,6 +22,7 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.authentication.service.AuthService;
 import org.example.tnal_youth_backend.authentication.service.JwtService;
+import org.example.tnal_youth_backend.authentication.util.LoginIdentifierNormalizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -78,8 +79,20 @@ public class AuthServiceImpl implements AuthService {
         String identifier =
                 request.getPhoneOrEmail().trim();
 
+        // Must match AccountStatusServiceImpl's normalization exactly --
+        // that's the check the login page calls first to decide whether to
+        // even show the password field, so this lookup disagreeing with it
+        // (e.g. matching case-sensitively) meant a capitalized email could
+        // pass that pre-check and then fail here no matter the password.
+        String normalizedIdentifier =
+                LoginIdentifierNormalizer.normalize(identifier);
+
         User user = userRepository
-                .findByLoginUsernameOrEmailOrPhone(identifier, identifier, identifier)
+                .findByLoginUsernameOrEmailOrPhone(
+                        normalizedIdentifier,
+                        normalizedIdentifier,
+                        normalizedIdentifier
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.UNAUTHORIZED,
