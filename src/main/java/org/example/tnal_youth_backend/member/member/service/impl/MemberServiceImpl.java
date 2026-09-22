@@ -783,10 +783,11 @@ public class MemberServiceImpl implements MemberService {
 
                 /*
                  * Not assignPosition: a leader needs is_primary = TRUE
-                 * (assignPosition always inserts FALSE) and the old
-                 * leader, if any, demoted -- both of which assignLeader
-                 * already does correctly, same as the "assign leader"
-                 * endpoint on the branch detail page.
+                 * (assignPosition always inserts FALSE), which assignLeader
+                 * handles correctly -- and passing position's own id (e.g.
+                 * a "deputy" position distinct from the canonical
+                 * "ប្រធានសាខា") keeps that specific choice recorded instead
+                 * of silently normalizing every leader to the same one.
                  */
                 branchStaffRepository
                         .assignLeader(
@@ -794,6 +795,9 @@ public class MemberServiceImpl implements MemberService {
                                         .getBranchId(),
                                 savedMember
                                         .getId(),
+                                position != null
+                                        ? position.getId()
+                                        : null,
                                 currentUser
                                         .getId()
                         );

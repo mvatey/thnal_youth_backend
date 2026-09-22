@@ -126,7 +126,8 @@ public class MemberAccountManagementServiceImpl
             branchService
                     .assignBranchLeader(
                             member.getBranchId(),
-                            memberId
+                            memberId,
+                            null
                     );
 
             return;

@@ -29,7 +29,7 @@ public class BranchStaffRepository {
                        ms.code AS status, m.phone, m.email, m.date_of_birth,
                        m.joined_on, f.id AS profile_photo_id, f.file_path AS profile_image
                 FROM branch_staff bs
-                JOIN positions p ON p.id = bs.position_id AND p.code = 'BRANCH_LEADER'
+                JOIN positions p ON p.id = bs.position_id AND p.mapped_role = 'BRANCH_LEADER'
                 JOIN members m ON m.id = bs.member_id
                 JOIN member_statuses ms ON ms.id = m.status_id
                 LEFT JOIN files f ON f.id = m.profile_photo_id
@@ -64,7 +64,7 @@ public class BranchStaffRepository {
                 FROM branch_staff bs
                 JOIN positions p ON p.id = bs.position_id
                 WHERE bs.member_id = :memberId
-                  AND p.code = 'BRANCH_LEADER'
+                  AND p.mapped_role = 'BRANCH_LEADER'
                   AND bs.ended_on IS NULL
                   AND bs.is_primary = TRUE
                 ORDER BY bs.started_on DESC, bs.id DESC
@@ -148,22 +148,46 @@ public class BranchStaffRepository {
      * single_primary and BranchServiceImpl#assignLeader's own check): one
      * member can't simultaneously lead two DIFFERENT branches, but a
      * branch can freely have several different members leading it.
+     *
+     * positionId picks WHICH leader-mapped position this is recorded
+     * under (e.g. a "deputy" position distinct from the canonical
+     * "ប្រធានសាខា" one, both mapped_role = BRANCH_LEADER) -- null falls
+     * back to the canonical code='BRANCH_LEADER' position, for callers
+     * (like a plain role-dropdown promotion) that don't have a specific
+     * one in hand. If this member already actively holds some OTHER
+     * leader-mapped position on this branch, that row is updated in
+     * place rather than inserting a second one, which would violate
+     * uq_branch_staff_member_single_primary (at most one active primary
+     * row per member, full stop).
      */
-    public void assignLeader(Long branchId, Long memberId, Long appointedBy) {
+    public void assignLeader(Long branchId, Long memberId, Short positionId, Long appointedBy) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("branchId", branchId).addValue("memberId", memberId)
+                .addValue("positionId", positionId)
                 .addValue("appointedBy", appointedBy);
 
         int updated = jdbcTemplate.update("""
-                UPDATE branch_staff SET is_primary = TRUE, appointed_by = :appointedBy, updated_at = NOW()
+                UPDATE branch_staff
+                SET position_id = COALESCE(
+                        :positionId,
+                        (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                    ),
+                    is_primary = TRUE,
+                    appointed_by = :appointedBy,
+                    updated_at = NOW()
                 WHERE branch_id = :branchId AND member_id = :memberId AND ended_on IS NULL
-                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                  AND position_id IN (
+                      SELECT id FROM positions WHERE mapped_role = 'BRANCH_LEADER'
+                  )
                 """, params);
         if (updated == 0) {
             jdbcTemplate.update("""
                     INSERT INTO branch_staff(branch_id, member_id, position_id, started_on, is_primary, appointed_by)
                     VALUES (:branchId, :memberId,
-                            (SELECT id FROM positions WHERE code = 'BRANCH_LEADER'),
+                            COALESCE(
+                                :positionId,
+                                (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                            ),
                             CURRENT_DATE, TRUE, :appointedBy)
                     """, params);
         }
@@ -186,7 +210,7 @@ public class BranchStaffRepository {
                 WHERE u.role = 'BRANCH_LEADER'
                   AND NOT EXISTS (
                     SELECT 1 FROM branch_staff bs JOIN positions p ON p.id = bs.position_id
-                    WHERE bs.member_id = u.member_id AND p.code = 'BRANCH_LEADER'
+                    WHERE bs.member_id = u.member_id AND p.mapped_role = 'BRANCH_LEADER'
                       AND bs.ended_on IS NULL AND bs.is_primary = TRUE
                   )
                 """, new MapSqlParameterSource());
@@ -205,7 +229,9 @@ public class BranchStaffRepository {
                 UPDATE branch_staff SET ended_on = CURRENT_DATE, is_primary = FALSE, updated_at = NOW()
                 WHERE branch_id = :branchId AND member_id = :memberId
                   AND ended_on IS NULL AND is_primary = TRUE
-                  AND position_id = (SELECT id FROM positions WHERE code = 'BRANCH_LEADER')
+                  AND position_id IN (
+                      SELECT id FROM positions WHERE mapped_role = 'BRANCH_LEADER'
+                  )
                 """, params);
         demoteStaleLeaderRoles();
     }

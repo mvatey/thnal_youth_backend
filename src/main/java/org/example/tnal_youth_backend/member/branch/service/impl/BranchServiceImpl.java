@@ -573,7 +573,7 @@ public class BranchServiceImpl implements BranchService {
 
     @Override
     @Transactional
-    public BranchLeaderResponse assignLeader(Long branchId, Long memberId) {
+    public BranchLeaderResponse assignLeader(Long branchId, Long memberId, Short positionId) {
         findBranchById(branchId);
         if (!branchStaffRepository.isActiveMemberOfBranch(branchId, memberId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -600,7 +600,7 @@ public class BranchServiceImpl implements BranchService {
                 memberId,
                 branchId
         );
-        branchStaffRepository.assignLeader(branchId, memberId, requireCurrentUserId());
+        branchStaffRepository.assignLeader(branchId, memberId, positionId, requireCurrentUserId());
         return branchStaffRepository.findActiveLeaders(branchId)
                 .stream()
                 .filter(leader -> memberId.equals(leader.memberId()))
@@ -1337,13 +1337,14 @@ public class BranchServiceImpl implements BranchService {
     @Transactional
     public void assignBranchLeader(
             Long branchId,
-            Long memberId
+            Long memberId,
+            Short positionId
     ) {
         /*
          * Keep a single authoritative assignment path. This writes branch_staff,
          * enforces one active branch per BRANCH_LEADER, and synchronizes users.role.
          */
-        assignLeader(branchId, memberId);
+        assignLeader(branchId, memberId, positionId);
     }
 
     @Override
