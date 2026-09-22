@@ -34,6 +34,7 @@ import org.example.tnal_youth_backend.member.workhistory.service.MemberWorkHisto
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.FirstLoginPasswordChangeRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
 import org.example.tnal_youth_backend.myaccount.service.MyAccountService;
@@ -717,6 +718,29 @@ public class MyAccountServiceImpl
         );
     }
 
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse completeFirstLoginPasswordChange(
+            FirstLoginPasswordChangeRequest request
+    ) {
+        User currentUser = getCurrentUserEntity();
+
+        validateAccountActiveForPasswordChange(currentUser);
+
+        if (!currentUser.isMustChangePassword()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This account is not pending a forced password change"
+            );
+        }
+
+        return applyNewPassword(
+                currentUser,
+                request.newPassword(),
+                request.confirmPassword()
+        );
+    }
+
     /*
      * This is self-service: the account holder changing their own
      * password, so the old password is always required to prove they
@@ -730,19 +754,7 @@ public class MyAccountServiceImpl
             String newPassword,
             String confirmPassword
     ) {
-        if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "The account must complete activation before resetting its password"
-            );
-        }
-
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Only an active account can reset its password"
-            );
-        }
+        validateAccountActiveForPasswordChange(user);
 
         if (oldPassword == null || oldPassword.isBlank()) {
             throw new ResponseStatusException(
@@ -758,6 +770,30 @@ public class MyAccountServiceImpl
             );
         }
 
+        return applyNewPassword(user, newPassword, confirmPassword);
+    }
+
+    private void validateAccountActiveForPasswordChange(User user) {
+        if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The account must complete activation before resetting its password"
+            );
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only an active account can reset its password"
+            );
+        }
+    }
+
+    private MemberPasswordStatusResponse applyNewPassword(
+            User user,
+            String newPassword,
+            String confirmPassword
+    ) {
         if (newPassword == null || newPassword.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
