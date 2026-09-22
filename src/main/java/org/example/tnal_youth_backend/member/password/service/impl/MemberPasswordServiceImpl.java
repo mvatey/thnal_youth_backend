@@ -7,6 +7,7 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
@@ -50,6 +51,8 @@ public class MemberPasswordServiceImpl
             refreshTokenRepository;
 
     private final BranchService branchService;
+
+    private final BranchStaffRepository branchStaffRepository;
 
     /*
      * ==========================================================
@@ -366,6 +369,29 @@ public class MemberPasswordServiceImpl
 
             return toResponse(
                     promotedUser
+            );
+        }
+
+        /*
+         * =========================================
+         * DEMOTION AWAY FROM BRANCH LEADER OR SECRETARY
+         * =========================================
+         *
+         * The mirror of the promotion case above: branch_staff is the
+         * only place leadership/coverage is actually recorded, so moving
+         * away from either role has to end whatever active rows justified
+         * it there too -- otherwise this member keeps showing up as an
+         * active leader (or keeps covering branches as a secretary)
+         * everywhere that reads branch_staff, even though their account
+         * role no longer says so. A member holding either role never has
+         * more than these rows active at once (see
+         * endOtherActiveAssignmentsForLeader, run at promotion time), so
+         * ending all of them here is safe for both directions.
+         */
+        if (targetCurrentRole == UserRole.BRANCH_LEADER
+                || targetCurrentRole == UserRole.SECRETARY) {
+            branchStaffRepository.endAllActiveAssignments(
+                    memberId
             );
         }
 
