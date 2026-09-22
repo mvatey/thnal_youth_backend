@@ -78,6 +78,14 @@ public interface UserRepository
             UserStatus status
     );
 
+    // Every account still sitting on the shared default password (never one
+    // that already has its own real password set) -- see
+    // SystemSettingsServiceImpl#updateDefaultMemberPassword, which re-syncs
+    // these to the new default whenever an admin changes it.
+    List<User> findByMustChangePasswordTrueAndStatus(
+            UserStatus status
+    );
+
     // Role-scoped counts/lists are retained for callers that genuinely
     // need them. The admin Users page itself uses the unscoped findAll/count
     // methods because it must display every login account.
