@@ -678,7 +678,7 @@ public class MemberPersonalInfoServiceImpl
                 member.getBranchId() == null
                         ? null
                         : branchStaffRepository
-                        .findActiveNonPrimaryPositionId(
+                        .findActivePositionId(
                                 member.getId(),
                                 member.getBranchId()
                         )
