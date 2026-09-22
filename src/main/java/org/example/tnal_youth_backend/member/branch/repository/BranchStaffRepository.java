@@ -287,6 +287,44 @@ public class BranchStaffRepository {
     }
 
     /**
+     * The position currently held by a member's active branch_staff
+     * assignment to one branch, primary (branch leader) or not -- what a
+     * "current position" display (the personal-info page, the member list
+     * column) should show, since a member holding either kind has exactly
+     * one active position on that branch in practice. Not for writes --
+     * see {@link #findActiveNonPrimaryPositionId}, which write paths use
+     * instead so they never touch the leader row by accident.
+     */
+    public Optional<Short> findActivePositionId(
+            Long memberId,
+            Long branchId
+    ) {
+        if (memberId == null || branchId == null) {
+            return Optional.empty();
+        }
+
+        String sql = """
+                SELECT bs.position_id
+                FROM branch_staff bs
+                WHERE bs.member_id = :memberId
+                  AND bs.branch_id = :branchId
+                  AND bs.ended_on IS NULL
+                ORDER BY bs.is_primary DESC, bs.started_on DESC, bs.id DESC
+                LIMIT 1
+                """;
+
+        List<Short> rows = jdbcTemplate.query(
+                sql,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("branchId", branchId),
+                (rs, rowNum) -> rs.getShort("position_id")
+        );
+
+        return rows.stream().findFirst();
+    }
+
+    /**
      * The position currently held by a member's active, non-primary
      * branch_staff assignment to one branch -- e.g. the job title shown on
      * their personal-info page. Excludes primary assignments (the branch

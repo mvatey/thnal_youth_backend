@@ -779,12 +779,14 @@ public interface MemberRepository
                    ON u.member_id = m.id
 
             /*
-             * The member's current job title within their own branch --
-             * excludes the primary (branch leader) row, a separate concept
-             * with its own dedicated assignment flow. LATERAL + LIMIT 1
-             * keeps this to at most one row per member even if the
-             * ended_on/is_primary invariant were ever violated, so this
-             * join can never itself multiply the member rows returned.
+             * The member's current position within their own branch,
+             * whether that's the generic non-primary slot or the primary
+             * (branch leader) row -- a member holds at most one active
+             * assignment there in practice, so is_primary DESC just
+             * prefers the leader row on the rare chance both existed.
+             * LATERAL + LIMIT 1 keeps this to at most one row per member
+             * even then, so this join can never itself multiply the
+             * member rows returned.
              */
             LEFT JOIN LATERAL (
                 SELECT p2.id, p2.code, p2.label_km, p2.label_en
@@ -794,8 +796,7 @@ public interface MemberRepository
                 WHERE bs2.member_id = m.id
                   AND bs2.branch_id = m.branch_id
                   AND bs2.ended_on IS NULL
-                  AND bs2.is_primary = FALSE
-                ORDER BY bs2.started_on DESC, bs2.id DESC
+                ORDER BY bs2.is_primary DESC, bs2.started_on DESC, bs2.id DESC
                 LIMIT 1
             ) pos ON TRUE
 
