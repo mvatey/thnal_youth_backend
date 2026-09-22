@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.systemsettings.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 import org.example.tnal_youth_backend.systemsettings.entity.SystemSettings;
@@ -12,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -51,9 +54,40 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         settings.setDefaultMemberPassword(newDefaultMemberPassword);
         settings.setUpdatedBy(adminUserId);
 
-        return systemSettingsRepository
+        String saved = systemSettingsRepository
                 .save(settings)
                 .getDefaultMemberPassword();
+
+        resyncPendingAccountsToNewDefault(newDefaultMemberPassword);
+
+        return saved;
+    }
+
+    /*
+     * Every account still on mustChangePassword=true is, by definition,
+     * still sitting on WHATEVER the default was when it was created --
+     * without this, changing the setting only ever affected accounts
+     * created afterward, silently leaving older still-pending accounts on
+     * a stale value nobody could log in with anymore (since only the
+     * *current* setting is shown/reveal-able going forward). An account
+     * that already has its own real password (mustChangePassword=false)
+     * is never touched here.
+     */
+    private void resyncPendingAccountsToNewDefault(
+            String newDefaultMemberPassword
+    ) {
+        List<User> pendingUsers = userRepository
+                .findByMustChangePasswordTrueAndStatus(UserStatus.ACTIVE);
+
+        if (pendingUsers.isEmpty()) {
+            return;
+        }
+
+        String newHash = passwordEncoder.encode(newDefaultMemberPassword);
+
+        pendingUsers.forEach(user -> user.setPasswordHash(newHash));
+
+        userRepository.saveAll(pendingUsers);
     }
 
     @Override
