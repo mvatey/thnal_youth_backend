@@ -95,6 +95,31 @@ public class BranchStaffRepository {
     }
 
 
+    /**
+     * Ends every active branch_staff assignment a member holds, primary
+     * or not -- used when their role changes away from BRANCH_LEADER or
+     * SECRETARY, the two roles branch_staff tracks coverage for, so a
+     * stale row never outlives the role that justified it (a leader's
+     * own leadership row, or a secretary's additional-branch coverage).
+     */
+    public void endAllActiveAssignments(Long memberId) {
+        if (memberId == null) {
+            return;
+        }
+        jdbcTemplate.update(
+                """
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE,
+                    is_primary = FALSE,
+                    updated_at = NOW()
+                WHERE member_id = :memberId
+                  AND ended_on IS NULL
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+        );
+    }
+
     public void endOtherActiveAssignmentsForLeader(Long memberId, Long keepBranchId) {
         if (memberId == null || keepBranchId == null) {
             return;
