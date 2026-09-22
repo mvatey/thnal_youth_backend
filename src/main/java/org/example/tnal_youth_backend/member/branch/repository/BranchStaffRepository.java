@@ -287,6 +287,99 @@ public class BranchStaffRepository {
     }
 
     /**
+     * The position currently held by a member's active, non-primary
+     * branch_staff assignment to one branch -- e.g. the job title shown on
+     * their personal-info page. Excludes primary assignments (the branch
+     * leader row), which are a separate concept managed by
+     * {@link #assignLeader}/{@link #removeLeader}, not this generic slot.
+     */
+    public Optional<Short> findActiveNonPrimaryPositionId(
+            Long memberId,
+            Long branchId
+    ) {
+        if (memberId == null || branchId == null) {
+            return Optional.empty();
+        }
+
+        String sql = """
+                SELECT bs.position_id
+                FROM branch_staff bs
+                WHERE bs.member_id = :memberId
+                  AND bs.branch_id = :branchId
+                  AND bs.ended_on IS NULL
+                  AND bs.is_primary = FALSE
+                ORDER BY bs.started_on DESC, bs.id DESC
+                LIMIT 1
+                """;
+
+        List<Short> rows = jdbcTemplate.query(
+                sql,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("branchId", branchId),
+                (rs, rowNum) -> rs.getShort("position_id")
+        );
+
+        return rows.stream().findFirst();
+    }
+
+    /**
+     * Sets a member's position on one branch, independent of the branch
+     * leader slot -- updates the existing active non-primary row if one
+     * exists, otherwise inserts a fresh one (same shape as
+     * {@link #assignPosition}, just idempotent so the personal-info page
+     * can call it on every save regardless of whether this is the first
+     * position the member has ever held there).
+     */
+    public void upsertNonPrimaryPosition(
+            Long branchId,
+            Long memberId,
+            Short positionId,
+            Long appointedBy
+    ) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("branchId", branchId)
+                .addValue("memberId", memberId)
+                .addValue("positionId", positionId)
+                .addValue("appointedBy", appointedBy);
+
+        int updated = jdbcTemplate.update("""
+                UPDATE branch_staff
+                SET position_id = :positionId, appointed_by = :appointedBy, updated_at = NOW()
+                WHERE branch_id = :branchId AND member_id = :memberId
+                  AND ended_on IS NULL AND is_primary = FALSE
+                """, params);
+
+        if (updated == 0) {
+            jdbcTemplate.update("""
+                    INSERT INTO branch_staff(branch_id, member_id, position_id, started_on, is_primary, appointed_by)
+                    VALUES (:branchId, :memberId, :positionId, CURRENT_DATE, FALSE, :appointedBy)
+                    """, params);
+        }
+    }
+
+    /**
+     * Ends a member's active non-primary position on one branch -- used
+     * when the personal-info page clears the position field back to
+     * "none". Never touches the primary (branch leader) row.
+     */
+    public void clearNonPrimaryPosition(
+            Long memberId,
+            Long branchId
+    ) {
+        jdbcTemplate.update("""
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE, updated_at = NOW()
+                WHERE member_id = :memberId AND branch_id = :branchId
+                  AND ended_on IS NULL AND is_primary = FALSE
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("branchId", branchId)
+        );
+    }
+
+    /**
      * The member IDs with an active (non-primary or primary, either way)
      * branch_staff assignment to this branch -- e.g. a secretary staffing
      * a second branch beyond their own members.branch_id. Used to extend

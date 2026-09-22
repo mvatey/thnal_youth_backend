@@ -45,6 +45,9 @@ public record MemberPersonalInfoResponse(
         @JsonProperty("branch_id")
         Long branchId,
 
+        @JsonProperty("position_id")
+        Short positionId,
+
         @JsonProperty("branch_name_km")
         String branchNameKm,
 

@@ -58,6 +58,14 @@ public record MemberListResponse(
         AccountStatusResponse accountStatus,
 
         /*
+         * The member's current job title within their own branch (see
+         * branch_staff) -- distinct from account_role above, which is a
+         * system permission level, not an organizational title. null
+         * means this member holds no such position right now.
+         */
+        LookupResponse position,
+
+        /*
          * When this member's status_id last actually changed (see
          * MemberServiceImpl#applyStatus) — lets a screen that's about to
          * add this member to something new (an activity invite, a

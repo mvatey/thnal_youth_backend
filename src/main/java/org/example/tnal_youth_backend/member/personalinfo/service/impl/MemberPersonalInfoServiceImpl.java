@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.service.FileService;
@@ -20,6 +21,8 @@ import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.member.nationality.entity.Nationality;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
+import org.example.tnal_youth_backend.member.position.entity.Position;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 import org.example.tnal_youth_backend.member.personalinfo.dto.request.UpdateMemberPersonalInfoRequest;
 import org.example.tnal_youth_backend.member.personalinfo.dto.response.MemberAssignedBranchResponse;
 import org.example.tnal_youth_backend.member.personalinfo.dto.response.MemberPersonalInfoResponse;
@@ -69,6 +72,8 @@ public class MemberPersonalInfoServiceImpl
     private final BranchRepository branchRepository;
 
     private final BranchStaffRepository branchStaffRepository;
+
+    private final PositionRepository positionRepository;
 
     /*
      * ==========================================================
@@ -166,9 +171,101 @@ public class MemberPersonalInfoServiceImpl
                 request.username()
         );
 
+        updatePosition(
+                savedMember,
+                request.positionId()
+        );
+
         return toResponse(
                 savedMember
         );
+    }
+
+    /*
+     * ==========================================================
+     * UPDATE POSITION
+     * ==========================================================
+     *
+     * A job-title label within the member's own branch -- deliberately
+     * separate from the account ROLE (updated via its own
+     * /account/role endpoint, MemberAccountManagementServiceImpl), which
+     * already carries the branch-leader promotion/demotion logic this
+     * doesn't need to duplicate. A position mapped to BRANCH_LEADER is
+     * rejected here; that role change only ever happens through the
+     * dedicated leader-assignment flow, never as a side effect of picking
+     * a position off this page.
+     */
+    private void updatePosition(
+            Member member,
+            Short requestedPositionId
+    ) {
+        if (member.getBranchId() == null) {
+            return;
+        }
+
+        Short currentPositionId =
+                branchStaffRepository
+                        .findActiveNonPrimaryPositionId(
+                                member.getId(),
+                                member.getBranchId()
+                        )
+                        .orElse(null);
+
+        boolean unchanged =
+                requestedPositionId == null
+                        ? currentPositionId == null
+                        : requestedPositionId.equals(currentPositionId);
+
+        if (unchanged) {
+            return;
+        }
+
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        member.getId()
+                );
+
+        if (requestedPositionId == null) {
+            branchStaffRepository
+                    .clearNonPrimaryPosition(
+                            member.getId(),
+                            member.getBranchId()
+                    );
+            return;
+        }
+
+        Position position =
+                positionRepository
+                        .findById(
+                                requestedPositionId
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Position not found"
+                                )
+                        );
+
+        if ("BRANCH_LEADER".equals(
+                position.getMappedRole()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Assign this position through the branch leader flow instead"
+            );
+        }
+
+        User currentUser =
+                SecurityUtil.getCurrentUser();
+
+        branchStaffRepository
+                .upsertNonPrimaryPosition(
+                        member.getBranchId(),
+                        member.getId(),
+                        position.getId(),
+                        currentUser != null
+                                ? currentUser.getId()
+                                : null
+                );
     }
 
     /*
@@ -577,6 +674,16 @@ public class MemberPersonalInfoServiceImpl
                         member.getId()
                 );
 
+        Short positionId =
+                member.getBranchId() == null
+                        ? null
+                        : branchStaffRepository
+                        .findActiveNonPrimaryPositionId(
+                                member.getId(),
+                                member.getBranchId()
+                        )
+                        .orElse(null);
+
         return new MemberPersonalInfoResponse(
                 member.getId(),
 
@@ -613,6 +720,8 @@ public class MemberPersonalInfoServiceImpl
                         : null,
 
                 member.getBranchId(),
+
+                positionId,
 
                 primaryBranch != null
                         ? primaryBranch.getNameKm()
