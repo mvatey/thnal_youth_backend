@@ -12,9 +12,9 @@ import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 
 import org.example.tnal_youth_backend.common.exception.ResourceNotFoundException;
-import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 
 import org.example.tnal_youth_backend.dashboard.util.DashboardPercentageCalculator;
+import org.example.tnal_youth_backend.systemsettings.service.SystemSettingsService;
 
 import org.example.tnal_youth_backend.file.entity.FileEntity;
 import org.example.tnal_youth_backend.file.repository.FileRepository;
@@ -173,6 +173,9 @@ public class MemberServiceImpl implements MemberService {
 
     private final DashboardPercentageCalculator
             percentageCalculator;
+
+    private final SystemSettingsService
+            systemSettingsService;
 
 
     /*
@@ -1597,7 +1600,8 @@ public class MemberServiceImpl implements MemberService {
 
                         .passwordHash(
                                 passwordEncoder.encode(
-                                        PasswordPolicy.DEFAULT_MEMBER_PASSWORD
+                                        systemSettingsService
+                                                .getDefaultMemberPasswordInternal()
                                 )
                         )
 

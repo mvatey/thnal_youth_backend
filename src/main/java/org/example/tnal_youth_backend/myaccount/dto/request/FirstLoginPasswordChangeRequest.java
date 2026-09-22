@@ -1,0 +1,29 @@
+package org.example.tnal_youth_backend.myaccount.dto.request;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
+
+/*
+ * Deliberately has no oldPassword field, unlike ChangeMyPasswordRequest --
+ * see MyAccountServiceImpl#completeFirstLoginPasswordChange for why.
+ */
+public record FirstLoginPasswordChangeRequest(
+
+        @JsonProperty("new_password")
+        @NotBlank(
+                message =
+                        "New password is required"
+        )
+        @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
+        String newPassword,
+
+        @JsonProperty("confirm_password")
+        @NotBlank(
+                message =
+                        "Password confirmation is required"
+        )
+        String confirmPassword
+) {
+}

@@ -20,6 +20,7 @@ import org.example.tnal_youth_backend.authentication.model.response.UserProfileR
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.FirstLoginPasswordChangeRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -186,6 +187,15 @@ public interface MyAccountService {
 
     MemberPasswordStatusResponse changeMyPassword(
             ChangeMyPasswordRequest request
+    );
+
+    /**
+     * Completes MustChangePasswordGate's forced first-login flow -- no old
+     * password required, gated on mustChangePassword being true instead.
+     * See MyAccountServiceImpl#completeFirstLoginPasswordChange.
+     */
+    MemberPasswordStatusResponse completeFirstLoginPasswordChange(
+            FirstLoginPasswordChangeRequest request
     );
 
     /**

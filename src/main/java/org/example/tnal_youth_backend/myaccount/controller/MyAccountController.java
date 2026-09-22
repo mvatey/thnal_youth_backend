@@ -23,6 +23,7 @@ import org.example.tnal_youth_backend.authentication.model.response.UserProfileR
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyEmailRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyUsernameRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.ChangeMyPasswordRequest;
+import org.example.tnal_youth_backend.myaccount.dto.request.FirstLoginPasswordChangeRequest;
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.service.MyAccountService;
 import org.springframework.http.HttpStatus;
@@ -625,6 +626,28 @@ public class MyAccountController {
         return ResponseEntity.ok(
                 myAccountService
                         .changeMyPassword(
+                                request
+                        )
+        );
+    }
+
+    /*
+     * Reached only via MustChangePasswordGate's forced flow, for a
+     * member-linked account still on the shared default password.
+     * Deliberately takes no old password -- see
+     * MyAccountServiceImpl#completeFirstLoginPasswordChange.
+     */
+    @PatchMapping("/first-login-password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<MemberPasswordStatusResponse>
+    completeFirstLoginPasswordChange(
+            @Valid
+            @RequestBody
+            FirstLoginPasswordChangeRequest request
+    ) {
+        return ResponseEntity.ok(
+                myAccountService
+                        .completeFirstLoginPasswordChange(
                                 request
                         )
         );
