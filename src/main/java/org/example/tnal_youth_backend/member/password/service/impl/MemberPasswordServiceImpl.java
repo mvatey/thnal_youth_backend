@@ -28,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -326,12 +327,6 @@ public class MemberPasswordServiceImpl
                 requestedRole
         );
 
-        if (targetCurrentRole == requestedRole) {
-            return toResponse(
-                    targetUser
-            );
-        }
-
         /*
          * =========================================
          * SPECIAL CASE: BRANCH LEADER
@@ -344,12 +339,39 @@ public class MemberPasswordServiceImpl
          * uses). A branch can have more than one active leader now, so
          * this simply adds one rather than replacing whoever else already
          * leads it.
+         *
+         * Handled BEFORE the generic "no role change" early-return below:
+         * a member already BRANCH_LEADER switching between leader-mapped
+         * positions (e.g. canonical <-> deputy) has an unchanged role but
+         * a changed position, and that still has to reach
+         * assignLeader() or the position switch is silently dropped.
          */
         if (requestedRole == UserRole.BRANCH_LEADER) {
             if (member.getBranchId() == null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Member must belong to a branch before becoming branch leader"
+                );
+            }
+
+            Short currentPositionId =
+                    branchStaffRepository
+                            .findActivePositionId(
+                                    memberId,
+                                    member.getBranchId()
+                            )
+                            .orElse(null);
+
+            boolean noOp =
+                    targetCurrentRole == UserRole.BRANCH_LEADER
+                            && Objects.equals(
+                                    currentPositionId,
+                                    request.positionId()
+                            );
+
+            if (noOp) {
+                return toResponse(
+                        targetUser
                 );
             }
 
@@ -370,6 +392,12 @@ public class MemberPasswordServiceImpl
 
             return toResponse(
                     promotedUser
+            );
+        }
+
+        if (targetCurrentRole == requestedRole) {
+            return toResponse(
+                    targetUser
             );
         }
 
