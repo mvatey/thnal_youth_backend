@@ -120,6 +120,37 @@ public class BranchStaffRepository {
         );
     }
 
+    /**
+     * Ends only a member's active PRIMARY (leader) row, leaving any
+     * non-primary rows untouched -- used when a BRANCH_LEADER moves
+     * laterally to SECRETARY rather than being demoted to MEMBER. That
+     * member still needs branch_staff coverage as a secretary, and the
+     * personal-info/branches endpoints that create or keep those
+     * non-primary rows run as separate requests in the same multi-step
+     * save (sometimes before this one, sometimes after) -- ending
+     * everything here the way endAllActiveAssignments does would wipe
+     * out a row those other endpoints already wrote, or one they're
+     * about to write, depending on call order.
+     */
+    public void endActivePrimaryAssignment(Long memberId) {
+        if (memberId == null) {
+            return;
+        }
+        jdbcTemplate.update(
+                """
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE,
+                    is_primary = FALSE,
+                    updated_at = NOW()
+                WHERE member_id = :memberId
+                  AND ended_on IS NULL
+                  AND is_primary = TRUE
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+        );
+    }
+
     public void endOtherActiveAssignmentsForLeader(Long memberId, Long keepBranchId) {
         if (memberId == null || keepBranchId == null) {
             return;

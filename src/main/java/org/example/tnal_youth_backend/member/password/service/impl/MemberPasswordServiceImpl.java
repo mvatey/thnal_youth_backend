@@ -412,16 +412,34 @@ public class MemberPasswordServiceImpl
          * it there too -- otherwise this member keeps showing up as an
          * active leader (or keeps covering branches as a secretary)
          * everywhere that reads branch_staff, even though their account
-         * role no longer says so. A member holding either role never has
-         * more than these rows active at once (see
-         * endOtherActiveAssignmentsForLeader, run at promotion time), so
-         * ending all of them here is safe for both directions.
+         * role no longer says so.
+         *
+         * BRANCH_LEADER -> SECRETARY is a lateral move, not a real
+         * demotion -- the member still needs branch_staff coverage, just
+         * as SECRETARY instead of leader, so only the primary leader row
+         * is ended. The personal-info and personal-info/branches
+         * endpoints (called as separate requests in the same multi-step
+         * save, sometimes before this one, sometimes after) are what
+         * create/keep the resulting non-primary SECRETARY rows; ending
+         * every active row here regardless of the destination role used
+         * to wipe out whichever of those a request already wrote,
+         * depending on call order (requestedRole is never BRANCH_LEADER
+         * here -- that's handled by the promotion branch above -- so the
+         * only other possibility, MEMBER, is a genuine full demotion and
+         * still ends everything).
          */
         if (targetCurrentRole == UserRole.BRANCH_LEADER
                 || targetCurrentRole == UserRole.SECRETARY) {
-            branchStaffRepository.endAllActiveAssignments(
-                    memberId
-            );
+            if (targetCurrentRole == UserRole.BRANCH_LEADER
+                    && requestedRole == UserRole.SECRETARY) {
+                branchStaffRepository.endActivePrimaryAssignment(
+                        memberId
+                );
+            } else {
+                branchStaffRepository.endAllActiveAssignments(
+                        memberId
+                );
+            }
         }
 
         targetUser.setRole(
