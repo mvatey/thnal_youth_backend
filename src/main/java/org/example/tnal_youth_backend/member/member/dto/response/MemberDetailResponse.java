@@ -41,6 +41,13 @@ public record MemberDetailResponse(
 
         LookupResponse level,
 
+        /*
+         * The member's current job title within their own branch (see
+         * branch_staff) -- distinct from role above, same distinction
+         * MemberListResponse.position already draws.
+         */
+        LookupResponse position,
+
         LookupResponse religion,
 
         NationalityResponse nationality,

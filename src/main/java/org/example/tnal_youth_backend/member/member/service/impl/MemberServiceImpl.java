@@ -2140,11 +2140,25 @@ public class MemberServiceImpl implements MemberService {
                         )
                         .orElse(null);
 
+        Position position =
+                member.getBranchId() == null
+                        ? null
+                        : branchStaffRepository
+                        .findActivePositionId(
+                                member.getId(),
+                                member.getBranchId()
+                        )
+                        .flatMap(
+                                positionRepository::findById
+                        )
+                        .orElse(null);
+
         return memberMapper
                 .toDetailResponse(
                         member,
                         branch,
-                        role
+                        role,
+                        position
                 );
     }
 

@@ -21,6 +21,8 @@ import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.position.entity.Position;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -49,6 +51,7 @@ public class BranchServiceImpl implements BranchService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final PositionRepository positionRepository;
     private final ActivityRepository activityRepository;
     private final DonationRepository donationRepository;
     private final StaffBranchScopeService staffBranchScopeService;
@@ -614,6 +617,34 @@ public class BranchServiceImpl implements BranchService {
     public void removeLeader(Long branchId, Long memberId) {
         findBranchById(branchId);
         branchStaffRepository.removeLeader(branchId, memberId);
+    }
+
+    /*
+     * A member's current job title within a given branch, resolved the
+     * same way MemberPersonalInfoServiceImpl does for personal-info --
+     * distinct from their account role, and null when they hold no
+     * active branch_staff row there at all.
+     */
+    private BranchStaffPositionResponse resolvePosition(
+            Long memberId,
+            Long branchId
+    ) {
+        return branchStaffRepository
+                .findActivePositionId(memberId, branchId)
+                .flatMap(positionRepository::findById)
+                .map(this::toPositionResponse)
+                .orElse(null);
+    }
+
+    private BranchStaffPositionResponse toPositionResponse(
+            Position position
+    ) {
+        return new BranchStaffPositionResponse(
+                position.getId(),
+                position.getCode(),
+                position.getLabelKm(),
+                position.getLabelEn()
+        );
     }
 
     private Long requireCurrentUserId() {
@@ -1199,7 +1230,11 @@ public class BranchServiceImpl implements BranchService {
                                 branchMapper
                                         .toBranchLeaderResponse(
                                                 item.getMember(),
-                                                item.getRole()
+                                                item.getRole(),
+                                                resolvePosition(
+                                                        item.getMember().getId(),
+                                                        branchId
+                                                )
                                         )
                         )
                         .toList();
@@ -1317,7 +1352,11 @@ public class BranchServiceImpl implements BranchService {
                                 branchMapper
                                         .toBranchMemberTableItemResponse(
                                                 item.getMember(),
-                                                item.getRole()
+                                                item.getRole(),
+                                                resolvePosition(
+                                                        item.getMember().getId(),
+                                                        branchId
+                                                )
                                         )
                         )
                         .toList();

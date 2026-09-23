@@ -37,7 +37,14 @@ public record BranchLeaderResponse(
         Long profilePhotoId,
 
         @JsonProperty("profile_image")
-        String profileImage
+        String profileImage,
+
+        /*
+         * The leader/secretary's own job title within the branch (see
+         * branch_staff) -- distinct from role above, same distinction
+         * MemberListResponse.position already draws.
+         */
+        BranchStaffPositionResponse position
 ) {
     /**
      * Compatibility constructor for the JDBC-backed branch-leader endpoint.
@@ -70,7 +77,8 @@ public record BranchLeaderResponse(
                 role == null ? null : UserRole.BRANCH_LEADER,
                 status,
                 profilePhotoId,
-                profileImage
+                profileImage,
+                null
         );
     }
 }

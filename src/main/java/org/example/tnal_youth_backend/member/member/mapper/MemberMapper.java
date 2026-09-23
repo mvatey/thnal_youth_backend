@@ -95,7 +95,8 @@ public class MemberMapper {
     public MemberDetailResponse toDetailResponse(
             Member member,
             Branch branch,
-            UserRole role
+            UserRole role,
+            org.example.tnal_youth_backend.member.position.entity.Position position
     ) {
         if (member == null) {
             return null;
@@ -129,6 +130,10 @@ public class MemberMapper {
 
                 toDetailLookup(
                         member.getLevel()
+                ),
+
+                toDetailLookup(
+                        position
                 ),
 
                 toDetailLookup(
@@ -323,6 +328,18 @@ public class MemberMapper {
         if (
                 lookup instanceof
                         org.example.tnal_youth_backend.member.religion.entity.Religion value
+        ) {
+            return new MemberDetailResponse.LookupResponse(
+                    value.getId(),
+                    value.getCode(),
+                    value.getLabelKm(),
+                    value.getLabelEn()
+            );
+        }
+
+        if (
+                lookup instanceof
+                        org.example.tnal_youth_backend.member.position.entity.Position value
         ) {
             return new MemberDetailResponse.LookupResponse(
                     value.getId(),

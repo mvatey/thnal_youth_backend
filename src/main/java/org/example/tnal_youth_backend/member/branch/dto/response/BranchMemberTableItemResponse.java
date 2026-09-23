@@ -43,7 +43,14 @@ public record BranchMemberTableItemResponse(
         LocalDate joinedOn,
 
         @JsonProperty("profile_photo_id")
-        Long profilePhotoId
+        Long profilePhotoId,
+
+        /*
+         * The member's current job title within the branch (see
+         * branch_staff) -- distinct from role above, same distinction
+         * MemberListResponse.position already draws.
+         */
+        BranchStaffPositionResponse position
 
 ) {
 }
