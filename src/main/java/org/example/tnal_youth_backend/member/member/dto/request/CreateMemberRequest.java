@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.member.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 
 import java.time.LocalDate;
@@ -48,6 +49,20 @@ public record CreateMemberRequest(
 
         @JsonProperty("position_id")
         Short positionId,
+
+        /**
+         * Only meaningful when the resolved role is VIEWER -- which
+         * branch-scoped level (BRANCH_LEADER or SECRETARY) this new
+         * member-linked viewer sees their own branch at. In practice
+         * always derived from the chosen position's own
+         * mappedViewerScope (see resolveRequestedViewerScope) rather
+         * than sent directly, the same way role is normally derived
+         * from the position's mappedRole -- accepted here mainly so a
+         * request that resolves role without a position (the legacy
+         * "role" field above) can still work.
+         */
+        @JsonProperty("viewer_scope")
+        ViewerScope viewerScope,
 
         @JsonProperty("joined_on")
         LocalDate joinedOn,
