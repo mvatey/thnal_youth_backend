@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.common.response.ApiResponse;
 import org.example.tnal_youth_backend.donation.dto.response.DonationPageResponse;
 import org.example.tnal_youth_backend.donation.service.DonationService;
 import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ public class MyDonationController {
     private final MyDonationService myDonationService;
     private final DonationService donationService;
     private final CurrentMemberResolver currentMemberResolver;
+    private final ViewerAccessService viewerAccessService;
 
 
     /**
@@ -42,6 +44,17 @@ public class MyDonationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size
     ) {
+        // A member-linked VIEWER doesn't see their own contribution
+        // history through their own My Account (see the class-level
+        // note on MyDonationService for the same rule).
+        if (viewerAccessService.isViewer(currentMemberResolver.getCurrentUser())) {
+            return ResponseEntity.ok(
+                    ApiResponse.ok(
+                            new DonationPageResponse(List.of(), 0, page, size)
+                    )
+            );
+        }
+
         Long memberId = currentMemberResolver.getCurrentMemberId();
 
         DonationPageResponse result = donationService.list(

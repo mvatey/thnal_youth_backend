@@ -38,6 +38,7 @@ import org.example.tnal_youth_backend.myaccount.dto.request.FirstLoginPasswordCh
 import org.example.tnal_youth_backend.myaccount.dto.request.UpdateMyPersonalInfoRequest;
 import org.example.tnal_youth_backend.myaccount.security.CurrentMemberResolver;
 import org.example.tnal_youth_backend.myaccount.service.MyAccountService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.example.tnal_youth_backend.member.family.dto.request.MemberFamilyInfoRequest;
 import org.example.tnal_youth_backend.member.family.dto.response.MemberFamilyInfoResponse;
 import org.example.tnal_youth_backend.member.family.service.MemberFamilyService;
@@ -59,6 +60,9 @@ public class MyAccountServiceImpl
 
     private final CurrentMemberResolver
             currentMemberResolver;
+
+    private final ViewerAccessService
+            viewerAccessService;
 
     private final MemberService
             memberService;
@@ -852,6 +856,7 @@ public class MyAccountServiceImpl
                 savedUser.getPhone(),
                 savedUser.getEmail(),
                 savedUser.getRole() != null ? savedUser.getRole().name() : null,
+                savedUser.getViewerScope() != null ? savedUser.getViewerScope().name() : null,
                 savedUser.getStatus() != null ? savedUser.getStatus().name() : null,
                 savedUser.getActivatedAt(),
                 savedUser.getLastLoginAt()
@@ -923,6 +928,28 @@ public class MyAccountServiceImpl
             Short typeId,
             Short attendanceStatusId
     ) {
+        User currentUser =
+                currentMemberResolver
+                        .getCurrentUser();
+
+        /*
+         * A member-linked VIEWER sees everything a branch leader/
+         * secretary would through the wider branch views, but not their
+         * own contribution/participation history through their own
+         * myAcc -- unlike a normal member-linked account, which does.
+         */
+        if (viewerAccessService.isViewer(currentUser)) {
+            return new MemberParticipationPageResponse(
+                    List.of(),
+                    page,
+                    size,
+                    0,
+                    0,
+                    true,
+                    true
+            );
+        }
+
         Long memberId =
                 currentMemberResolver
                         .getCurrentMemberId();

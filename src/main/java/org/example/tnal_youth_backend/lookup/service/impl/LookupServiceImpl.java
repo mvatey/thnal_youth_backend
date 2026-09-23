@@ -273,6 +273,9 @@ public class LookupServiceImpl
                             ),
                             toRoleOption(
                                     UserRole.SECRETARY
+                            ),
+                            toRoleOption(
+                                    UserRole.VIEWER
                             )
                     );
 
@@ -286,6 +289,9 @@ public class LookupServiceImpl
                             ),
                             toRoleOption(
                                     UserRole.BRANCH_LEADER
+                            ),
+                            toRoleOption(
+                                    UserRole.VIEWER
                             )
                     );
 
@@ -372,13 +378,6 @@ public class LookupServiceImpl
                             "Administrator"
                     );
 
-            /*
-             * VIEWER is never actually returned by
-             * getUserRoleOptions() above (that switch's default
-             * branch rejects any role it doesn't explicitly list,
-             * and VIEWER isn't one of them) — this case only
-             * exists so the switch expression stays exhaustive.
-             */
             case VIEWER ->
                     new RoleOptionResponse(
                             "VIEWER",

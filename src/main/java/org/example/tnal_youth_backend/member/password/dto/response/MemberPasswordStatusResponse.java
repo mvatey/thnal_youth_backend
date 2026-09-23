@@ -24,6 +24,12 @@ public record MemberPasswordStatusResponse(
 
         String role,
 
+        // Only meaningful when role is VIEWER -- which branch-scoped
+        // level (BRANCH_LEADER or SECRETARY) this member-linked viewer
+        // sees their own branch at.
+        @JsonProperty("viewer_scope")
+        String viewerScope,
+
         String status,
 
         @JsonProperty("activated_at")

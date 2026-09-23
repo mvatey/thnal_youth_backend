@@ -7,6 +7,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -38,6 +39,7 @@ public class MyDonationServiceImpl
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
+    private final ViewerAccessService viewerAccessService;
 
     /*
      * My Account ownership rule:
@@ -426,7 +428,11 @@ public class MyDonationServiceImpl
     public List<MyDonationResponse> getMyMonthlyDonations() {
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -462,7 +468,11 @@ public class MyDonationServiceImpl
                 yearMonth.atEndOfMonth();
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -507,7 +517,11 @@ public class MyDonationServiceImpl
         );
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -546,7 +560,11 @@ public class MyDonationServiceImpl
     public List<MyDonationResponse> getMyEventDonations() {
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = EVENT_BASE_SQL + """
 
@@ -574,7 +592,11 @@ public class MyDonationServiceImpl
     public List<MyDonationResponse> getMySponsorDonations() {
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -611,7 +633,11 @@ public class MyDonationServiceImpl
         }
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -702,7 +728,11 @@ public class MyDonationServiceImpl
         );
 
         Long memberId =
-                getCurrentMemberId();
+                resolveMemberIdOrNullForViewer();
+
+        if (memberId == null) {
+            return List.of();
+        }
 
         String sql = BASE_SQL + """
 
@@ -1052,6 +1082,48 @@ public class MyDonationServiceImpl
         }
 
         return memberId;
+    }
+
+    /*
+     * A member-linked VIEWER sees everything a branch leader/secretary
+     * would through the wider branch views, but not their own donation
+     * history through their own My Account -- unlike a normal
+     * member-linked account, which does. Returns null instead of
+     * throwing so callers can fall back to an empty list, the same
+     * "no donations" shape a genuinely donation-less member would see,
+     * rather than an error.
+     */
+    private Long resolveMemberIdOrNullForViewer() {
+
+        User authenticatedUser =
+                SecurityUtil.getCurrentUser();
+
+        if (authenticatedUser == null
+                || authenticatedUser.getId() == null) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user was not found"
+            );
+        }
+
+        User currentUser =
+                userRepository
+                        .findById(
+                                authenticatedUser.getId()
+                        )
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Authenticated user was not found in the database"
+                                )
+                        );
+
+        if (viewerAccessService.isViewer(currentUser)) {
+            return null;
+        }
+
+        return getCurrentMemberId();
     }
 
     /*
