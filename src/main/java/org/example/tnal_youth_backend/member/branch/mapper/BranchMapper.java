@@ -66,7 +66,8 @@ public class BranchMapper {
 
     public BranchLeaderResponse toBranchLeaderResponse(
             Member member,
-            UserRole role
+            UserRole role,
+            BranchStaffPositionResponse position
     ) {
         if (member == null) {
             return null;
@@ -101,14 +102,17 @@ public class BranchMapper {
 
                 member.getProfilePhoto() != null
                         ? member.getProfilePhoto().getFilePath()
-                        : null
+                        : null,
+
+                position
         );
     }
 
     public BranchMemberTableItemResponse
     toBranchMemberTableItemResponse(
             Member member,
-            UserRole role
+            UserRole role,
+            BranchStaffPositionResponse position
     ) {
         if (member == null) {
             return null;
@@ -153,7 +157,9 @@ public class BranchMapper {
 
                 member.getProfilePhoto() != null
                         ? member.getProfilePhoto().getId()
-                        : null
+                        : null,
+
+                position
         );
     }
 
