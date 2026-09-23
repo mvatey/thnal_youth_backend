@@ -74,8 +74,8 @@ public class Position {
      * created — see MemberServiceImpl#createMember. NULL means this
      * position has no auto-assigned role (the create flow falls back to
      * MEMBER). Restricted at the database level (chk_positions_mapped_role,
-     * V339) to BRANCH_LEADER, SECRETARY, or MEMBER — ADMIN/VIEWER are never
-     * appropriate as a position-derived role for a member.
+     * V339/V358) to BRANCH_LEADER, SECRETARY, MEMBER, or VIEWER — ADMIN is
+     * never appropriate as a position-derived role for a member.
      */
     @Column(
             name = "mapped_role",
