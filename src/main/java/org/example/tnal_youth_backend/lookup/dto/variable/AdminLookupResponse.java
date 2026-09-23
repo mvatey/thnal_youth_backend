@@ -26,10 +26,16 @@ public record AdminLookupResponse(
 
         /*
          * Only meaningful for POSITION (BRANCH_LEADER / SECRETARY /
-         * MEMBER). Null for every other category, and for a position with
-         * no auto-assigned role.
+         * MEMBER / VIEWER). Null for every other category, and for a
+         * position with no auto-assigned role.
          */
         String mappedRole,
+
+        /*
+         * Only meaningful for POSITION when mappedRole is VIEWER
+         * (BRANCH_LEADER / SECRETARY). Null otherwise.
+         */
+        String mappedViewerScope,
 
         OffsetDateTime createdAt,
 
