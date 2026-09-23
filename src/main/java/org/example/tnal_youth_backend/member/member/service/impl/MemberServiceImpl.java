@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 
@@ -676,9 +677,16 @@ public class MemberServiceImpl implements MemberService {
                         request.role()
                 );
 
+        ViewerScope requestedViewerScope =
+                resolveRequestedViewerScope(
+                        position,
+                        request.viewerScope()
+                );
+
         validateAssignableRole(
                 currentUser.getRole(),
-                requestedRole
+                requestedRole,
+                requestedViewerScope
         );
 
         List<Long> effectiveBranchIds =
@@ -776,6 +784,7 @@ public class MemberServiceImpl implements MemberService {
             createActiveUserAccount(
                     savedMember,
                     requestedRole,
+                    requestedViewerScope,
                     request.username()
             );
 
@@ -1465,6 +1474,7 @@ public class MemberServiceImpl implements MemberService {
     private void createActiveUserAccount(
             Member member,
             UserRole requestedRole,
+            ViewerScope requestedViewerScope,
             String requestedUsername
     ) {
 
@@ -1606,6 +1616,10 @@ public class MemberServiceImpl implements MemberService {
                                 requestedRole
                         )
 
+                        .viewerScope(
+                                requestedViewerScope
+                        )
+
                         .status(
                                 UserStatus.ACTIVE
                         )
@@ -1717,6 +1731,29 @@ public class MemberServiceImpl implements MemberService {
                 : requestedRole;
     }
 
+    /*
+     * Mirrors resolveRequestedRole immediately above: a position's own
+     * mappedViewerScope wins whenever it's set (every VIEWER-mapped
+     * position requires one -- see
+     * AdminLookupServiceImpl#normalizeMappedViewerScope), falling back
+     * to whatever the request sent directly otherwise.
+     */
+    private ViewerScope resolveRequestedViewerScope(
+            Position position,
+            ViewerScope requestedViewerScope
+    ) {
+
+        if (position != null
+                && position.getMappedViewerScope() != null) {
+
+            return ViewerScope.valueOf(
+                    position.getMappedViewerScope()
+            );
+        }
+
+        return requestedViewerScope;
+    }
+
 
     private void validateDateOfBirth(
             LocalDate dateOfBirth
@@ -1749,7 +1786,8 @@ public class MemberServiceImpl implements MemberService {
 
     private void validateAssignableRole(
             UserRole actorRole,
-            UserRole requestedRole
+            UserRole requestedRole,
+            ViewerScope requestedViewerScope
     ) {
 
         if (actorRole == null) {
@@ -1777,7 +1815,9 @@ public class MemberServiceImpl implements MemberService {
                             requestedRole
                                     == UserRole.MEMBER
                                     || requestedRole
-                                    == UserRole.SECRETARY;
+                                    == UserRole.SECRETARY
+                                    || requestedRole
+                                    == UserRole.VIEWER;
 
                     case ADMIN ->
                             requestedRole
@@ -1785,7 +1825,9 @@ public class MemberServiceImpl implements MemberService {
                                     || requestedRole
                                     == UserRole.SECRETARY
                                     || requestedRole
-                                    == UserRole.BRANCH_LEADER;
+                                    == UserRole.BRANCH_LEADER
+                                    || requestedRole
+                                    == UserRole.VIEWER;
 
                     default ->
                             false;
@@ -1796,6 +1838,32 @@ public class MemberServiceImpl implements MemberService {
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to assign role: "
                             + requestedRole
+            );
+        }
+
+        if (requestedRole != UserRole.VIEWER) {
+            return;
+        }
+
+        if (requestedViewerScope != ViewerScope.BRANCH_LEADER
+                && requestedViewerScope != ViewerScope.SECRETARY) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "viewer_scope must be BRANCH_LEADER or SECRETARY"
+            );
+        }
+
+        /*
+         * A branch leader can only ever grant SECRETARY-level viewer
+         * access -- never BRANCH_LEADER-level, mirroring the same rule
+         * MemberPasswordServiceImpl#validateRoleChange already enforces
+         * when promoting an existing member to VIEWER.
+         */
+        if (actorRole == UserRole.BRANCH_LEADER
+                && requestedViewerScope != ViewerScope.SECRETARY) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Branch leader can only grant SECRETARY-level viewer access"
             );
         }
     }
