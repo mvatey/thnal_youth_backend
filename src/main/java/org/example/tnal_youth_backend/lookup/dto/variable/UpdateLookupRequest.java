@@ -23,11 +23,18 @@ public record UpdateLookupRequest(
         String category,
 
         /*
-         * Only used for POSITION. Must be BRANCH_LEADER, SECRETARY, or
-         * MEMBER when provided, or blank/null to clear the mapping.
-         * Ignored for every other category.
+         * Only used for POSITION. Must be BRANCH_LEADER, SECRETARY,
+         * MEMBER, or VIEWER when provided, or blank/null to clear the
+         * mapping. Ignored for every other category.
          */
-        String mappedRole
+        String mappedRole,
+
+        /*
+         * Only used for POSITION when mappedRole is VIEWER. Must be
+         * BRANCH_LEADER or SECRETARY when provided, or blank/null to
+         * clear it. Ignored for every other mappedRole/category.
+         */
+        String mappedViewerScope
 
 ) {
 }

@@ -460,7 +460,8 @@ public class LookupServiceImpl
                                 position.getCode(),
                                 position.getLabelKm(),
                                 position.getLabelEn(),
-                                position.getMappedRole()
+                                position.getMappedRole(),
+                                position.getMappedViewerScope()
                         )
                 )
                 .toList();

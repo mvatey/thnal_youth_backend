@@ -83,6 +83,20 @@ public class Position {
     )
     private String mappedRole;
 
+    /**
+     * Only meaningful when mappedRole is VIEWER -- which branch-scoped
+     * level (BRANCH_LEADER or SECRETARY) a member-linked viewer holding
+     * this position is assigned. See updateAccountRole's VIEWER branch,
+     * which this feeds the same way mappedRole feeds the role itself.
+     * Restricted at the database level (chk_positions_mapped_viewer_scope,
+     * V359).
+     */
+    @Column(
+            name = "mapped_viewer_scope",
+            length = 30
+    )
+    private String mappedViewerScope;
+
     @Column(
             name = "created_at",
             nullable = false,

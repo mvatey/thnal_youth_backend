@@ -123,6 +123,9 @@ public class AdminLookupServiceImpl
     private static final java.util.Set<String> POSITION_MAPPED_ROLES =
             java.util.Set.of("BRANCH_LEADER", "SECRETARY", "MEMBER", "VIEWER");
 
+    private static final java.util.Set<String> POSITION_MAPPED_VIEWER_SCOPES =
+            java.util.Set.of("BRANCH_LEADER", "SECRETARY");
+
 
     /*
      * ==========================================================
@@ -722,6 +725,11 @@ public class AdminLookupServiceImpl
 
             case POSITION -> {
 
+                String normalizedMappedRole =
+                        normalizeMappedRole(
+                                request.mappedRole()
+                        );
+
                 Position entity =
                         Position.builder()
                                 .code(code)
@@ -729,8 +737,12 @@ public class AdminLookupServiceImpl
                                 .labelEn(labelEn)
                                 .description(description)
                                 .mappedRole(
-                                        normalizeMappedRole(
-                                                request.mappedRole()
+                                        normalizedMappedRole
+                                )
+                                .mappedViewerScope(
+                                        normalizeMappedViewerScope(
+                                                normalizedMappedRole,
+                                                request.mappedViewerScope()
                                         )
                                 )
                                 .isActive(active)
@@ -1235,9 +1247,19 @@ public class AdminLookupServiceImpl
                         description
                 );
 
-                entity.setMappedRole(
+                String normalizedMappedRole =
                         normalizeMappedRole(
                                 request.mappedRole()
+                        );
+
+                entity.setMappedRole(
+                        normalizedMappedRole
+                );
+
+                entity.setMappedViewerScope(
+                        normalizeMappedViewerScope(
+                                normalizedMappedRole,
+                                request.mappedViewerScope()
                         )
                 );
 
@@ -1694,6 +1716,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1712,6 +1735,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -1734,6 +1758,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1752,6 +1777,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getDisplayOrder(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -1774,6 +1800,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1792,6 +1819,7 @@ public class AdminLookupServiceImpl
                 entity.getDescription(),
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -1814,6 +1842,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1832,6 +1861,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -1854,6 +1884,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1874,6 +1905,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1891,6 +1923,7 @@ public class AdminLookupServiceImpl
                 entity.getLabelEn(),
                 null,
                 entity.getIsActive(),
+                null,
                 null,
                 null,
                 null,
@@ -1914,6 +1947,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 entity.getCategory(),
                 null,
+                null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1934,6 +1968,7 @@ public class AdminLookupServiceImpl
                 entity.getSortOrder(),
                 null,
                 entity.getMappedRole(),
+                entity.getMappedViewerScope(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -1952,6 +1987,7 @@ public class AdminLookupServiceImpl
                 null,
                 entity.getIsActive(),
                 entity.getSortOrder(),
+                null,
                 null,
                 null,
                 entity.getCreatedAt(),
@@ -2452,6 +2488,69 @@ public class AdminLookupServiceImpl
                             + String.join(
                                     ", ",
                                     POSITION_MAPPED_ROLES
+                            )
+            );
+        }
+
+        return normalized;
+    }
+
+    /*
+     * Only meaningful when mappedRole is VIEWER -- e.g. two distinct
+     * positions, "Viewer (as Branch Leader)" and "Viewer (as
+     * Secretary)", both mappedRole=VIEWER but different scope. Required
+     * whenever mappedRole is VIEWER (a viewer position with no scope
+     * would leave user/edit's auto-fill with only half the picture);
+     * rejected outright for every other mappedRole, so it can't linger
+     * stale on a position that's since been remapped away from VIEWER.
+     */
+    private String normalizeMappedViewerScope(
+            String normalizedMappedRole,
+            String mappedViewerScope
+    ) {
+
+        String normalized =
+                trimToNull(
+                        mappedViewerScope
+                );
+
+        if (!"VIEWER".equals(normalizedMappedRole)) {
+
+            if (normalized != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "mappedViewerScope is only allowed when mappedRole is VIEWER"
+                );
+            }
+
+            return null;
+        }
+
+        if (normalized == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "mappedViewerScope is required when mappedRole is VIEWER"
+            );
+        }
+
+        normalized =
+                normalized
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                !POSITION_MAPPED_VIEWER_SCOPES.contains(
+                        normalized
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "mappedViewerScope must be one of: "
+                            + String.join(
+                                    ", ",
+                                    POSITION_MAPPED_VIEWER_SCOPES
                             )
             );
         }
