@@ -23,6 +23,7 @@ import org.example.tnal_youth_backend.member.status.repository.MemberStatusRepos
 import org.example.tnal_youth_backend.member.religion.repository.ReligionRepository;
 import org.example.tnal_youth_backend.member.nationality.repository.NationalityRepository;
 import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -58,6 +59,7 @@ public class MyAccountServiceImpl implements MyAccountService {
 
     private final PasswordEncoder passwordEncoder;
     private final MyAccountMapper myAccountMapper;
+    private final ViewerAccessService viewerAccessService;
 
 
     /*
@@ -89,6 +91,16 @@ public class MyAccountServiceImpl implements MyAccountService {
 
         User user =
                 getCurrentUserFromDatabase();
+
+        /*
+         * A member-linked VIEWER sees everything a branch leader/
+         * secretary would through the wider branch views, but not their
+         * own contribution/participation summary through their own My
+         * Account -- unlike a normal member-linked account, which does.
+         */
+        if (viewerAccessService.isViewer(user)) {
+            return new MyAccountSummaryResponse(0L, 0L, 0L);
+        }
 
         Member member =
                 getLinkedMember(user);

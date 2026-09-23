@@ -8,6 +8,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -36,6 +37,7 @@ public class MyActivityServiceImpl
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
+    private final ViewerAccessService viewerAccessService;
 
     /*
      * Your current activity_participants table does not contain:
@@ -189,6 +191,10 @@ public class MyActivityServiceImpl
     @Override
     public List<MyActivityResponse> getMyActivities() {
 
+        if (isCurrentUserViewer()) {
+            return List.of();
+        }
+
         Long memberId = getCurrentMemberId();
 
         return jdbcTemplate.query(
@@ -203,6 +209,17 @@ public class MyActivityServiceImpl
             Long activityId
     ) {
         validateActivityId(activityId);
+
+        /*
+         * A member-linked VIEWER doesn't see their own participation
+         * history through their own My Account (see getMyActivities).
+         */
+        if (isCurrentUserViewer()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Viewers cannot see their own participation history"
+            );
+        }
 
         Long memberId = getCurrentMemberId();
 
@@ -245,6 +262,10 @@ public class MyActivityServiceImpl
 
     @Override
     public MyActivitySummaryResponse getMyActivitySummary() {
+
+        if (isCurrentUserViewer()) {
+            return emptySummary();
+        }
 
         Long memberId = getCurrentMemberId();
 
@@ -501,6 +522,28 @@ public class MyActivityServiceImpl
         }
 
         return memberId;
+    }
+
+    /*
+     * A member-linked VIEWER sees everything a branch leader/secretary
+     * would through the wider branch views, but not their own
+     * participation history through their own My Account -- unlike a
+     * normal member-linked account, which does.
+     */
+    private boolean isCurrentUserViewer() {
+
+        User authenticatedUser =
+                SecurityUtil.getCurrentUser();
+
+        if (authenticatedUser == null
+                || authenticatedUser.getId() == null) {
+            return false;
+        }
+
+        return userRepository
+                .findById(authenticatedUser.getId())
+                .map(viewerAccessService::isViewer)
+                .orElse(false);
     }
 
     /*

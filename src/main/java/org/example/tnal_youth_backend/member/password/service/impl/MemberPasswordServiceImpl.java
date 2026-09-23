@@ -5,6 +5,7 @@ import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
+import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
 import org.example.tnal_youth_backend.authentication.repository.RefreshTokenRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -324,7 +325,8 @@ public class MemberPasswordServiceImpl
         validateRoleChange(
                 actorRole,
                 targetCurrentRole,
-                requestedRole
+                requestedRole,
+                request.viewerScope()
         );
 
         /*
@@ -395,6 +397,88 @@ public class MemberPasswordServiceImpl
             );
         }
 
+        /*
+         * =========================================
+         * SPECIAL CASE: VIEWER
+         * =========================================
+         *
+         * A member-linked viewer holds no branch_staff row at all -- it's
+         * a read-only role, not a staffing assignment -- so this is a
+         * plain role+scope write, no branchService/branchStaffRepository
+         * bookkeeping like the BRANCH_LEADER branch above. Still handled
+         * BEFORE the generic "no role change" early-return below, for the
+         * same reason as BRANCH_LEADER: a member already VIEWER switching
+         * between viewerScope values (e.g. SECRETARY -> BRANCH_LEADER)
+         * has an unchanged role but a changed scope, and that still has
+         * to be saved or the scope switch is silently dropped.
+         */
+        if (requestedRole == UserRole.VIEWER) {
+            if (member.getBranchId() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Member must belong to a branch before becoming a viewer"
+                );
+            }
+
+            ViewerScope requestedScope =
+                    request.viewerScope();
+
+            boolean noOp =
+                    targetCurrentRole == UserRole.VIEWER
+                            && requestedScope
+                                    == targetUser.getViewerScope();
+
+            if (noOp) {
+                return toResponse(
+                        targetUser
+                );
+            }
+
+            /*
+             * Same as any other demotion away from BRANCH_LEADER/
+             * SECRETARY -- a viewer keeps none of that coverage.
+             */
+            if (targetCurrentRole == UserRole.BRANCH_LEADER
+                    || targetCurrentRole == UserRole.SECRETARY) {
+                branchStaffRepository.endAllActiveAssignments(
+                        memberId
+                );
+            }
+
+            targetUser.setRole(
+                    UserRole.VIEWER
+            );
+
+            targetUser.setViewerScope(
+                    requestedScope
+            );
+
+            /*
+             * users.branch_id is what StaffBranchScopeService actually
+             * reads to resolve a viewer's branch -- nothing else keeps it
+             * in sync with members.branch_id for a fresh promotion (see
+             * MemberPersonalInfoServiceImpl#updateBranch, which only ever
+             * touches the member row), so it has to be set explicitly
+             * here.
+             */
+            targetUser.setBranchId(
+                    member.getBranchId()
+            );
+
+            User promotedUser =
+                    userRepository.saveAndFlush(
+                            targetUser
+                    );
+
+            revokeRefreshTokens(
+                    promotedUser
+            );
+
+            return toResponse(
+                    promotedUser
+            );
+        }
+
         if (targetCurrentRole == requestedRole) {
             return toResponse(
                     targetUser
@@ -440,6 +524,18 @@ public class MemberPasswordServiceImpl
                         memberId
                 );
             }
+        }
+
+        /*
+         * Only reached with requestedRole MEMBER or SECRETARY (VIEWER and
+         * BRANCH_LEADER both return earlier) -- neither keeps a
+         * viewer_scope, so a member-linked account leaving VIEWER here
+         * doesn't keep a stale scope value sitting on its row.
+         */
+        if (targetCurrentRole == UserRole.VIEWER) {
+            targetUser.setViewerScope(
+                    null
+            );
         }
 
         targetUser.setRole(
@@ -736,7 +832,8 @@ public class MemberPasswordServiceImpl
     private void validateRoleChange(
             UserRole actorRole,
             UserRole targetCurrentRole,
-            UserRole requestedRole
+            UserRole requestedRole,
+            ViewerScope requestedViewerScope
     ) {
         if (actorRole == null) {
             throw new ResponseStatusException(
@@ -782,20 +879,29 @@ public class MemberPasswordServiceImpl
 
         /*
          * ADMIN:
-         * - may manage MEMBER, SECRETARY, and BRANCH_LEADER
-         * - may assign any of those three roles
+         * - may manage MEMBER, SECRETARY, BRANCH_LEADER, and VIEWER
+         * - may assign any of those four roles
+         * - a VIEWER assignment must also carry a branch-scoped
+         *   viewer_scope (BRANCH_LEADER or SECRETARY) -- this is always
+         *   a real member with a real branch, never an org-wide viewer
          */
         if (actorRole == UserRole.ADMIN) {
             if (
                     requestedRole != UserRole.MEMBER
                             && requestedRole != UserRole.SECRETARY
-                            && requestedRole
-                            != UserRole.BRANCH_LEADER
+                            && requestedRole != UserRole.BRANCH_LEADER
+                            && requestedRole != UserRole.VIEWER
             ) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Admin can assign MEMBER, SECRETARY, "
-                                + "or BRANCH_LEADER only"
+                                + "BRANCH_LEADER, or VIEWER only"
+                );
+            }
+
+            if (requestedRole == UserRole.VIEWER) {
+                validateMemberViewerScope(
+                        requestedViewerScope
                 );
             }
 
@@ -825,25 +931,40 @@ public class MemberPasswordServiceImpl
 
             if (
                     targetCurrentRole != UserRole.MEMBER
-                            && targetCurrentRole
-                            != UserRole.SECRETARY
+                            && targetCurrentRole != UserRole.SECRETARY
+                            && targetCurrentRole != UserRole.VIEWER
             ) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Branch leader can only manage MEMBER "
-                                + "or SECRETARY accounts"
+                        "Branch leader can only manage MEMBER, "
+                                + "SECRETARY, or VIEWER accounts"
                 );
             }
 
             if (
                     requestedRole != UserRole.MEMBER
-                            && requestedRole
-                            != UserRole.SECRETARY
+                            && requestedRole != UserRole.SECRETARY
+                            && requestedRole != UserRole.VIEWER
             ) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Branch leader can only assign MEMBER "
-                                + "or SECRETARY"
+                        "Branch leader can only assign MEMBER, "
+                                + "SECRETARY, or VIEWER"
+                );
+            }
+
+            /*
+             * A branch leader can only ever grant SECRETARY-level
+             * viewer access -- never BRANCH_LEADER-level, mirroring
+             * the rule just above that a branch leader can't manage
+             * (or, by extension, create) another branch leader.
+             */
+            if (requestedRole == UserRole.VIEWER
+                    && requestedViewerScope != ViewerScope.SECRETARY) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Branch leader can only grant SECRETARY-level "
+                                + "viewer access"
                 );
             }
 
@@ -885,6 +1006,23 @@ public class MemberPasswordServiceImpl
     }
 
     /*
+     * A member-linked viewer is always a real member with a real branch
+     * -- ADMIN-scope (organization-wide) is deliberately never offered
+     * through this path, only through the standalone /admin/users flow.
+     */
+    private void validateMemberViewerScope(
+            ViewerScope requestedViewerScope
+    ) {
+        if (requestedViewerScope != ViewerScope.BRANCH_LEADER
+                && requestedViewerScope != ViewerScope.SECRETARY) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "viewer_scope must be BRANCH_LEADER or SECRETARY"
+            );
+        }
+    }
+
+    /*
      * ==========================================================
      * ACCOUNT MANAGEMENT VALIDATION
      * ==========================================================
@@ -922,21 +1060,22 @@ public class MemberPasswordServiceImpl
         }
 
         /*
-         * BRANCH_LEADER can manage MEMBER or SECRETARY
+         * BRANCH_LEADER can manage MEMBER, SECRETARY, or VIEWER
          * accounts inside their accessible branch scope.
          */
         if (actorRole == UserRole.BRANCH_LEADER) {
             if (
                     targetRole == UserRole.MEMBER
                             || targetRole == UserRole.SECRETARY
+                            || targetRole == UserRole.VIEWER
             ) {
                 return;
             }
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Branch leader can only manage MEMBER "
-                            + "or SECRETARY accounts"
+                    "Branch leader can only manage MEMBER, "
+                            + "SECRETARY, or VIEWER accounts"
             );
         }
 
@@ -1123,6 +1262,7 @@ public class MemberPasswordServiceImpl
                 null,
                 null,
                 null,
+                null,
                 null
         );
     }
@@ -1140,6 +1280,10 @@ public class MemberPasswordServiceImpl
 
                 user.getRole() != null
                         ? user.getRole().name()
+                        : null,
+
+                user.getViewerScope() != null
+                        ? user.getViewerScope().name()
                         : null,
 
                 user.getStatus() != null
