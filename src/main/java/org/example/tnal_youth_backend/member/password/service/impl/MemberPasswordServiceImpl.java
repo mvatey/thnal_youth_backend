@@ -436,11 +436,18 @@ public class MemberPasswordServiceImpl
 
             /*
              * Same as any other demotion away from BRANCH_LEADER/
-             * SECRETARY -- a viewer keeps none of that coverage.
+             * SECRETARY -- a viewer keeps none of that staffing
+             * coverage. Exempts VIEWER-mapped positions specifically,
+             * though: the personal-info endpoint (called before this one
+             * in the same multi-step save) already wrote the member's
+             * chosen VIEWER-mapped position as a non-primary row through
+             * the generic position slot -- ending every row here
+             * regardless would wipe that back out immediately, leaving
+             * the position field blank on reload.
              */
             if (targetCurrentRole == UserRole.BRANCH_LEADER
                     || targetCurrentRole == UserRole.SECRETARY) {
-                branchStaffRepository.endAllActiveAssignments(
+                branchStaffRepository.endAllActiveAssignmentsExceptViewerPositions(
                         memberId
                 );
             }

@@ -121,6 +121,39 @@ public class BranchStaffRepository {
     }
 
     /**
+     * Same as {@link #endAllActiveAssignments}, except it leaves any row
+     * whose position maps to VIEWER untouched -- used when promoting to
+     * VIEWER specifically. The personal-info endpoint (a separate request
+     * in the same multi-step save, always called before this one) is what
+     * writes that row in the first place via the generic non-primary
+     * position slot (see MemberPersonalInfoServiceImpl#updatePosition) --
+     * ending every active row here regardless would wipe out whichever
+     * specific VIEWER-mapped position was just chosen, the same class of
+     * bug endActivePrimaryAssignment already fixed for the
+     * BRANCH_LEADER -> SECRETARY lateral move.
+     */
+    public void endAllActiveAssignmentsExceptViewerPositions(Long memberId) {
+        if (memberId == null) {
+            return;
+        }
+        jdbcTemplate.update(
+                """
+                UPDATE branch_staff
+                SET ended_on = CURRENT_DATE,
+                    is_primary = FALSE,
+                    updated_at = NOW()
+                WHERE member_id = :memberId
+                  AND ended_on IS NULL
+                  AND position_id NOT IN (
+                      SELECT id FROM positions WHERE mapped_role = 'VIEWER'
+                  )
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+        );
+    }
+
+    /**
      * Ends only a member's active PRIMARY (leader) row, leaving any
      * non-primary rows untouched -- used when a BRANCH_LEADER moves
      * laterally to SECRETARY rather than being demoted to MEMBER. That
