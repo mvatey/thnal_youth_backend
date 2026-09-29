@@ -246,6 +246,11 @@ public class GlobalExceptionHandler {
                     Map.entry(
                             "uq_users_username",
                             "This username is already used by another account"
+                    ),
+                    Map.entry(
+                            "positions_code_key",
+                            "This position's generated code collided with an existing one. "
+                                    + "Please try saving again."
                     )
             );
 
