@@ -94,6 +94,16 @@ public class JwtServiceImpl implements JwtService {
         }
     }
 
+    /*
+     * Purely an internal JWT subject identifier -- generateToken and
+     * validateToken both call this against the CURRENT User entity, never
+     * a stored value, so changing which field wins here is self-consistent
+     * and doesn't invalidate any already-issued token. loginUsername is
+     * the fallback since it's the only one of the three guaranteed
+     * present for every account (see CreateUserRequest/
+     * MemberServiceImpl#createActiveUserAccount, both of which require it
+     * unconditionally even though phone/email are each optional).
+     */
     private String resolveUsername(User user) {
         if (user.getEmail() != null
                 && !user.getEmail().isBlank()) {
@@ -105,8 +115,13 @@ public class JwtServiceImpl implements JwtService {
             return user.getPhone().trim();
         }
 
+        if (user.getLoginUsername() != null
+                && !user.getLoginUsername().isBlank()) {
+            return user.getLoginUsername().trim();
+        }
+
         throw new IllegalStateException(
-                "User has no phone number or email"
+                "User has no phone number, email, or username"
         );
     }
 
