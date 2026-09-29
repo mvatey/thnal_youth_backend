@@ -10,6 +10,15 @@ public record CreateLookupRequest(
         @Size(max = 150)
         String labelKm,
 
+        /*
+         * Required (not just optional) since it also doubles as the
+         * source for this item's internal generated code (see
+         * AdminLookupServiceImpl#generateCode) -- without it, a
+         * Khmer-only label has no ASCII characters to build a
+         * human-readable code from and falls back to an opaque random
+         * one instead.
+         */
+        @NotBlank
         @Size(max = 150)
         String labelEn,
 
