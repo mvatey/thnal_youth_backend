@@ -26,8 +26,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         String identifier = phoneOrEmail.trim();
 
+        // See JwtAuthenticationFilter's identical fix -- findByEmailOrPhone
+        // alone misses a "None" contact-method account (loginUsername is
+        // the only identifier it has), same gap, same fix.
         User user = userRepository
-                .findByEmailOrPhone(identifier, identifier)
+                .findByLoginUsernameOrEmailOrPhone(identifier, identifier, identifier)
                 .orElseThrow(() ->
                         new UsernameNotFoundException(
                                 "User not found"

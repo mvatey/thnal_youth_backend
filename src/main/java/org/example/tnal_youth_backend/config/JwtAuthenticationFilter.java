@@ -54,8 +54,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     && SecurityContextHolder.getContext()
                     .getAuthentication() == null) {
 
+                /*
+                 * The JWT subject (see JwtServiceImpl#resolveUsername) is
+                 * email or phone when either is set, but falls back to
+                 * loginUsername for a "None" contact-method account that
+                 * has neither -- findByEmailOrPhone alone missed that
+                 * case, silently failing to authenticate every such
+                 * account on every request after login (a 403 with no
+                 * trace in any of this app's own logging, since the
+                 * rejection happens at the security-filter/authorization
+                 * layer before ever reaching a controller).
+                 */
                 User user = userRepository
-                        .findByEmailOrPhone(
+                        .findByLoginUsernameOrEmailOrPhone(
+                                phoneOrEmail,
                                 phoneOrEmail,
                                 phoneOrEmail
                         )
