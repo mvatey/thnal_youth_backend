@@ -66,6 +66,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -2107,7 +2108,7 @@ public class AdminLookupServiceImpl
 
         if (normalized == null) {
 
-            return "VARIABLE";
+            return randomFallbackCode();
         }
 
         normalized =
@@ -2129,11 +2130,35 @@ public class AdminLookupServiceImpl
                 normalized.isBlank()
         ) {
 
+            /*
+             * The label had no A-Z/0-9 characters at all -- most often a
+             * Khmer-only label, since Khmer script isn't ASCII -- so the
+             * whole thing got stripped above. Falling back to a fixed
+             * "VARIABLE" literal here (the old behavior) meant EVERY
+             * Khmer-only entry across the entire lookup system funneled
+             * through the exact same collision-prone retry sequence
+             * (VARIABLE, VARIABLE_2, VARIABLE_3, ...) forever, which is
+             * how two admins creating Khmer-only entries around the same
+             * time could both land on the same "next free" candidate and
+             * race each other into a 409 on the actual insert. A short
+             * random suffix makes collisions astronomically unlikely
+             * instead, while generateUniqueCode's own existence check
+             * still guarantees uniqueness either way.
+             */
             normalized =
-                    "VARIABLE";
+                    randomFallbackCode();
         }
 
         return normalized;
+    }
+
+    private String randomFallbackCode() {
+        return "VARIABLE_"
+                + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 8)
+                        .toUpperCase(Locale.ROOT);
     }
 
 
