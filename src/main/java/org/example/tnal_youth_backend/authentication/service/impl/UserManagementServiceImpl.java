@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.authentication.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.entity.UserBranchAssignment;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.authentication.model.enums.ViewerScope;
@@ -9,6 +10,7 @@ import org.example.tnal_youth_backend.authentication.model.request.CreateUserReq
 import org.example.tnal_youth_backend.authentication.model.request.UpdateUserRequest;
 import org.example.tnal_youth_backend.authentication.model.response.UserListItemResponse;
 import org.example.tnal_youth_backend.authentication.model.response.UserSummaryResponse;
+import org.example.tnal_youth_backend.authentication.repository.UserBranchAssignmentRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.service.UserManagementService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
@@ -48,6 +50,8 @@ public class UserManagementServiceImpl
     private final MemberRepository memberRepository;
 
     private final BranchRepository branchRepository;
+
+    private final UserBranchAssignmentRepository userBranchAssignmentRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -269,6 +273,13 @@ public class UserManagementServiceImpl
 
         User saved = userRepository.saveAndFlush(user);
 
+        if (role == UserRole.SECRETARY) {
+            replaceSecretaryBranchAssignments(
+                    saved.getId(),
+                    resolveSecretaryBranchIds(request.getBranchIds(), branchId)
+            );
+        }
+
         return toListItem(saved);
     }
 
@@ -366,6 +377,17 @@ public class UserManagementServiceImpl
 
         User saved = userRepository.saveAndFlush(user);
 
+        if (role == UserRole.SECRETARY) {
+            replaceSecretaryBranchAssignments(
+                    saved.getId(),
+                    resolveSecretaryBranchIds(request.getBranchIds(), branchId)
+            );
+        } else {
+            // No longer a standalone secretary (role changed away from it)
+            // -- any previously covered branches are no longer meaningful.
+            userBranchAssignmentRepository.deleteByUserId(saved.getId());
+        }
+
         return toListItem(saved);
     }
 
@@ -416,10 +438,9 @@ public class UserManagementServiceImpl
         return status;
     }
 
-    // Phone/email are each optional (at least one required, enforced by
-    // CreateUserRequest/UpdateUserRequest's isPhoneOrEmailPresent) -- an
-    // absent one must be stored as NULL, never "", so the partial unique
-    // indexes on these columns behave correctly.
+    // Phone/email are each fully optional (see CreateUserRequest's
+    // class-level note) -- an absent one must be stored as NULL, never
+    // "", so the partial unique indexes on these columns behave correctly.
     private String normalizeBlankToNull(String value) {
         if (value == null) {
             return null;
@@ -487,6 +508,62 @@ public class UserManagementServiceImpl
         return requestedBranchId;
     }
 
+    /**
+     * A standalone SECRETARY's full covered-branch list -- explicit
+     * {@code branchIds} when the request sent one, otherwise just the
+     * single (already-validated) home branch, same as every other
+     * branch-scoped role. Every id is validated to exist regardless of
+     * which source it came from.
+     */
+    private List<Long> resolveSecretaryBranchIds(
+            List<Long> requestedBranchIds,
+            Long fallbackBranchId
+    ) {
+        List<Long> branchIds = requestedBranchIds != null && !requestedBranchIds.isEmpty()
+                ? requestedBranchIds.stream().distinct().toList()
+                : List.of(fallbackBranchId);
+
+        for (Long branchId : branchIds) {
+            if (branchId == null || !branchRepository.existsById(branchId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Branch " + branchId + " does not exist"
+                );
+            }
+        }
+
+        return branchIds;
+    }
+
+    /**
+     * Full replace, not an incremental add/remove -- the caller (the
+     * user/edit modal) always sends the complete desired set, same
+     * pattern member/personalinfo's secretary branch multiselect already
+     * uses. Cheap here since a secretary's branch list is always small.
+     */
+    private void replaceSecretaryBranchAssignments(
+            Long userId,
+            List<Long> branchIds
+    ) {
+        userBranchAssignmentRepository.deleteByUserId(userId);
+
+        if (branchIds == null || branchIds.isEmpty()) {
+            return;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        List<UserBranchAssignment> rows = branchIds.stream()
+                .map(branchId -> UserBranchAssignment.builder()
+                        .userId(userId)
+                        .branchId(branchId)
+                        .createdAt(now)
+                        .build())
+                .toList();
+
+        userBranchAssignmentRepository.saveAll(rows);
+    }
+
     // =========================================================
     // MAPPING
     // =========================================================
@@ -501,6 +578,14 @@ public class UserManagementServiceImpl
                 .id(user.getId())
                 .memberId(user.getMemberId())
                 .branchId(user.getBranchId())
+                .branchIds(
+                        user.getMemberId() == null && user.getRole() == UserRole.SECRETARY
+                                ? userBranchAssignmentRepository
+                                        .findBranchIdsByUserId(user.getId())
+                                        .stream()
+                                        .toList()
+                                : null
+                )
                 .username(user.getLoginUsername())
                 .phone(user.getPhone())
                 .email(user.getEmail())
