@@ -37,7 +37,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int MAX_FAILED_ATTEMPTS = 20;
     private static final long LOCK_DURATION_MINUTES = 15;
 
     private static final String ACTIVE_ACCOUNT_STATUS = "ACTIVE";
