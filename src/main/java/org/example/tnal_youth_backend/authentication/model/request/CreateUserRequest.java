@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
 
+import java.util.List;
+
 /*
  * Request payload for an ADMIN creating a standalone login account.
  * The account may use any application role. BRANCH_LEADER, SECRETARY,
@@ -62,9 +64,20 @@ public class CreateUserRequest {
 
     /**
      * Required for MEMBER, SECRETARY, and BRANCH_LEADER standalone
-     * accounts. Optional for ADMIN and VIEWER.
+     * accounts. Optional for ADMIN and VIEWER. For a SECRETARY, this is
+     * the account's home branch; when branchIds below also carries
+     * entries, the first one there is expected to match this.
      */
     private Long branchId;
+
+    /**
+     * Only meaningful for a standalone SECRETARY account -- every branch
+     * it covers, mirroring what branch_staff already lets a member-linked
+     * secretary have. Null/empty means "just branchId, one branch only",
+     * same as every other role. See
+     * UserManagementServiceImpl#replaceSecretaryBranchAssignments.
+     */
+    private List<Long> branchIds;
 
     /** Required only when role is VIEWER. */
     private String viewerScope;

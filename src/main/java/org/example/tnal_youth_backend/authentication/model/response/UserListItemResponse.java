@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -20,6 +21,14 @@ public class UserListItemResponse {
     private Long memberId;
 
     private Long branchId;
+
+    /**
+     * Only populated for a standalone SECRETARY account -- every branch
+     * it covers (see UserBranchAssignment). Null for every other
+     * role/account type, same as branchId already being null for
+     * organization-wide roles.
+     */
+    private List<Long> branchIds;
 
     private String username;
 

@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -8,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
+
+import java.util.List;
 
 /*
  * Request payload for an ADMIN editing an existing standalone login
@@ -18,9 +19,9 @@ import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
  * password is optional, same as at creation — leave it blank to keep
  * the account's current password unchanged.
  *
- * Phone and email are each optional, but at least one is required —
- * matches CreateUserRequest, so a user created with only one of them
- * doesn't immediately fail validation on its next edit.
+ * Phone and email are each fully optional, matching CreateUserRequest --
+ * a user created with neither (username-only) must not fail validation
+ * on its next edit just for staying that way.
  */
 @Getter
 @Setter
@@ -52,9 +53,21 @@ public class UpdateUserRequest {
 
     /**
      * Required for MEMBER, SECRETARY, and BRANCH_LEADER standalone
-     * accounts. Optional for ADMIN and VIEWER.
+     * accounts. Optional for ADMIN and VIEWER. For a SECRETARY, this is
+     * the account's home branch; when branchIds below also carries
+     * entries, the first one there is expected to match this.
      */
     private Long branchId;
+
+    /**
+     * Only meaningful for a standalone SECRETARY account -- the full,
+     * replace-in-place set of branches it should cover after this save.
+     * Null means "don't touch the existing assignments" (e.g. this edit
+     * isn't touching branch coverage at all); an empty list is rejected
+     * the same way a missing branchId already is for this role. See
+     * UserManagementServiceImpl#replaceSecretaryBranchAssignments.
+     */
+    private List<Long> branchIds;
 
     /** Required only when role is VIEWER. */
     private String viewerScope;
@@ -70,10 +83,4 @@ public class UpdateUserRequest {
      * stay as-is, since those are system-managed, not admin-toggled).
      */
     private String status;
-
-    @AssertTrue(message = "Either phone number or email is required")
-    public boolean isPhoneOrEmailPresent() {
-        return (phone != null && !phone.isBlank())
-                || (email != null && !email.isBlank());
-    }
 }

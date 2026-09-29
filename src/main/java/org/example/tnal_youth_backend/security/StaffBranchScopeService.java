@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.security;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserBranchAssignmentRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
@@ -31,6 +32,7 @@ public class StaffBranchScopeService {
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
+    private final UserBranchAssignmentRepository userBranchAssignmentRepository;
     private final ViewerAccessService viewerAccessService;
 
     public Set<Long> currentStaffBranchIds() {
@@ -100,7 +102,10 @@ public class StaffBranchScopeService {
          * branch change and would accidentally keep access to an old branch.
          *
          * Standalone secretary:
-         * there is no member row, so users.branch_id is the source of truth.
+         * user_branch_assignments holds the full covered-branch list (see
+         * UserBranchAssignment's own docblock) -- fall back to the single
+         * users.branch_id for an account created before that table
+         * existed, or one that was never given any extra branches.
          */
         if (user.getMemberId() != null) {
             branchIds.addAll(
@@ -109,8 +114,13 @@ public class StaffBranchScopeService {
             memberRepository.findById(user.getMemberId())
                     .map(Member::getBranchId)
                     .ifPresent(branchIds::add);
-        } else if (user.getBranchId() != null) {
-            branchIds.add(user.getBranchId());
+        } else {
+            branchIds.addAll(
+                    userBranchAssignmentRepository.findBranchIdsByUserId(user.getId()));
+
+            if (branchIds.isEmpty() && user.getBranchId() != null) {
+                branchIds.add(user.getBranchId());
+            }
         }
 
         if (branchIds.isEmpty()) {
