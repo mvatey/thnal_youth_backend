@@ -1510,13 +1510,6 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        if (phone == null && email == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Phone or email is required to create a user account"
-            );
-        }
-
         if (requestedRole == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

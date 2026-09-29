@@ -1,6 +1,5 @@
 package org.example.tnal_youth_backend.authentication.model.request;
 
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -26,9 +25,12 @@ import org.example.tnal_youth_backend.common.validation.PasswordPolicy;
  * a real one on first login (User.mustChangePassword) since the admin
  * setting it up isn't the person who'll actually use it.
  *
- * Phone and email are each optional, but at least one is required
- * (see isPhoneOrEmailPresent below) — this is safe specifically
- * because this path never depends on OTP delivery at creation time.
+ * Phone and email are each fully optional -- a username-only account
+ * (neither set) is a deliberate, supported choice, not an incomplete
+ * one, since username is always required above and this path never
+ * depends on OTP delivery at creation time either way. Password reset
+ * for such an account goes through staff (see AuthController's
+ * forgot-password flow), not self-service OTP.
  */
 @Getter
 @Setter
@@ -74,10 +76,4 @@ public class CreateUserRequest {
     @NotBlank(message = "Password is required")
     @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
     private String password;
-
-    @AssertTrue(message = "Either phone number or email is required")
-    public boolean isPhoneOrEmailPresent() {
-        return (phone != null && !phone.isBlank())
-                || (email != null && !email.isBlank());
-    }
 }
