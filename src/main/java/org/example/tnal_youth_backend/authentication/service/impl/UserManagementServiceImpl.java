@@ -547,6 +547,14 @@ public class UserManagementServiceImpl
     ) {
         userBranchAssignmentRepository.deleteByUserId(userId);
 
+        // Hibernate flushes all scheduled inserts before any deletes within
+        // the same flush, regardless of call order -- without this, the
+        // insert below for a branch that was ALREADY assigned (kept across
+        // this edit, not newly added) would run before its own delete and
+        // collide with the still-present old row on
+        // uq_user_branch_assignments.
+        userBranchAssignmentRepository.flush();
+
         if (branchIds == null || branchIds.isEmpty()) {
             return;
         }
