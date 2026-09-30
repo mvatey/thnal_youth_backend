@@ -18,6 +18,17 @@ public interface BranchService {
 
     List<BranchOptionResponse> getAllActiveBranchOptions();
 
+    /**
+     * Every branch a SECRETARY_REGIONAL position anchored at
+     * {@code branchId} would cover -- lets the member/create form show
+     * the computed (locked) branch list before actually saving anything.
+     * Uses the exact same live computation
+     * StaffBranchScopeService#computeRegionalCoverage uses for real
+     * authorization, so this preview can never drift out of sync with
+     * what the account will actually be granted.
+     */
+    List<BranchOptionResponse> getRegionalCoverageOptions(Long branchId);
+
     List<BranchResponse> getAllBranches();
 
     BranchResponse getBranchById(Long id);

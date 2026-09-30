@@ -74,6 +74,24 @@ public class BranchController {
         );
     }
 
+    /*
+     * Preview-only: every branch a SECRETARY_REGIONAL position anchored
+     * here would cover, for member/create's locked branch multiselect.
+     * Admin-only, matching that only an admin can ever assign such a
+     * position in the first place (see
+     * MemberServiceImpl#validateAssignableRole).
+     */
+    @GetMapping("/{id}/regional-coverage")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<BranchOptionResponse>>
+    getRegionalCoverage(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                branchService.getRegionalCoverageOptions(id)
+        );
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BranchResponse>

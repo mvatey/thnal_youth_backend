@@ -12,10 +12,48 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public interface BranchRepository
         extends JpaRepository<Branch, Long> {
+
+    /*
+     * A regional secretary's live branch coverage (see
+     * StaffBranchScopeService) -- every branch sharing the anchor's
+     * province, i.e. the province branch itself plus every district and
+     * commune branch under it, since all three tiers carry the same
+     * province_id.
+     */
+    @Query(
+            "SELECT b.id FROM Branch b WHERE b.provinceId = :provinceId"
+    )
+    List<Long> findIdsByProvinceId(
+            @Param("provinceId") Short provinceId
+    );
+
+    /*
+     * Same idea, one tier down -- every branch sharing the anchor's
+     * district (the district branch itself plus its communes).
+     */
+    @Query(
+            "SELECT b.id FROM Branch b WHERE b.districtId = :districtId"
+    )
+    List<Long> findIdsByDistrictId(
+            @Param("districtId") Integer districtId
+    );
+
+    /*
+     * branch_levels has no JPA entity of its own (see LookupServiceImpl) --
+     * a plain native lookup is simplest for the one field this needs.
+     */
+    @Query(
+            value = "SELECT code FROM branch_levels WHERE id = :branchLevelId",
+            nativeQuery = true
+    )
+    Optional<String> findLevelCodeById(
+            @Param("branchLevelId") Short branchLevelId
+    );
 
     @Query(
             value = """
