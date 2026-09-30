@@ -122,7 +122,7 @@ public class AdminLookupServiceImpl
             java.util.Set.of("CASH", "BANK", "OTHER");
 
     private static final java.util.Set<String> POSITION_MAPPED_ROLES =
-            java.util.Set.of("BRANCH_LEADER", "SECRETARY", "MEMBER", "VIEWER");
+            java.util.Set.of("BRANCH_LEADER", "SECRETARY", "SECRETARY_REGIONAL", "MEMBER", "VIEWER");
 
     private static final java.util.Set<String> POSITION_MAPPED_VIEWER_SCOPES =
             java.util.Set.of("BRANCH_LEADER", "SECRETARY");

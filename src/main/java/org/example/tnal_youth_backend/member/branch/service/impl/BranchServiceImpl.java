@@ -129,7 +129,8 @@ public class BranchServiceImpl implements BranchService {
                                 branch.getId(),
                                 branch.getBranchCode(),
                                 branch.getNameKm(),
-                                branch.getNameEn()
+                                branch.getNameEn(),
+                                branch.getBranchLevelId()
                         )
                 )
                 .toList();
@@ -146,7 +147,33 @@ public class BranchServiceImpl implements BranchService {
                                 branch.getId(),
                                 branch.getBranchCode(),
                                 branch.getNameKm(),
-                                branch.getNameEn()
+                                branch.getNameEn(),
+                                branch.getBranchLevelId()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchOptionResponse> getRegionalCoverageOptions(
+            Long branchId
+    ) {
+        findBranchById(branchId);
+
+        Set<Long> coveredIds =
+                staffBranchScopeService.computeRegionalCoverage(branchId);
+
+        return branchRepository
+                .findAllById(coveredIds)
+                .stream()
+                .map(branch ->
+                        new BranchOptionResponse(
+                                branch.getId(),
+                                branch.getBranchCode(),
+                                branch.getNameKm(),
+                                branch.getNameEn(),
+                                branch.getBranchLevelId()
                         )
                 )
                 .toList();

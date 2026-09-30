@@ -686,7 +686,8 @@ public class MemberServiceImpl implements MemberService {
         validateAssignableRole(
                 currentUser.getRole(),
                 requestedRole,
-                requestedViewerScope
+                requestedViewerScope,
+                position
         );
 
         List<Long> effectiveBranchIds =
@@ -1714,6 +1715,15 @@ public class MemberServiceImpl implements MemberService {
         if (position != null
                 && position.getMappedRole() != null) {
 
+            // SECRETARY_REGIONAL is a position-level marker, not a real
+            // UserRole -- UserRole.valueOf would throw. The account's
+            // actual role is always plain SECRETARY; the "regional" part
+            // only changes how StaffBranchScopeService computes their
+            // branch coverage (see isRegionalSecretaryPosition below).
+            if (isRegionalSecretaryPosition(position)) {
+                return UserRole.SECRETARY;
+            }
+
             return UserRole.valueOf(
                     position.getMappedRole()
             );
@@ -1722,6 +1732,15 @@ public class MemberServiceImpl implements MemberService {
         return requestedRole == null
                 ? UserRole.MEMBER
                 : requestedRole;
+    }
+
+    private boolean isRegionalSecretaryPosition(
+            Position position
+    ) {
+        return position != null
+                && "SECRETARY_REGIONAL".equals(
+                        position.getMappedRole()
+                );
     }
 
     /*
@@ -1780,7 +1799,8 @@ public class MemberServiceImpl implements MemberService {
     private void validateAssignableRole(
             UserRole actorRole,
             UserRole requestedRole,
-            ViewerScope requestedViewerScope
+            ViewerScope requestedViewerScope,
+            Position position
     ) {
 
         if (actorRole == null) {
@@ -1831,6 +1851,21 @@ public class MemberServiceImpl implements MemberService {
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to assign role: "
                             + requestedRole
+            );
+        }
+
+        /*
+         * A regional secretary's branch coverage can span an entire
+         * province -- far beyond what even a branch leader (scoped to
+         * exactly one branch) has any authority over granting. Only an
+         * admin can assign this position, regardless of the ordinary
+         * BRANCH_LEADER-can-assign-SECRETARY rule above.
+         */
+        if (isRegionalSecretaryPosition(position)
+                && actorRole != UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only an admin can assign a regional secretary position"
             );
         }
 

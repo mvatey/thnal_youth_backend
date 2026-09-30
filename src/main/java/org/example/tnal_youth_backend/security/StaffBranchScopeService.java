@@ -6,9 +6,13 @@ import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserBranchAssignmentRepository;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
 import org.example.tnal_youth_backend.member.branch.repository.BranchStaffRepository;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.position.entity.Position;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +37,8 @@ public class StaffBranchScopeService {
     private final MemberRepository memberRepository;
     private final BranchStaffRepository branchStaffRepository;
     private final UserBranchAssignmentRepository userBranchAssignmentRepository;
+    private final BranchRepository branchRepository;
+    private final PositionRepository positionRepository;
     private final ViewerAccessService viewerAccessService;
 
     public Set<Long> currentStaffBranchIds() {
@@ -108,12 +114,22 @@ public class StaffBranchScopeService {
          * existed, or one that was never given any extra branches.
          */
         if (user.getMemberId() != null) {
+            Member member =
+                    memberRepository.findById(user.getMemberId()).orElse(null);
+
+            Set<Long> regionalCoverage =
+                    regionalSecretaryBranchIds(member);
+
+            if (regionalCoverage != null) {
+                return regionalCoverage;
+            }
+
             branchIds.addAll(
                     branchStaffRepository.findActiveBranchIdsByMemberId(user.getMemberId()));
 
-            memberRepository.findById(user.getMemberId())
-                    .map(Member::getBranchId)
-                    .ifPresent(branchIds::add);
+            if (member != null && member.getBranchId() != null) {
+                branchIds.add(member.getBranchId());
+            }
         } else {
             branchIds.addAll(
                     userBranchAssignmentRepository.findBranchIdsByUserId(user.getId()));
@@ -129,6 +145,88 @@ public class StaffBranchScopeService {
         }
 
         return Set.copyOf(branchIds);
+    }
+
+    /**
+     * A "regional secretary"'s live coverage, or {@code null} if this
+     * member isn't one -- the caller falls through to the normal
+     * flat-list resolution in that case. Computed fresh from the
+     * anchor branch (the member's own home branch) and the CURRENT
+     * branch hierarchy on every call, by design -- see the
+     * SECRETARY_REGIONAL mappedRole's own docblock on Position. A
+     * province/district added under this anchor after the member was
+     * assigned this position is included automatically, with no
+     * re-save needed.
+     */
+    private Set<Long> regionalSecretaryBranchIds(Member member) {
+        if (member == null
+                || member.getId() == null
+                || member.getBranchId() == null) {
+            return null;
+        }
+
+        Short positionId =
+                branchStaffRepository
+                        .findActivePositionId(
+                                member.getId(),
+                                member.getBranchId()
+                        )
+                        .orElse(null);
+
+        if (positionId == null) {
+            return null;
+        }
+
+        Position position =
+                positionRepository.findById(positionId).orElse(null);
+
+        if (position == null
+                || !"SECRETARY_REGIONAL".equals(position.getMappedRole())) {
+            return null;
+        }
+
+        return computeRegionalCoverage(member.getBranchId());
+    }
+
+    /**
+     * Every branch covered by a SECRETARY_REGIONAL position anchored at
+     * the given branch -- public so the frontend's "preview the
+     * computed branch list" call (see BranchController) can reuse the
+     * exact same logic the live authorization check above uses,
+     * instead of a second implementation that could drift out of sync.
+     */
+    public Set<Long> computeRegionalCoverage(Long anchorBranchId) {
+        if (anchorBranchId == null) {
+            return Set.of();
+        }
+
+        Branch anchor =
+                branchRepository.findById(anchorBranchId).orElse(null);
+
+        if (anchor == null) {
+            return Set.of(anchorBranchId);
+        }
+
+        String levelCode =
+                branchRepository
+                        .findLevelCodeById(anchor.getBranchLevelId())
+                        .orElse(null);
+
+        if ("PROVINCE".equals(levelCode)) {
+            return Set.copyOf(
+                    branchRepository.findIdsByProvinceId(anchor.getProvinceId())
+            );
+        }
+
+        if ("DISTRICT".equals(levelCode) && anchor.getDistrictId() != null) {
+            return Set.copyOf(
+                    branchRepository.findIdsByDistrictId(anchor.getDistrictId())
+            );
+        }
+
+        // COMMUNE-anchored (or an unrecognized level) -- no expansion,
+        // same as a plain single-branch secretary.
+        return Set.of(anchor.getId());
     }
 
     private Long branchLeaderBranchId(User user) {

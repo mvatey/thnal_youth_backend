@@ -13,6 +13,7 @@ import org.example.tnal_youth_backend.member.branch.service.BranchService;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
+import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 import org.example.tnal_youth_backend.member.password.dto.request.MemberPasswordResetRequest;
 import org.example.tnal_youth_backend.member.password.dto.request.UpdateMemberRoleRequest;
 import org.example.tnal_youth_backend.member.password.dto.response.MemberPasswordStatusResponse;
@@ -55,6 +56,8 @@ public class MemberPasswordServiceImpl
     private final BranchService branchService;
 
     private final BranchStaffRepository branchStaffRepository;
+
+    private final PositionRepository positionRepository;
 
     /*
      * ==========================================================
@@ -328,6 +331,34 @@ public class MemberPasswordServiceImpl
                 requestedRole,
                 request.viewerScope()
         );
+
+        /*
+         * A regional secretary's branch coverage can span an entire
+         * province -- far beyond what even a branch leader (scoped to
+         * exactly one branch) has any authority over granting. Only an
+         * admin can assign this position, mirroring
+         * MemberServiceImpl#validateAssignableRole's identical check at
+         * creation time.
+         */
+        if (
+                requestedRole == UserRole.SECRETARY
+                        && request.positionId() != null
+                        && actorRole != UserRole.ADMIN
+        ) {
+            positionRepository
+                    .findById(request.positionId())
+                    .filter(position ->
+                            "SECRETARY_REGIONAL".equals(
+                                    position.getMappedRole()
+                            )
+                    )
+                    .ifPresent(position -> {
+                        throw new ResponseStatusException(
+                                HttpStatus.FORBIDDEN,
+                                "Only an admin can assign a regional secretary position"
+                        );
+                    });
+        }
 
         /*
          * =========================================
