@@ -212,6 +212,7 @@ public class UserManagementServiceImpl
             CreateUserRequest request
     ) {
         UserRole role = parseRole(request.getRole());
+        boolean regional = isRegionalSecretaryRole(request.getRole());
         ViewerScope viewerScope = validateViewerScope(role, request.getViewerScope());
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
@@ -258,6 +259,7 @@ public class UserManagementServiceImpl
                 .email(email)
                 .passwordHash(passwordHash)
                 .role(role)
+                .isRegionalSecretary(regional)
                 .viewerScope(viewerScope)
                 .status(UserStatus.ACTIVE)
                 .activatedAt(now)
@@ -273,7 +275,7 @@ public class UserManagementServiceImpl
 
         User saved = userRepository.saveAndFlush(user);
 
-        if (role == UserRole.SECRETARY) {
+        if (role == UserRole.SECRETARY && !regional) {
             replaceSecretaryBranchAssignments(
                     saved.getId(),
                     resolveSecretaryBranchIds(request.getBranchIds(), branchId)
@@ -315,6 +317,7 @@ public class UserManagementServiceImpl
         }
 
         UserRole role = parseRole(request.getRole());
+        boolean regional = isRegionalSecretaryRole(request.getRole());
         ViewerScope viewerScope = validateViewerScope(role, request.getViewerScope());
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
@@ -360,6 +363,7 @@ public class UserManagementServiceImpl
         user.setPhone(phone);
         user.setEmail(email);
         user.setRole(role);
+        user.setRegionalSecretary(regional);
         user.setViewerScope(viewerScope);
         user.setBranchId(branchId);
 
@@ -377,14 +381,16 @@ public class UserManagementServiceImpl
 
         User saved = userRepository.saveAndFlush(user);
 
-        if (role == UserRole.SECRETARY) {
+        if (role == UserRole.SECRETARY && !regional) {
             replaceSecretaryBranchAssignments(
                     saved.getId(),
                     resolveSecretaryBranchIds(request.getBranchIds(), branchId)
             );
         } else {
-            // No longer a standalone secretary (role changed away from it)
-            // -- any previously covered branches are no longer meaningful.
+            // Either no longer a standalone secretary at all, or now a
+            // regional one -- a regional secretary's coverage is
+            // live-computed from branchId (the anchor), never stored as a
+            // flat list, so any previously saved rows are stale either way.
             userBranchAssignmentRepository.deleteByUserId(saved.getId());
         }
 
@@ -449,7 +455,18 @@ public class UserManagementServiceImpl
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /*
+     * "SECRETARY_REGIONAL" is not a real UserRole -- same convention
+     * MemberServiceImpl.resolveRequestedRole uses for a member-linked
+     * account's Position mappedRole. It resolves to plain SECRETARY here;
+     * isRegionalSecretaryRole() below is what actually remembers the
+     * distinction, on the User row itself since a standalone account has
+     * no Position to carry it on.
+     */
     private UserRole parseRole(String rawRole) {
+        if (isRegionalSecretaryRole(rawRole)) {
+            return UserRole.SECRETARY;
+        }
         try {
             return UserRole.valueOf(rawRole.trim().toUpperCase());
         } catch (IllegalArgumentException | NullPointerException exception) {
@@ -458,6 +475,10 @@ public class UserManagementServiceImpl
                     "Unknown role: " + rawRole
             );
         }
+    }
+
+    private boolean isRegionalSecretaryRole(String rawRole) {
+        return rawRole != null && "SECRETARY_REGIONAL".equalsIgnoreCase(rawRole.trim());
     }
 
     private ViewerScope validateViewerScope(UserRole role, String rawScope) {
@@ -587,13 +608,16 @@ public class UserManagementServiceImpl
                 .memberId(user.getMemberId())
                 .branchId(user.getBranchId())
                 .branchIds(
-                        user.getMemberId() == null && user.getRole() == UserRole.SECRETARY
+                        user.getMemberId() == null
+                                && user.getRole() == UserRole.SECRETARY
+                                && !user.isRegionalSecretary()
                                 ? userBranchAssignmentRepository
                                         .findBranchIdsByUserId(user.getId())
                                         .stream()
                                         .toList()
                                 : null
                 )
+                .isRegionalSecretary(user.isRegionalSecretary())
                 .username(user.getLoginUsername())
                 .phone(user.getPhone())
                 .email(user.getEmail())

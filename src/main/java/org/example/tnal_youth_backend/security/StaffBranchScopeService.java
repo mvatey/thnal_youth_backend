@@ -131,6 +131,10 @@ public class StaffBranchScopeService {
                 branchIds.add(member.getBranchId());
             }
         } else {
+            if (user.isRegionalSecretary()) {
+                return computeRegionalCoverage(user.getBranchId());
+            }
+
             branchIds.addAll(
                     userBranchAssignmentRepository.findBranchIdsByUserId(user.getId()));
 

@@ -30,6 +30,15 @@ public class UserListItemResponse {
      */
     private List<Long> branchIds;
 
+    /**
+     * Only meaningful when role == SECRETARY and memberId is null -- marks
+     * a standalone secretary whose coverage is live-computed from branchId
+     * (the anchor) instead of the flat branchIds list above. Lets the
+     * user/edit modal correctly re-select "Secretary (Regional)" instead
+     * of plain "Secretary" when loading an existing account.
+     */
+    private boolean isRegionalSecretary;
+
     private String username;
 
     private String phone;
