@@ -63,6 +63,15 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private UserRole role;
 
+    // Only meaningful when role == SECRETARY and memberId == null. Marks a
+    // standalone secretary whose branch coverage is LIVE-computed from
+    // branchId (the anchor) instead of a flat user_branch_assignments list --
+    // the standalone counterpart to a member-linked secretary whose Position
+    // is mapped to SECRETARY_REGIONAL (see StaffBranchScopeService).
+    @Column(name = "is_regional_secretary", nullable = false)
+    @Builder.Default
+    private boolean isRegionalSecretary = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "viewer_scope", length = 30)
     private ViewerScope viewerScope;
