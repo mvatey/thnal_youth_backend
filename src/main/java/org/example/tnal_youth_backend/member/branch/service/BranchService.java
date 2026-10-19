@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.branch.service;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchAreaOptionResponse;
 import org.example.tnal_youth_backend.member.branch.dto.request.CreateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.request.UpdateBranchRequest;
 import org.example.tnal_youth_backend.member.branch.dto.response.BranchResponse;
@@ -15,6 +16,9 @@ import java.util.Set;
 public interface BranchService {
 
     List<BranchOptionResponse> getAccessibleBranchOptions();
+
+    /** Same branches as above, plus each one's level and parent province/district. */
+    List<BranchAreaOptionResponse> getAccessibleBranchAreaOptions();
 
     List<BranchOptionResponse> getAllActiveBranchOptions();
 

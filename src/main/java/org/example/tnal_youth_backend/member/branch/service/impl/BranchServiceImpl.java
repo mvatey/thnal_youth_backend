@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.member.branch.service.impl;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchAreaOptionResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.repository.ActivityRepository;
 import org.example.tnal_youth_backend.donation.repository.DonationRepository;
@@ -62,6 +63,47 @@ public class BranchServiceImpl implements BranchService {
     @Transactional(readOnly = true)
     public List<BranchOptionResponse>
     getAccessibleBranchOptions() {
+        return resolveAccessibleBranches()
+                .stream()
+                .map(branch ->
+                        new BranchOptionResponse(
+                                branch.getId(),
+                                branch.getBranchCode(),
+                                branch.getNameKm(),
+                                branch.getNameEn(),
+                                branch.getBranchLevelId()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchAreaOptionResponse> getAccessibleBranchAreaOptions() {
+        java.util.Map<Short, String> levelCodes = new java.util.HashMap<>();
+
+        return resolveAccessibleBranches()
+                .stream()
+                .map(branch -> new BranchAreaOptionResponse(
+                        branch.getId(),
+                        branch.getBranchCode(),
+                        branch.getNameKm(),
+                        branch.getNameEn(),
+                        branch.getBranchLevelId() == null
+                                ? null
+                                : levelCodes.computeIfAbsent(
+                                        branch.getBranchLevelId(),
+                                        levelId -> branchRepository
+                                                .findLevelCodeById(levelId)
+                                                .orElse(null)
+                                ),
+                        branch.getProvinceId(),
+                        branch.getDistrictId()
+                ))
+                .toList();
+    }
+
+    private List<Branch> resolveAccessibleBranches() {
 
         User principal =
                 SecurityUtil.getCurrentUser();
@@ -122,18 +164,7 @@ public class BranchServiceImpl implements BranchService {
             );
         }
 
-        return branches
-                .stream()
-                .map(branch ->
-                        new BranchOptionResponse(
-                                branch.getId(),
-                                branch.getBranchCode(),
-                                branch.getNameKm(),
-                                branch.getNameEn(),
-                                branch.getBranchLevelId()
-                        )
-                )
-                .toList();
+        return branches;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.lookup.service;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchAreaOptionResponse;
 import org.example.tnal_youth_backend.lookup.dto.*;
 
 import java.util.List;
@@ -11,6 +12,9 @@ public interface LookupService {
 
     /** Province + district branches only -- the anchor choices for a regional secretary. */
     List<LookupOptionResponse<Long>> getRegionalAnchorBranchOptions();
+
+    /** Accessible branches with level + parent ids, for "this area and everything under it" filters. */
+    List<BranchAreaOptionResponse> getBranchAreaOptions();
 
     List<LookupOptionResponse<Long>>
     getActivityInvitableBranchOptions();

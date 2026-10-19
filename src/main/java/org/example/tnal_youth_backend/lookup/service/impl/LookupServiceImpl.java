@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.lookup.service.impl;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchAreaOptionResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
 import org.example.tnal_youth_backend.activity.repository.ActivityTypeRepository;
@@ -137,6 +138,12 @@ public class LookupServiceImpl
                         )
                 )
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchAreaOptionResponse> getBranchAreaOptions() {
+        return branchService.getAccessibleBranchAreaOptions();
     }
 
     @Override
