@@ -254,6 +254,23 @@ public class MemberPersonalInfoServiceImpl
             );
         }
 
+        /*
+         * A regional secretary's coverage can span an entire province --
+         * far beyond what a branch leader (scoped to one branch) has any
+         * authority to grant. Same admin-only rule as
+         * MemberServiceImpl#validateAssignableRole at creation and
+         * MemberPasswordServiceImpl#updateAccountRole for the role call;
+         * this is the third way a position gets assigned, so it needs the
+         * check too.
+         */
+        if ("SECRETARY_REGIONAL".equals(position.getMappedRole())
+                && getCurrentActorRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only an admin can assign a regional secretary position"
+            );
+        }
+
         User currentUser =
                 SecurityUtil.getCurrentUser();
 

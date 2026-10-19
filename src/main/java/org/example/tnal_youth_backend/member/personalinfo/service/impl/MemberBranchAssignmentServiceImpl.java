@@ -69,6 +69,7 @@ public class MemberBranchAssignmentServiceImpl
                 );
 
         requireSecretaryAccount(memberId);
+        rejectIfRegionalSecretary(memberId);
 
         if (!branchRepository.existsById(branchId)) {
             throw new ResponseStatusException(
@@ -195,6 +196,7 @@ public class MemberBranchAssignmentServiceImpl
 
         Member member = requireMember(memberId);
         requireSecretaryAccount(memberId);
+        rejectIfRegionalSecretary(memberId);
 
         // Validate every requested destination against the ACTOR's scope.
         // Admin is unrestricted; Branch Leader is restricted by
@@ -324,6 +326,7 @@ public class MemberBranchAssignmentServiceImpl
                 );
 
         requireSecretaryAccount(memberId);
+        rejectIfRegionalSecretary(memberId);
 
         Member member =
                 requireMember(memberId);
@@ -418,6 +421,41 @@ public class MemberBranchAssignmentServiceImpl
                         userRepository.saveAndFlush(user);
                     }
                 });
+    }
+
+    /*
+     * A regional secretary's coverage is computed live from their key
+     * branch (see StaffBranchScopeService#computeRegionalCoverage), never
+     * stored as an editable list -- so this flat add/replace/remove
+     * surface has nothing to change for one, and silently writing
+     * branch_staff rows here would just be ignored at authorization time
+     * while looking like it worked. Reject instead; change the key branch
+     * to change the coverage.
+     */
+    private void rejectIfRegionalSecretary(Long memberId) {
+        Boolean regional = jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM branch_staff bs
+                    JOIN positions p ON p.id = bs.position_id
+                    JOIN members m ON m.id = bs.member_id
+                                  AND m.branch_id = bs.branch_id
+                    WHERE bs.member_id = :memberId
+                      AND bs.ended_on IS NULL
+                      AND p.mapped_role = 'SECRETARY_REGIONAL'
+                )
+                """,
+                new MapSqlParameterSource("memberId", memberId),
+                Boolean.class
+        );
+
+        if (Boolean.TRUE.equals(regional)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A regional secretary's branches follow their key branch -- change the key branch instead of editing the branch list"
+            );
+        }
     }
 
     private User requireSecretaryAccount(
