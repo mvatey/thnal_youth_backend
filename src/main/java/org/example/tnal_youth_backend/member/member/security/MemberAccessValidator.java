@@ -395,6 +395,8 @@ public class MemberAccessValidator {
         User currentUser = getCurrentUser();
         UserRole actorRole = currentUser.getRole();
 
+        requireAdminForRegionalSecretaryBranchChange(memberId);
+
         if (actorRole == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -440,6 +442,44 @@ public class MemberAccessValidator {
             validateManagementBranchAccess(
                     currentUser,
                     targetMember.getBranchId()
+            );
+        }
+    }
+
+    /**
+     * A regional secretary's coverage is computed from their key branch
+     * and can span a whole province -- far beyond what a branch leader
+     * (one branch) or another secretary may reshape, and only an admin can
+     * grant that position in the first place. So only an admin may change
+     * where such a member is anchored (their branch, the branch list, or
+     * the position itself). Deliberately limited to branch-related
+     * changes: every other detail of the account/member (name, contact,
+     * records, ...) stays editable by whoever could edit it before.
+     *
+     * A member acting on their own record is let through, so the
+     * existing "cannot change your own branch ..." rules keep producing
+     * their own, clearer errors.
+     */
+    public void requireAdminForRegionalSecretaryBranchChange(
+            Long targetMemberId
+    ) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+
+        if (
+                currentUser.getMemberId() != null
+                        && currentUser.getMemberId().equals(targetMemberId)
+        ) {
+            return;
+        }
+
+        if (staffBranchScopeService.isRegionalSecretary(targetMemberId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only an admin can change a regional secretary's branch"
             );
         }
     }

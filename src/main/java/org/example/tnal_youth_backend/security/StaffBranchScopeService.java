@@ -193,6 +193,21 @@ public class StaffBranchScopeService {
     }
 
     /**
+     * Whether this member currently holds a SECRETARY_REGIONAL position
+     * (at their own branch). Same check real authorization uses, exposed
+     * so write paths can restrict who may manage such a member.
+     */
+    public boolean isRegionalSecretary(Long memberId) {
+        if (memberId == null) {
+            return false;
+        }
+
+        return regionalSecretaryBranchIds(
+                memberRepository.findById(memberId).orElse(null)
+        ) != null;
+    }
+
+    /**
      * Every branch covered by a SECRETARY_REGIONAL position anchored at
      * the given branch -- public so the frontend's "preview the
      * computed branch list" call (see BranchController) can reuse the

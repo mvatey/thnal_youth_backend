@@ -882,6 +882,16 @@ public class MemberServiceImpl implements MemberService {
                 targetBranch.getId()
         );
 
+        if (!java.util.Objects.equals(
+                targetBranch.getId(),
+                member.getBranchId()
+        )) {
+            memberAccessValidator
+                    .requireAdminForRegionalSecretaryBranchChange(
+                            id
+                    );
+        }
+
         String phone =
                 trimToNull(
                         request.phone()
