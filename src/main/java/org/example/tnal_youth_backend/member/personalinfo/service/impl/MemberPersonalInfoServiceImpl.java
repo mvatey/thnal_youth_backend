@@ -145,18 +145,12 @@ public class MemberPersonalInfoServiceImpl
             member.setRegisteredVoter(request.registeredVoter());
         }
 
-        // Marking someone deceased (or undoing it) is a status change on
-        // another person, so it needs the same permission as the other
-        // sensitive fields -- not merely the right to edit their profile.
-        if (
-                request.lifeStatus() != null
-                        && request.lifeStatus() != member.getLifeStatus()
-        ) {
-            memberAccessValidator
-                    .validateCanManageSensitiveFields(
-                            memberId
-                    );
-
+        // Any admin, branch leader or secretary who can access this member
+        // (validateAccessibleMember above) may record that they are alive
+        // or deceased -- deliberately NOT the stricter sensitive-fields
+        // permission that role and status changes need, since leaders and
+        // secretaries are the ones who learn of a member's passing.
+        if (request.lifeStatus() != null) {
             member.setLifeStatus(request.lifeStatus());
         }
 
