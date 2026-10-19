@@ -707,6 +707,12 @@ public class MemberServiceImpl implements MemberService {
         Member member =
                 Member.builder()
 
+                        .registeredVoter(
+                                Boolean.TRUE.equals(
+                                        request.registeredVoter()
+                                )
+                        )
+
                         .branchId(
                                 branch.getId()
                         )

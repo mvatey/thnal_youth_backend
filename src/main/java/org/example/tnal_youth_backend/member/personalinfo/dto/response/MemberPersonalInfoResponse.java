@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.model.enums.UserStatus;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.member.entity.LifeStatus;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 
 import java.time.LocalDate;
@@ -79,6 +80,12 @@ public record MemberPersonalInfoResponse(
         UserRole accountRole,
 
         @JsonProperty("account_status")
-        UserStatus accountStatus
+        UserStatus accountStatus,
+
+        @JsonProperty("registered_voter")
+        boolean registeredVoter,
+
+        @JsonProperty("life_status")
+        LifeStatus lifeStatus
 ) {
 }
