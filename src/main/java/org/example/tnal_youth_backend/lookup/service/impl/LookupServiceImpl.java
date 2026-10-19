@@ -38,6 +38,7 @@ import org.example.tnal_youth_backend.member.religion.repository.ReligionReposit
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.example.tnal_youth_backend.authentication.security.SecurityUtil.getCurrentUser;
 
@@ -98,6 +99,35 @@ public class LookupServiceImpl
                         .getAccessibleBranchOptions();
 
         return branches.stream()
+                .map(branch ->
+                        new LookupOptionResponse<>(
+                                branch.id(),
+                                branch.branchCode(),
+                                branch.nameKm(),
+                                branch.nameEn()
+                        )
+                )
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LookupOptionResponse<Long>>
+    getRegionalAnchorBranchOptions() {
+
+        Set<Short> anchorLevelIds =
+                getBranchLevelOptions().stream()
+                        .filter(level ->
+                                "PROVINCE".equals(level.code())
+                                        || "DISTRICT".equals(level.code()))
+                        .map(LookupOptionResponse::value)
+                        .collect(java.util.stream.Collectors.toSet());
+
+        return branchService
+                .getAllActiveBranchOptions()
+                .stream()
+                .filter(branch ->
+                        anchorLevelIds.contains(branch.branchLevelId()))
                 .map(branch ->
                         new LookupOptionResponse<>(
                                 branch.id(),

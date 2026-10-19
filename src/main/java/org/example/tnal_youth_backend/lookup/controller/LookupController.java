@@ -125,6 +125,12 @@ public class LookupController {
         );
     }
 
+    @GetMapping("/regional-anchor-branches")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<LookupOptionResponse<Long>>> getRegionalAnchorBranchOptions() {
+        return ResponseEntity.ok(lookupService.getRegionalAnchorBranchOptions());
+    }
+
     @GetMapping("/branch-levels")
     public ResponseEntity<List<LookupOptionResponse<Short>>> getBranchLevelOptions() {
         return ResponseEntity.ok(lookupService.getBranchLevelOptions());

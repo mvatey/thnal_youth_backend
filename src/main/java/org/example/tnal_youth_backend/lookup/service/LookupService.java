@@ -9,6 +9,9 @@ public interface LookupService {
     List<LookupOptionResponse<Long>>
     getBranchOptions();
 
+    /** Province + district branches only -- the anchor choices for a regional secretary. */
+    List<LookupOptionResponse<Long>> getRegionalAnchorBranchOptions();
+
     List<LookupOptionResponse<Long>>
     getActivityInvitableBranchOptions();
 
