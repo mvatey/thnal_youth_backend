@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.member.entity.LifeStatus;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 
 import java.time.LocalDate;
@@ -74,12 +75,17 @@ public record UpdateMyPersonalInfoRequest(
         @JsonProperty("permanent_address")
         String permanentAddress,
 
-        /**
-         * Optional; null leaves the stored value unchanged. Life status is
-         * deliberately NOT here -- a member can't mark themselves
-         * deceased; only staff can, through the personal-info endpoint.
-         */
+        /** Optional; null leaves the stored value unchanged. */
         @JsonProperty("registered_voter")
-        Boolean registeredVoter
+        Boolean registeredVoter,
+
+        /**
+         * Optional; null leaves the stored value unchanged. The account
+         * owner may update their own life status (staff can too, through
+         * the personal-info endpoint, which additionally requires the
+         * sensitive-fields permission).
+         */
+        @JsonProperty("life_status")
+        LifeStatus lifeStatus
 ) {
 }
