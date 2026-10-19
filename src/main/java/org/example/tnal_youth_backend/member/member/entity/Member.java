@@ -116,6 +116,15 @@ public class Member {
     )
     private MaritalStatus maritalStatus;
 
+    // "មានឈ្មោះបោះឆ្នោត" -- whether this member is on the voter list.
+    @Column(name = "registered_voter", nullable = false)
+    private boolean registeredVoter;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "life_status", nullable = false, length = 20)
+    @Builder.Default
+    private LifeStatus lifeStatus = LifeStatus.ALIVE;
+
     @Column(
             name = "phone",
             length = 30

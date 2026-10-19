@@ -72,6 +72,14 @@ public record UpdateMyPersonalInfoRequest(
         String currentAddress,
 
         @JsonProperty("permanent_address")
-        String permanentAddress
+        String permanentAddress,
+
+        /**
+         * Optional; null leaves the stored value unchanged. Life status is
+         * deliberately NOT here -- a member can't mark themselves
+         * deceased; only staff can, through the personal-info endpoint.
+         */
+        @JsonProperty("registered_voter")
+        Boolean registeredVoter
 ) {
 }

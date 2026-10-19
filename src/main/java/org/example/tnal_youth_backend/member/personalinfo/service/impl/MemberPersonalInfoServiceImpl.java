@@ -141,6 +141,25 @@ public class MemberPersonalInfoServiceImpl
         updateNationality(member, request.nationalityId());
         updateMemberLevel(member, request.memberLevelId());
 
+        if (request.registeredVoter() != null) {
+            member.setRegisteredVoter(request.registeredVoter());
+        }
+
+        // Marking someone deceased (or undoing it) is a status change on
+        // another person, so it needs the same permission as the other
+        // sensitive fields -- not merely the right to edit their profile.
+        if (
+                request.lifeStatus() != null
+                        && request.lifeStatus() != member.getLifeStatus()
+        ) {
+            memberAccessValidator
+                    .validateCanManageSensitiveFields(
+                            memberId
+                    );
+
+            member.setLifeStatus(request.lifeStatus());
+        }
+
         boolean branchChanged =
                 member.getBranchId() == null
                         || !member.getBranchId()
@@ -784,7 +803,11 @@ public class MemberPersonalInfoServiceImpl
 
                 user != null
                         ? user.getStatus()
-                        : null
+                        : null,
+
+                member.isRegisteredVoter(),
+
+                member.getLifeStatus()
         );
     }
 
@@ -1148,6 +1171,10 @@ public class MemberPersonalInfoServiceImpl
           );
 
           member.setJoinedOn(request.joinedOn());
+
+        if (request.registeredVoter() != null) {
+            member.setRegisteredVoter(request.registeredVoter());
+        }
 
         Member savedMember =
                 memberRepository

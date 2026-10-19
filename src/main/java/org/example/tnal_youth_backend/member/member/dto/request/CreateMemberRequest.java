@@ -71,6 +71,10 @@ public record CreateMemberRequest(
         Short statusId,
 
         @JsonProperty("profile_photo_id")
-        Long profilePhotoId
+        Long profilePhotoId,
+
+        /** Optional; null is stored as not registered. */
+        @JsonProperty("registered_voter")
+        Boolean registeredVoter
 ) {
 }

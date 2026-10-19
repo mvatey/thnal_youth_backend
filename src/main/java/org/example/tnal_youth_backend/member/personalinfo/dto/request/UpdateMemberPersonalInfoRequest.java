@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.member.entity.LifeStatus;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
 
 import java.time.LocalDate;
@@ -54,6 +55,14 @@ public record UpdateMemberPersonalInfoRequest(
         String currentAddress,
 
         @JsonProperty("permanent_address")
-        String permanentAddress
+        String permanentAddress,
+
+        /** Optional; null leaves the stored value unchanged. */
+        @JsonProperty("registered_voter")
+        Boolean registeredVoter,
+
+        /** Optional; null leaves the stored value unchanged. */
+        @JsonProperty("life_status")
+        LifeStatus lifeStatus
 ) {
 }
