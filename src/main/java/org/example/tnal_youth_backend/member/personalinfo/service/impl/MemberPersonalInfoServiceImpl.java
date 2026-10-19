@@ -1176,6 +1176,10 @@ public class MemberPersonalInfoServiceImpl
             member.setRegisteredVoter(request.registeredVoter());
         }
 
+        if (request.lifeStatus() != null) {
+            member.setLifeStatus(request.lifeStatus());
+        }
+
         Member savedMember =
                 memberRepository
                         .saveAndFlush(
