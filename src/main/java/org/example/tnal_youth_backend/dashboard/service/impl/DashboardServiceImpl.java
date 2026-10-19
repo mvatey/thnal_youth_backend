@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.dashboard.service.impl;
 
+import org.example.tnal_youth_backend.dashboard.repository.projection.ActivityTypeInfoRow;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.dashboard.dto.*;
@@ -361,23 +362,45 @@ public class DashboardServiceImpl implements DashboardService {
                             );
         }
 
+        java.util.Map<String, ActivityTypeInfoRow> typeInfoByCode =
+                dashboardRepository
+                        .findActiveActivityTypes()
+                        .stream()
+                        .collect(
+                                Collectors.toMap(
+                                        type -> type.code()
+                                                .trim()
+                                                .toUpperCase(),
+                                        type -> type,
+                                        (first, second) -> first
+                                )
+                        );
+
         return DashboardActivitiesResponse.builder()
                 .recentCompleted(
                         recentCompletedRows.stream()
-                                .map(this::toActivityResponse)
+                                .map(row -> toActivityResponse(row, typeInfoByCode))
                                 .toList()
                 )
                 .upcoming(
                         upcomingRows.stream()
-                                .map(this::toActivityResponse)
+                                .map(row -> toActivityResponse(row, typeInfoByCode))
                                 .toList()
                 )
                 .build();
     }
 
     private DashboardActivityItemResponse toActivityResponse(
-            DashboardActivityRow row
+            DashboardActivityRow row,
+            java.util.Map<String, ActivityTypeInfoRow> typeInfoByCode
     ) {
+        ActivityTypeInfoRow typeInfo =
+                row.type() == null
+                        ? null
+                        : typeInfoByCode.get(
+                                row.type().trim().toUpperCase()
+                        );
+
         return DashboardActivityItemResponse.builder()
                 .id(row.id())
                 .titleKm(row.titleKm())
@@ -387,6 +410,8 @@ public class DashboardServiceImpl implements DashboardService {
                 .endsAt(row.endsAt())
                 .locationName(row.locationName())
                 .type(row.type())
+                .typeLabelKm(typeInfo != null ? typeInfo.labelKm() : null)
+                .typeLabelEn(typeInfo != null ? typeInfo.labelEn() : null)
                 .participantCount(
                         row.participantCount()
                 )

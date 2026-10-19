@@ -19,6 +19,10 @@ public record DashboardActivityItemResponse(
         OffsetDateTime endsAt,
         String locationName,
         String type,
+        // The type lookup's current labels (so a rename on the variable
+        // page shows here); null for a type that is no longer active.
+        String typeLabelKm,
+        String typeLabelEn,
         Long participantCount
 ) {
 }
