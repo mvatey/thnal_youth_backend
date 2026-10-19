@@ -150,6 +150,11 @@ public class MemberPersonalInfoServiceImpl
 
         if (branchChanged) {
             memberAccessValidator
+                    .requireAdminForRegionalSecretaryBranchChange(
+                            memberId
+                    );
+
+            memberAccessValidator
                     .validateCanManageSensitiveFields(
                             memberId
                     );
@@ -219,6 +224,13 @@ public class MemberPersonalInfoServiceImpl
         if (unchanged) {
             return;
         }
+
+        // Moving a member into or out of a regional-secretary position
+        // changes which branches they cover, so it's a branch change too.
+        memberAccessValidator
+                .requireAdminForRegionalSecretaryBranchChange(
+                        member.getId()
+                );
 
         memberAccessValidator
                 .validateCanManageSensitiveFields(
