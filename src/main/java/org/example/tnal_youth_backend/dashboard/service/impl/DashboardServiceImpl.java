@@ -470,11 +470,41 @@ public class DashboardServiceImpl implements DashboardService {
                         0L
                 );
 
+        // Every active type, not just internal/external -- the pie shows
+        // them all, and a type added later on the variable page appears
+        // here on its own. Types with no activities this month are kept
+        // (count 0) so each one keeps a stable slot/colour in the legend.
+        List<ActivityTypeBreakdownResponse.TypeCount> types =
+                dashboardRepository
+                        .findActiveActivityTypes()
+                        .stream()
+                        .map(type ->
+                                new ActivityTypeBreakdownResponse.TypeCount(
+                                        type.code(),
+                                        type.labelKm(),
+                                        type.labelEn(),
+                                        counts.getOrDefault(
+                                                type.code()
+                                                        .trim()
+                                                        .toUpperCase(),
+                                                0L
+                                        )
+                                )
+                        )
+                        .toList();
+
+        long total =
+                counts.values()
+                        .stream()
+                        .mapToLong(Long::longValue)
+                        .sum();
+
         return ActivityTypeBreakdownResponse.builder()
                 .period(range.period())
                 .internal(internal)
                 .external(external)
-                .total(internal + external)
+                .total(total)
+                .types(types)
                 .build();
     }
 

@@ -2,6 +2,7 @@ package org.example.tnal_youth_backend.dashboard.repository;
 
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.dashboard.repository.projection.ActivityTypeCountRow;
+import org.example.tnal_youth_backend.dashboard.repository.projection.ActivityTypeInfoRow;
 import org.example.tnal_youth_backend.dashboard.repository.projection.DashboardActivityRow;
 import org.example.tnal_youth_backend.dashboard.repository.projection.DonationTotals;
 import org.example.tnal_youth_backend.dashboard.repository.projection.MonthlyParticipationRow;
@@ -1059,6 +1060,24 @@ public class DashboardRepository {
                                 "participant_count"
                         )
                 );
+    }
+
+    public List<ActivityTypeInfoRow>
+    findActiveActivityTypes() {
+        return jdbcTemplate.query(
+                """
+                SELECT code, label_km, label_en
+                FROM activity_types
+                WHERE is_active = TRUE
+                ORDER BY sort_order, id
+                """,
+                (resultSet, rowNumber) ->
+                        new ActivityTypeInfoRow(
+                                resultSet.getString("code"),
+                                resultSet.getString("label_km"),
+                                resultSet.getString("label_en")
+                        )
+        );
     }
 
     private RowMapper<ActivityTypeCountRow>
