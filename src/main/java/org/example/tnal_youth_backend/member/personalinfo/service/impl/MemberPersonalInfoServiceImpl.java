@@ -1,5 +1,7 @@
 package org.example.tnal_youth_backend.member.personalinfo.service.impl;
 
+import java.util.LinkedHashSet;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
@@ -72,6 +74,8 @@ public class MemberPersonalInfoServiceImpl
     private final BranchRepository branchRepository;
 
     private final BranchStaffRepository branchStaffRepository;
+
+    private final StaffBranchScopeService staffBranchScopeService;
 
     private final PositionRepository positionRepository;
 
@@ -1346,13 +1350,42 @@ public class MemberPersonalInfoServiceImpl
             Long memberId
     ) {
         Set<Long> branchIds =
+                new LinkedHashSet<>();
+
+        Set<Long> staffedBranchIds =
                 branchStaffRepository
                         .findActiveBranchIdsByMemberId(
                                 memberId
                         );
 
-        if (branchIds == null
-                || branchIds.isEmpty()) {
+        if (staffedBranchIds != null) {
+            branchIds.addAll(staffedBranchIds);
+        }
+
+        // A regional secretary's coverage is computed live from their
+        // key branch (it's never stored as branch_staff rows), so it has
+        // to be added here for them to show every branch they cover --
+        // the same way a multi-branch secretary's stored list does.
+        Member member =
+                memberRepository
+                        .findById(memberId)
+                        .orElse(null);
+
+        if (
+                member != null
+                        && member.getBranchId() != null
+                        && staffBranchScopeService
+                        .isRegionalSecretary(memberId)
+        ) {
+            branchIds.addAll(
+                    staffBranchScopeService
+                            .computeRegionalCoverage(
+                                    member.getBranchId()
+                            )
+            );
+        }
+
+        if (branchIds.isEmpty()) {
             return List.of();
         }
 
