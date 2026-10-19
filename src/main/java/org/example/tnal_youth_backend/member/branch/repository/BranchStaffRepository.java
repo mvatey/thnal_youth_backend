@@ -504,11 +504,27 @@ public class BranchStaffRepository {
                 .addValue("positionId", positionId)
                 .addValue("appointedBy", appointedBy);
 
-        int updated = jdbcTemplate.update("""
+        // A member holds exactly one position per branch, but switching
+        // between a plain multi-branch secretary and a regional one (or
+        // any history from before this was enforced) can leave more than
+        // one active non-primary row here. Updating them all in place to
+        // the same position violates uq_branch_staff_active_assignment, so
+        // end every row holding a different position first, then keep the
+        // one that already holds this position (or insert it).
+        jdbcTemplate.update("""
                 UPDATE branch_staff
-                SET position_id = :positionId, appointed_by = :appointedBy, updated_at = NOW()
+                SET ended_on = CURRENT_DATE, updated_at = NOW()
                 WHERE branch_id = :branchId AND member_id = :memberId
                   AND ended_on IS NULL AND is_primary = FALSE
+                  AND position_id <> :positionId
+                """, params);
+
+        int updated = jdbcTemplate.update("""
+                UPDATE branch_staff
+                SET appointed_by = :appointedBy, updated_at = NOW()
+                WHERE branch_id = :branchId AND member_id = :memberId
+                  AND ended_on IS NULL AND is_primary = FALSE
+                  AND position_id = :positionId
                 """, params);
 
         if (updated == 0) {
