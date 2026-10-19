@@ -1,5 +1,6 @@
 package org.example.tnal_youth_backend.lookup.controller;
 
+import org.example.tnal_youth_backend.member.branch.dto.response.BranchAreaOptionResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.lookup.dto.*;
@@ -129,6 +130,11 @@ public class LookupController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<LookupOptionResponse<Long>>> getRegionalAnchorBranchOptions() {
         return ResponseEntity.ok(lookupService.getRegionalAnchorBranchOptions());
+    }
+
+    @GetMapping("/branch-areas")
+    public ResponseEntity<List<BranchAreaOptionResponse>> getBranchAreaOptions() {
+        return ResponseEntity.ok(lookupService.getBranchAreaOptions());
     }
 
     @GetMapping("/branch-levels")
