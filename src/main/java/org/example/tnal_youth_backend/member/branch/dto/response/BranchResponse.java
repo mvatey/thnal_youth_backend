@@ -51,6 +51,12 @@ public record BranchResponse(
         OffsetDateTime createdAt,
 
         @JsonProperty("updated_at")
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+
+        @JsonProperty("has_location")
+        boolean hasLocation,
+
+        @JsonProperty("legally_registered")
+        boolean legallyRegistered
 ) {
 }

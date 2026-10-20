@@ -79,6 +79,16 @@ public record UpdateMyPersonalInfoRequest(
         @JsonProperty("registered_voter")
         Boolean registeredVoter,
 
+        /** Optional; null leaves it unchanged, blank clears it. */
+        @JsonProperty("national_id_number")
+        @Size(max = 50, message = "National ID number must not exceed 50 characters")
+        String nationalIdNumber,
+
+        /** Optional; null leaves it unchanged, blank clears it. Cleared when not a registered voter. */
+        @JsonProperty("voter_card_number")
+        @Size(max = 50, message = "Voter card number must not exceed 50 characters")
+        String voterCardNumber,
+
         /**
          * Optional; null leaves the stored value unchanged. The account
          * owner may update their own life status (staff can too, through

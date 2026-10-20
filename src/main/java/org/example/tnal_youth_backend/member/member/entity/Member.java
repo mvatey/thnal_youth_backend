@@ -120,6 +120,15 @@ public class Member {
     @Column(name = "registered_voter", nullable = false)
     private boolean registeredVoter;
 
+    // Optional identity numbers for the member register: the national ID
+    // card number, and the voter card number (only kept while the member is
+    // on the voter list).
+    @Column(name = "national_id_number", length = 50)
+    private String nationalIdNumber;
+
+    @Column(name = "voter_card_number", length = 50)
+    private String voterCardNumber;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "life_status", nullable = false, length = 20)
     @Builder.Default

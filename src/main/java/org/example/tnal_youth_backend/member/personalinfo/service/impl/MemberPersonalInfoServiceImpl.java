@@ -149,6 +149,12 @@ public class MemberPersonalInfoServiceImpl
             member.setRegisteredVoter(request.registeredVoter());
         }
 
+        applyIdentityNumbers(
+                member,
+                request.nationalIdNumber(),
+                request.voterCardNumber()
+        );
+
         // Any admin, branch leader or secretary who can access this member
         // (validateAccessibleMember above) may record that they are alive
         // or deceased -- deliberately NOT the stricter sensitive-fields
@@ -811,7 +817,11 @@ public class MemberPersonalInfoServiceImpl
 
                 member.isRegisteredVoter(),
 
-                member.getLifeStatus()
+                member.getLifeStatus(),
+
+                member.getNationalIdNumber(),
+
+                member.getVoterCardNumber()
         );
     }
 
@@ -916,6 +926,32 @@ public class MemberPersonalInfoServiceImpl
         }
 
         return normalizedValue;
+    }
+
+    /*
+     * National ID number and voter card number: null leaves the stored
+     * value alone, blank clears it. The voter card number only belongs to
+     * a member who is on the voter list, so it is dropped when they are
+     * not.
+     */
+    private void applyIdentityNumbers(
+            Member member,
+            String nationalIdNumber,
+            String voterCardNumber
+    ) {
+        if (nationalIdNumber != null) {
+            member.setNationalIdNumber(
+                    normalizeText(nationalIdNumber)
+            );
+        }
+
+        if (!member.isRegisteredVoter()) {
+            member.setVoterCardNumber(null);
+        } else if (voterCardNumber != null) {
+            member.setVoterCardNumber(
+                    normalizeText(voterCardNumber)
+            );
+        }
     }
 
     private String normalizeText(
@@ -1179,6 +1215,12 @@ public class MemberPersonalInfoServiceImpl
         if (request.registeredVoter() != null) {
             member.setRegisteredVoter(request.registeredVoter());
         }
+
+        applyIdentityNumbers(
+                member,
+                request.nationalIdNumber(),
+                request.voterCardNumber()
+        );
 
         if (request.lifeStatus() != null) {
             member.setLifeStatus(request.lifeStatus());

@@ -86,6 +86,12 @@ public record MemberPersonalInfoResponse(
         boolean registeredVoter,
 
         @JsonProperty("life_status")
-        LifeStatus lifeStatus
+        LifeStatus lifeStatus,
+
+        @JsonProperty("national_id_number")
+        String nationalIdNumber,
+
+        @JsonProperty("voter_card_number")
+        String voterCardNumber
 ) {
 }

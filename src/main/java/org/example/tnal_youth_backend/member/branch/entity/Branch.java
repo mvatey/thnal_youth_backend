@@ -81,6 +81,17 @@ public class Branch {
     )
     private String googleMapUrl;
 
+    // For the branch report: whether the branch has a location of its own
+    // ("មានទីតាំង") and whether it has been registered according to the law.
+    // Every branch starts as both; V365 backfills the existing ones.
+    @Builder.Default
+    @Column(name = "has_location", nullable = false)
+    private boolean hasLocation = true;
+
+    @Builder.Default
+    @Column(name = "legally_registered", nullable = false)
+    private boolean legallyRegistered = true;
+
     @Column(
             name = "phone",
             length = 30

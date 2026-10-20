@@ -33,7 +33,9 @@ public class BranchMapper {
                 branch.getEmail(),
                 branch.getCreatedById(),
                 branch.getCreatedAt(),
-                branch.getUpdatedAt()
+                branch.getUpdatedAt(),
+                branch.isHasLocation(),
+                branch.isLegallyRegistered()
         );
     }
 
@@ -60,7 +62,9 @@ public class BranchMapper {
                 branch.getPhone(),
                 branch.getEmail(),
                 branch.getCreatedAt(),
-                branch.getUpdatedAt()
+                branch.getUpdatedAt(),
+                branch.isHasLocation(),
+                branch.isLegallyRegistered()
         );
     }
 

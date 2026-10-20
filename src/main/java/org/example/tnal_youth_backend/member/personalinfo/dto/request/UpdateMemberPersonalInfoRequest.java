@@ -3,6 +3,7 @@ package org.example.tnal_youth_backend.member.personalinfo.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.example.tnal_youth_backend.member.member.entity.Gender;
 import org.example.tnal_youth_backend.member.member.entity.LifeStatus;
 import org.example.tnal_youth_backend.member.member.entity.TshirtSize;
@@ -60,6 +61,16 @@ public record UpdateMemberPersonalInfoRequest(
         /** Optional; null leaves the stored value unchanged. */
         @JsonProperty("registered_voter")
         Boolean registeredVoter,
+
+        /** Optional; null leaves it unchanged, blank clears it. */
+        @JsonProperty("national_id_number")
+        @Size(max = 50, message = "National ID number must not exceed 50 characters")
+        String nationalIdNumber,
+
+        /** Optional; null leaves it unchanged, blank clears it. Cleared when not a registered voter. */
+        @JsonProperty("voter_card_number")
+        @Size(max = 50, message = "Voter card number must not exceed 50 characters")
+        String voterCardNumber,
 
         /** Optional; null leaves the stored value unchanged. */
         @JsonProperty("life_status")

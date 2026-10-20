@@ -284,6 +284,8 @@ public class BranchServiceImpl implements BranchService {
                 .statusId(request.statusId())
                 .address(trimToNull(request.address()))
                 .googleMapUrl(trimToNull(request.googleMapUrl()))
+                .hasLocation(!Boolean.FALSE.equals(request.hasLocation()))
+                .legallyRegistered(!Boolean.FALSE.equals(request.legallyRegistered()))
                 .phone(trimToNull(request.phone()))
                 .email(normalizeEmail(request.email()))
                 .createdById(requireCurrentUserId())
@@ -363,6 +365,14 @@ public class BranchServiceImpl implements BranchService {
         branch.setStatusId(request.statusId());
         branch.setAddress(trimToNull(request.address()));
         branch.setGoogleMapUrl(trimToNull(request.googleMapUrl()));
+
+        if (request.hasLocation() != null) {
+            branch.setHasLocation(request.hasLocation());
+        }
+
+        if (request.legallyRegistered() != null) {
+            branch.setLegallyRegistered(request.legallyRegistered());
+        }
         branch.setPhone(trimToNull(request.phone()));
         branch.setEmail(normalizeEmail(request.email()));
 
