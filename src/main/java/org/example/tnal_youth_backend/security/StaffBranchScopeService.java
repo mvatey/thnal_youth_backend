@@ -91,7 +91,11 @@ public class StaffBranchScopeService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Viewer branch scope is missing a branch");
             }
-            return Set.of(user.getBranchId());
+            Set<Long> viewerBranch = Set.of(user.getBranchId());
+
+            // A viewer of the country-level branch reads every branch too
+            // (they stay read-only: ViewerWriteBlockFilter blocks any write).
+            return widenForRead ? widenForCountryStaff(viewerBranch) : viewerBranch;
         }
 
         if (effectiveRole == UserRole.SECRETARY) {
@@ -202,6 +206,18 @@ public class StaffBranchScopeService {
     public boolean isCountryStaff(User user) {
         if (user == null || user.getRole() == null) {
             return false;
+        }
+
+        // A viewer scoped as secretary/branch leader of the country branch
+        // counts too: they get the same wide reading, and stay read-only
+        // because ViewerWriteBlockFilter blocks every write they could make.
+        // Their branch is the one on the account (what their own scope
+        // resolution uses), not the member's.
+        if (viewerAccessService.isViewer(user)) {
+            UserRole scope = viewerAccessService.baseReadRole(user);
+
+            return (scope == UserRole.SECRETARY || scope == UserRole.BRANCH_LEADER)
+                    && isCountryBranch(user.getBranchId());
         }
 
         if (user.getRole() != UserRole.SECRETARY
