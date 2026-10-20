@@ -35,6 +35,7 @@ public class ActivityExpenseMapper {
                                 ? expense.getReceiptFile().getId()
                                 : null
                 )
+                .familyId(expense.getFamilyId())
                 .createdAt(expense.getCreatedAt())
                 .updatedAt(expense.getUpdatedAt())
                 .build();

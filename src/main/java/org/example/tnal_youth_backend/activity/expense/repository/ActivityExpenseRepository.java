@@ -40,4 +40,7 @@ public interface ActivityExpenseRepository
     );
 
     long countByActivity_Id(Long activityId);
+
+    // Removing a family removes what was spent on it.
+    void deleteAllByFamilyId(Long familyId);
 }

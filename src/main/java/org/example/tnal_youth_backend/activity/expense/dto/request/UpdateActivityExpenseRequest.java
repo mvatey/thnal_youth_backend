@@ -59,4 +59,8 @@ public class UpdateActivityExpenseRequest {
 
     @JsonProperty("receipt_file_id")
     private Long receiptFileId;
+
+    // Optional: the family (see ActivityExpenseFamily) this row belongs to.
+    @JsonProperty("family_id")
+    private Long familyId;
 }

@@ -1,11 +1,15 @@
 package org.example.tnal_youth_backend.activity.expense.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.tnal_youth_backend.activity.expense.dto.request.ActivityExpenseFamilyRequest;
 import org.example.tnal_youth_backend.activity.expense.dto.request.CreateActivityExpenseRequest;
 import org.example.tnal_youth_backend.activity.expense.dto.request.UpdateActivityExpenseRequest;
+import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseFamilyResponse;
 import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseResponse;
 import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseSummaryResponse;
 import org.example.tnal_youth_backend.activity.expense.entity.ActivityExpense;
+import org.example.tnal_youth_backend.activity.expense.entity.ActivityExpenseFamily;
+import org.example.tnal_youth_backend.activity.expense.repository.ActivityExpenseFamilyRepository;
 import org.example.tnal_youth_backend.activity.expense.mapper.ActivityExpenseMapper;
 import org.example.tnal_youth_backend.activity.expense.repository.ActivityExpenseRepository;
 import org.example.tnal_youth_backend.activity.expense.service.ActivityExpenseService;
@@ -54,6 +58,7 @@ public class ActivityExpenseServiceImpl
             );
 
     private final ActivityExpenseRepository expenseRepository;
+    private final ActivityExpenseFamilyRepository familyRepository;
     private final ActivityRepository activityRepository;
     private final ExchangeRateRepository exchangeRateRepository;
     private final UserRepository userRepository;
@@ -125,6 +130,12 @@ public class ActivityExpenseServiceImpl
                         )
                         .spentOn(request.getSpentOn())
                         .receiptFile(receiptFile)
+                        .familyId(
+                                resolveFamilyId(
+                                        activityId,
+                                        request.getFamilyId()
+                                )
+                        )
                         .recordedBy(recordedBy)
                         .build();
 
@@ -235,6 +246,9 @@ public class ActivityExpenseServiceImpl
 
         expense.setSpentOn(request.getSpentOn());
         expense.setReceiptFile(receiptFile);
+        expense.setFamilyId(
+                resolveFamilyId(activityId, request.getFamilyId())
+        );
 
         ActivityExpense savedExpense =
                 expenseRepository.saveAndFlush(expense);
@@ -315,6 +329,140 @@ public class ActivityExpenseServiceImpl
                                 RoundingMode.HALF_UP
                         )
                 )
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityExpenseFamilyResponse> getFamilies(
+            Long activityId
+    ) {
+        findActivity(activityId);
+
+        return familyRepository
+                .findAllByActivityIdOrderByIdAsc(activityId)
+                .stream()
+                .map(this::toFamilyResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ActivityExpenseFamilyResponse createFamily(
+            Long activityId,
+            ActivityExpenseFamilyRequest request,
+            Long currentUserId
+    ) {
+        Activity activity = findActivity(activityId);
+
+        validateManagePermission(activity, findUser(currentUserId));
+        validateActivityCanBeModified(activity);
+
+        ActivityExpenseFamily family =
+                ActivityExpenseFamily.builder()
+                        .activityId(activityId)
+                        .memberName(
+                                normaliseRequired(
+                                        request.getMemberName(),
+                                        "Family member name"
+                                )
+                        )
+                        .reason(normaliseOptional(request.getReason()))
+                        .build();
+
+        return toFamilyResponse(familyRepository.saveAndFlush(family));
+    }
+
+    @Override
+    @Transactional
+    public ActivityExpenseFamilyResponse updateFamily(
+            Long activityId,
+            Long familyId,
+            ActivityExpenseFamilyRequest request,
+            Long currentUserId
+    ) {
+        Activity activity = findActivity(activityId);
+
+        validateManagePermission(activity, findUser(currentUserId));
+        validateActivityCanBeModified(activity);
+
+        ActivityExpenseFamily family = findFamily(activityId, familyId);
+
+        family.setMemberName(
+                normaliseRequired(
+                        request.getMemberName(),
+                        "Family member name"
+                )
+        );
+        family.setReason(normaliseOptional(request.getReason()));
+
+        return toFamilyResponse(familyRepository.saveAndFlush(family));
+    }
+
+    @Override
+    @Transactional
+    public void deleteFamily(
+            Long activityId,
+            Long familyId,
+            Long currentUserId
+    ) {
+        Activity activity = findActivity(activityId);
+
+        validateManagePermission(activity, findUser(currentUserId));
+        validateActivityCanBeModified(activity);
+
+        ActivityExpenseFamily family = findFamily(activityId, familyId);
+
+        expenseRepository.deleteAllByFamilyId(family.getId());
+        familyRepository.delete(family);
+    }
+
+    private ActivityExpenseFamily findFamily(
+            Long activityId,
+            Long familyId
+    ) {
+        return familyRepository
+                .findByIdAndActivityId(familyId, activityId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Family was not found for this activity"
+                        )
+                );
+    }
+
+    /*
+     * An expense row may be recorded on a family, but only one of this
+     * activity's own.
+     */
+    private Long resolveFamilyId(
+            Long activityId,
+            Long familyId
+    ) {
+        if (familyId == null) {
+            return null;
+        }
+
+        familyRepository
+                .findByIdAndActivityId(familyId, activityId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Family does not belong to this activity"
+                        )
+                );
+
+        return familyId;
+    }
+
+    private ActivityExpenseFamilyResponse toFamilyResponse(
+            ActivityExpenseFamily family
+    ) {
+        return ActivityExpenseFamilyResponse.builder()
+                .id(family.getId())
+                .activityId(family.getActivityId())
+                .memberName(family.getMemberName())
+                .reason(family.getReason())
                 .build();
     }
 

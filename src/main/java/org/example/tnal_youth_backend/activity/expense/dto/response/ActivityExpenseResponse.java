@@ -40,6 +40,9 @@ public class ActivityExpenseResponse {
     @JsonProperty("receipt_file_id")
     private Long receiptFileId;
 
+    @JsonProperty("family_id")
+    private Long familyId;
+
     @JsonProperty("created_at")
     private OffsetDateTime createdAt;
 

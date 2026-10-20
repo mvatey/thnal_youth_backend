@@ -1,7 +1,9 @@
 package org.example.tnal_youth_backend.activity.expense.service;
 
+import org.example.tnal_youth_backend.activity.expense.dto.request.ActivityExpenseFamilyRequest;
 import org.example.tnal_youth_backend.activity.expense.dto.request.CreateActivityExpenseRequest;
 import org.example.tnal_youth_backend.activity.expense.dto.request.UpdateActivityExpenseRequest;
+import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseFamilyResponse;
 import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseResponse;
 import org.example.tnal_youth_backend.activity.expense.dto.response.ActivityExpenseSummaryResponse;
 
@@ -39,5 +41,29 @@ public interface ActivityExpenseService {
 
     ActivityExpenseSummaryResponse getSummary(
             Long activityId
+    );
+
+    List<ActivityExpenseFamilyResponse> getFamilies(
+            Long activityId
+    );
+
+    ActivityExpenseFamilyResponse createFamily(
+            Long activityId,
+            ActivityExpenseFamilyRequest request,
+            Long currentUserId
+    );
+
+    ActivityExpenseFamilyResponse updateFamily(
+            Long activityId,
+            Long familyId,
+            ActivityExpenseFamilyRequest request,
+            Long currentUserId
+    );
+
+    /** Deletes the family together with the expense rows recorded on it. */
+    void deleteFamily(
+            Long activityId,
+            Long familyId,
+            Long currentUserId
     );
 }

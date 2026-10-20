@@ -138,6 +138,10 @@ public class ActivityExpense {
     @Column(name = "spent_on")
     private LocalDate spentOn;
 
+    // The family this row was spent on (gift-distribution activities only).
+    @Column(name = "family_id")
+    private Long familyId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receipt_file_id")
     private FileEntity receiptFile;
