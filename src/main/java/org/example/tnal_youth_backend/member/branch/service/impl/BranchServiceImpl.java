@@ -256,13 +256,17 @@ public class BranchServiceImpl implements BranchService {
                 "Khmer branch name"
         );
 
-        validateDuplicate(
-                nameKm,
-                request.provinceId(),
-                request.districtId(),
-                request.communeId(),
-                null
-        );
+        // The country branch is already unique by level above, and has
+        // no location for a same-name check to compare.
+        if (!isCountryLevel(request.branchLevelId())) {
+            validateDuplicate(
+                    nameKm,
+                    request.provinceId(),
+                    request.districtId(),
+                    request.communeId(),
+                    null
+            );
+        }
 
         if (request.parentBranchId() != null) {
             findBranchById(request.parentBranchId());
@@ -339,13 +343,15 @@ public class BranchServiceImpl implements BranchService {
                 "Khmer branch name"
         );
 
-        validateDuplicate(
-                nameKm,
-                request.provinceId(),
-                request.districtId(),
-                request.communeId(),
-                id
-        );
+        if (!isCountryLevel(request.branchLevelId())) {
+            validateDuplicate(
+                    nameKm,
+                    request.provinceId(),
+                    request.districtId(),
+                    request.communeId(),
+                    id
+            );
+        }
 
         branch.setNameKm(nameKm);
         branch.setNameEn(trimToNull(request.nameEn()));
@@ -427,6 +433,18 @@ public class BranchServiceImpl implements BranchService {
 
     }
 
+    /*
+     * The country level is found by its code, not a hard-coded id, since
+     * it was added after the original three levels.
+     */
+    private boolean isCountryLevel(Short branchLevelId) {
+        return branchLevelId != null
+                && branchRepository
+                .findLevelCodeById(branchLevelId)
+                .map("COUNTRY"::equals)
+                .orElse(false);
+    }
+
     private void validateLocation(
             Short branchLevelId,
             Short provinceId,
@@ -438,6 +456,25 @@ public class BranchServiceImpl implements BranchService {
                     HttpStatus.BAD_REQUEST,
                     "Branch level is required"
             );
+        }
+
+        /*
+         * Country-level branch -- covers every province, so it has no
+         * location of its own.
+         */
+        if (isCountryLevel(branchLevelId)) {
+            if (
+                    provinceId != null
+                            || districtId != null
+                            || communeId != null
+            ) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Country-level branch cannot have a province, district or commune"
+                );
+            }
+
+            return;
         }
 
         if (provinceId == null) {
@@ -1163,6 +1200,30 @@ public class BranchServiceImpl implements BranchService {
             Long currentBranchId
     ) {
         boolean duplicate;
+
+        /*
+         * Country-level branch: only one may exist.
+         */
+        if (isCountryLevel(branchLevelId)) {
+            duplicate =
+                    currentBranchId == null
+                            ? branchRepository.existsByBranchLevelId(
+                                    branchLevelId
+                            )
+                            : branchRepository.existsByBranchLevelIdAndIdNot(
+                                    branchLevelId,
+                                    currentBranchId
+                            );
+
+            if (duplicate) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A country-level branch already exists"
+                );
+            }
+
+            return;
+        }
 
         /*
          * Province-level branch.

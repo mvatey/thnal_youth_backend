@@ -699,6 +699,18 @@ public class MemberServiceImpl implements MemberService {
             validateMemberBranchAccess(branchIdToCheck);
         }
 
+        // The country-level branch is single-branch only: no regional
+        // secretary anchored there, and never one of several branches.
+        if (isRegionalSecretaryPosition(position)) {
+            staffBranchScopeService.forbidRegionalAtCountryBranch(
+                    effectiveBranchIds.get(0)
+            );
+        }
+
+        staffBranchScopeService.forbidCountryBranchAmongSeveral(
+                effectiveBranchIds
+        );
+
         Branch branch =
                 findBranch(
                         effectiveBranchIds.get(0)
@@ -2031,6 +2043,11 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
+        // Country-level staff manage members in every branch.
+        if (staffBranchScopeService.isCountryStaff(currentUser)) {
+            return;
+        }
+
         if (
                 !staffBranchScopeService
                         .staffBranchIds(currentUser)
@@ -2094,6 +2111,13 @@ public class MemberServiceImpl implements MemberService {
             }
 
             return requestedBranchId;
+        }
+
+        // Country-level staff with no branch picked (the sidebar's
+        // "all branches") list every branch, like an admin; their reads
+        // are already widened to every branch by staffBranchIds above.
+        if (staffBranchScopeService.isCountryStaff(currentUser)) {
+            return null;
         }
 
         /*

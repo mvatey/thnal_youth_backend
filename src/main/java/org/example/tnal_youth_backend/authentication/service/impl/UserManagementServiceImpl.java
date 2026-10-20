@@ -53,6 +53,8 @@ public class UserManagementServiceImpl
 
     private final UserBranchAssignmentRepository userBranchAssignmentRepository;
 
+    private final org.example.tnal_youth_backend.security.StaffBranchScopeService staffBranchScopeService;
+
     private final PasswordEncoder passwordEncoder;
 
     // =========================================================
@@ -217,6 +219,10 @@ public class UserManagementServiceImpl
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
 
+        if (regional) {
+            staffBranchScopeService.forbidRegionalAtCountryBranch(branchId);
+        }
+
         String username = request.getUsername().trim();
 
         if (userRepository.existsByLoginUsernameIgnoreCase(username)) {
@@ -321,6 +327,10 @@ public class UserManagementServiceImpl
         ViewerScope viewerScope = validateViewerScope(role, request.getViewerScope());
 
         Long branchId = validateAndResolveBranchId(role, viewerScope, request.getBranchId());
+
+        if (regional) {
+            staffBranchScopeService.forbidRegionalAtCountryBranch(branchId);
+        }
 
         String username = request.getUsername().trim();
 
@@ -552,6 +562,8 @@ public class UserManagementServiceImpl
                 );
             }
         }
+
+        staffBranchScopeService.forbidCountryBranchAmongSeveral(branchIds);
 
         return branchIds;
     }

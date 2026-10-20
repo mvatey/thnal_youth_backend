@@ -19,6 +19,13 @@ public interface BranchRepository
         extends JpaRepository<Branch, Long> {
 
     /*
+     * Every branch -- the read scope of the country-level branch's staff
+     * (see StaffBranchScopeService#isCountryStaff).
+     */
+    @Query("SELECT b.id FROM Branch b")
+    List<Long> findAllBranchIds();
+
+    /*
      * A regional secretary's live branch coverage (see
      * StaffBranchScopeService) -- every branch sharing the anchor's
      * province, i.e. the province branch itself plus every district and
@@ -258,6 +265,15 @@ public interface BranchRepository
             Short statusId,
 
             Pageable pageable
+    );
+
+    // The country level has no province/district/commune to key on: there
+    // is only ever one branch at that level.
+    boolean existsByBranchLevelId(Short branchLevelId);
+
+    boolean existsByBranchLevelIdAndIdNot(
+            Short branchLevelId,
+            Long id
     );
 
     boolean existsByBranchLevelIdAndProvinceId(

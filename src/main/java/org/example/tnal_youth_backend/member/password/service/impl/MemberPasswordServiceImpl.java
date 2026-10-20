@@ -59,6 +59,8 @@ public class MemberPasswordServiceImpl
 
     private final PositionRepository positionRepository;
 
+    private final org.example.tnal_youth_backend.security.StaffBranchScopeService staffBranchScopeService;
+
     /*
      * ==========================================================
      * GET ACCOUNT STATUS
@@ -331,6 +333,24 @@ public class MemberPasswordServiceImpl
                 requestedRole,
                 request.viewerScope()
         );
+
+        // The country-level branch never gets a regional secretary.
+        if (requestedRole == UserRole.SECRETARY
+                && request.positionId() != null) {
+            positionRepository
+                    .findById(request.positionId())
+                    .filter(position ->
+                            "SECRETARY_REGIONAL".equals(
+                                    position.getMappedRole()
+                            )
+                    )
+                    .ifPresent(position ->
+                            staffBranchScopeService
+                                    .forbidRegionalAtCountryBranch(
+                                            member.getBranchId()
+                                    )
+                    );
+        }
 
         /*
          * A regional secretary's branch coverage can span an entire

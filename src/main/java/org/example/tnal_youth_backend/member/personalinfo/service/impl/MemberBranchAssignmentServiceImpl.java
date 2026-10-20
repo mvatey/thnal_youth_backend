@@ -47,6 +47,8 @@ public class MemberBranchAssignmentServiceImpl
 
     private final MemberAccessValidator memberAccessValidator;
 
+    private final org.example.tnal_youth_backend.security.StaffBranchScopeService staffBranchScopeService;
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     @Override
@@ -197,6 +199,9 @@ public class MemberBranchAssignmentServiceImpl
         Member member = requireMember(memberId);
         requireSecretaryAccount(memberId);
         rejectIfRegionalSecretary(memberId);
+
+        // The country-level branch is only ever a single branch.
+        staffBranchScopeService.forbidCountryBranchAmongSeveral(desiredBranchIds);
 
         // Validate every requested destination against the ACTOR's scope.
         // Admin is unrestricted; Branch Leader is restricted by

@@ -615,6 +615,11 @@ public class SponsorDonationServiceImpl implements SponsorDonationService {
     private Long effectiveBranchFilter(
             Long requestedBranchId
     ) {
+        // Country-level staff read organization-wide, like an admin.
+        if (staffBranchScopeService.isCurrentUserCountryStaffReading()) {
+            return requestedBranchId;
+        }
+
         String role = repo.userRole(SecurityUtils.getCurrentUserId());
         if (!"SECRETARY".equals(role)
                 && !"BRANCH_LEADER".equals(role)) {

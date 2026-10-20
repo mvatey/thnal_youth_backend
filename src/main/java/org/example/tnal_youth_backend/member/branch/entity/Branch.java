@@ -52,10 +52,9 @@ public class Branch {
     @Column(name = "parent_branch_id")
     private Long parentBranchId;
 
-    @Column(
-            name = "province_id",
-            nullable = false
-    )
+    // Null only for the single COUNTRY-level branch, which covers every
+    // province (see V364); every other level requires one.
+    @Column(name = "province_id")
     private Short provinceId;
 
     @Column(name = "district_id")

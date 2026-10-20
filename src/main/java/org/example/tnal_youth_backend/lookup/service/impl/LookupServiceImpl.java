@@ -49,6 +49,7 @@ public class LookupServiceImpl
         implements LookupService {
 
     private final BranchService branchService;
+    private final org.example.tnal_youth_backend.security.StaffBranchScopeService staffBranchScopeService;
     private final MemberStatusService memberStatusService;
     private final MemberLevelService memberLevelService;
     private final NationalityService nationalityService;
@@ -138,6 +139,30 @@ public class LookupServiceImpl
                         )
                 )
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public org.example.tnal_youth_backend.lookup.dto.CountryScopeResponse
+    getCountryScope() {
+        return staffBranchScopeService
+                .currentUserCountryBranch()
+                .map(branch ->
+                        new org.example.tnal_youth_backend.lookup.dto.CountryScopeResponse(
+                                true,
+                                branch.getId(),
+                                branch.getNameKm(),
+                                branch.getNameEn()
+                        )
+                )
+                .orElse(
+                        new org.example.tnal_youth_backend.lookup.dto.CountryScopeResponse(
+                                false,
+                                null,
+                                null,
+                                null
+                        )
+                );
     }
 
     @Override

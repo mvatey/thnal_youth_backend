@@ -108,6 +108,12 @@ public class MemberAccessValidator {
             );
         }
 
+        // Staff of the country-level branch manage members in every
+        // branch, like an admin (see StaffBranchScopeService#isCountryStaff).
+        if (staffBranchScopeService.isCountryStaff(currentUser)) {
+            return;
+        }
+
         Set<Long> targetBranchIds =
                 new LinkedHashSet<>(
                         branchStaffRepository
@@ -218,6 +224,11 @@ public class MemberAccessValidator {
                     HttpStatus.FORBIDDEN,
                     "You are not allowed to manage members"
             );
+        }
+
+        // Country-level staff manage members in every branch.
+        if (staffBranchScopeService.isCountryStaff(currentUser)) {
+            return;
         }
 
         /*
@@ -427,6 +438,12 @@ public class MemberAccessValidator {
                     HttpStatus.FORBIDDEN,
                     "Only an admin or branch leader can assign branches"
             );
+        }
+
+        // The country-level branch's leader assigns secretaries' branches
+        // anywhere, like an admin (see StaffBranchScopeService#isCountryStaff).
+        if (staffBranchScopeService.isCountryStaff(currentUser)) {
+            return;
         }
 
         // A branch leader can assign/remove only within their own branch scope.

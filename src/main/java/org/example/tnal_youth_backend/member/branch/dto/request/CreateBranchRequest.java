@@ -30,8 +30,9 @@ public record CreateBranchRequest(
         @JsonProperty("parent_branch_id")
         Long parentBranchId,
 
+        // Required for every level except COUNTRY; the service checks it
+        // against the chosen level.
         @JsonProperty("province_id")
-        @NotNull(message = "Province ID is required")
         Short provinceId,
 
         @JsonProperty("district_id")

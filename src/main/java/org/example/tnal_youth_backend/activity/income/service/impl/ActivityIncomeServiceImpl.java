@@ -271,6 +271,11 @@ public class ActivityIncomeServiceImpl implements ActivityIncomeService {
     }
 
     private Long effectiveBranchFilter(Long requestedBranchId) {
+        // Country-level staff read organization-wide, like an admin.
+        if (staffBranchScopeService.isCurrentUserCountryStaffReading()) {
+            return requestedBranchId;
+        }
+
         String role = SecurityUtils.getCurrentUserRole();
         if (!ROLE_BRANCH_LEADER.equals(role) && !ROLE_SECRETARY.equals(role)) {
             return requestedBranchId;

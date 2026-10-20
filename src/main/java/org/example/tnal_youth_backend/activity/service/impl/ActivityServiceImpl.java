@@ -1645,7 +1645,10 @@ public class ActivityServiceImpl implements ActivityService {
             return false;
         }
 
-        return resolveStaffBranchIds(user)
+        // The user's own branches, not their (possibly wider) read scope:
+        // country-level staff can read every branch's activities but only
+        // manage the ones their own branch hosts.
+        return staffBranchScopeService.staffOwnBranchIds(user)
                 .contains(activity.getBranchId());
     }
 
@@ -1664,7 +1667,7 @@ public class ActivityServiceImpl implements ActivityService {
             return null;
         }
 
-        for (Long staffBranchId : resolveStaffBranchIds(user)) {
+        for (Long staffBranchId : staffBranchScopeService.staffOwnBranchIds(user)) {
             boolean accepted = activityInvitedBranchRepository
                     .findByActivity_IdAndBranch_IdAndInvitationStatus(
                             activity.getId(),

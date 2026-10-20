@@ -15,6 +15,9 @@ import org.example.tnal_youth_backend.member.position.entity.Position;
 import org.example.tnal_youth_backend.member.position.repository.PositionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashSet;
@@ -56,13 +59,31 @@ public class StaffBranchScopeService {
         return staffBranchIds(currentUser);
     }
 
+    /**
+     * The branches this account may READ -- for country-level staff on a
+     * read request that is every branch (see {@link #widenForCountryStaff}).
+     */
     public Set<Long> staffBranchIds(User user) {
+        return resolveScope(user, true);
+    }
+
+    /**
+     * The branches this account actually STAFFS, never widened. Use it
+     * wherever "can this person manage/edit it" is decided, including the
+     * capability flags returned on a read, so country-level staff are not
+     * offered edit actions on branches outside their own.
+     */
+    public Set<Long> staffOwnBranchIds(User user) {
+        return resolveScope(user, false);
+    }
+
+    private Set<Long> resolveScope(User user, boolean widenForRead) {
         if (user == null || user.getRole() == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Authenticated user does not have a role");
         }
 
-        UserRole effectiveRole = viewerAccessService.effectiveReadRole(user);
+        UserRole effectiveRole = viewerAccessService.baseReadRole(user);
 
         if (viewerAccessService.isViewer(user) &&
                 (effectiveRole == UserRole.SECRETARY || effectiveRole == UserRole.BRANCH_LEADER)) {
@@ -74,16 +95,219 @@ public class StaffBranchScopeService {
         }
 
         if (effectiveRole == UserRole.SECRETARY) {
-            return secretaryBranchIds(user);
+            Set<Long> ids = secretaryBranchIds(user);
+            return widenForRead ? widenForCountryStaff(ids) : ids;
         }
 
         if (effectiveRole == UserRole.BRANCH_LEADER) {
             Long branchId = branchLeaderBranchId(user);
-            return Set.of(branchId);
+            return widenForRead
+                    ? widenForCountryStaff(Set.of(branchId))
+                    : Set.of(branchId);
         }
 
         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "This role does not use staff branch scope");
+    }
+
+    /**
+     * Staff of the single COUNTRY-level branch get two scopes from the one
+     * method every list/detail/dashboard read already goes through: on a
+     * read (GET/HEAD) they see every branch, like an admin; on anything
+     * that changes data they only have their own country branch, like any
+     * other secretary or leader -- so activities, donations and documents
+     * can be viewed everywhere but only created in the country branch
+     * itself. (Members and branches get their own explicit allowance, see
+     * {@link #isCountryStaff}.)
+     *
+     * Reads outside a web request (scheduled jobs, notifications) have no
+     * request method, so they keep the own-branch scope.
+     */
+    private Set<Long> widenForCountryStaff(Set<Long> ownBranchIds) {
+        if (!isReadOnlyRequest()
+                || ownBranchIds.size() != 1
+                || !isCountryBranch(ownBranchIds.iterator().next())) {
+            return ownBranchIds;
+        }
+
+        return Set.copyOf(branchRepository.findAllBranchIds());
+    }
+
+    private boolean isReadOnlyRequest() {
+        if (!(RequestContextHolder.getRequestAttributes()
+                instanceof ServletRequestAttributes attributes)) {
+            return false;
+        }
+
+        String method = attributes.getRequest().getMethod();
+
+        return "GET".equalsIgnoreCase(method)
+                || "HEAD".equalsIgnoreCase(method);
+    }
+
+    /**
+     * The country branch's staff are single-branch accounts: never a
+     * regional secretary (whose coverage is computed from the anchor
+     * branch) -- their wider read access comes from
+     * {@link #widenForCountryStaff}, not from either of those. Callers that
+     * anchor a regional secretary reject the country branch with this.
+     */
+    public void forbidRegionalAtCountryBranch(Long anchorBranchId) {
+        if (isCountryBranch(anchorBranchId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The country-level branch cannot have a regional secretary");
+        }
+    }
+
+    /**
+     * Same reason for the multi-branch secretary: the country branch can
+     * only ever be someone's single branch, never one of several.
+     */
+    public void forbidCountryBranchAmongSeveral(
+            java.util.Collection<Long> branchIds
+    ) {
+        if (branchIds == null || branchIds.size() < 2) {
+            return;
+        }
+
+        for (Long branchId : branchIds) {
+            if (isCountryBranch(branchId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "The country-level branch cannot be combined with other branches for one secretary");
+            }
+        }
+    }
+
+    public boolean isCountryBranch(Long branchId) {
+        if (branchId == null) {
+            return false;
+        }
+
+        return branchRepository.findById(branchId)
+                .flatMap(branch ->
+                        branchRepository.findLevelCodeById(
+                                branch.getBranchLevelId()
+                        ))
+                .map("COUNTRY"::equals)
+                .orElse(false);
+    }
+
+    /**
+     * Whether this account is a branch leader or secretary of the
+     * COUNTRY-level branch -- the "semi-admin" accounts. Their reads are
+     * widened by {@link #widenForCountryStaff}; they may also create and
+     * edit branches and members anywhere (checked by the callers that
+     * allow it), but never see the users or variable pages.
+     */
+    public boolean isCountryStaff(User user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+
+        if (user.getRole() != UserRole.SECRETARY
+                && user.getRole() != UserRole.BRANCH_LEADER) {
+            return false;
+        }
+
+        return isCountryBranch(homeBranchIdOf(user));
+    }
+
+    /**
+     * Country-level staff on a read request -- the case where
+     * {@link ViewerAccessService#effectiveReadRole} lets them read as an
+     * admin. False on anything that changes data.
+     */
+    public boolean isCountryStaffReading(User user) {
+        if (user == null
+                || user.getId() == null
+                || !isReadOnlyRequest()) {
+            return false;
+        }
+
+        // effectiveReadRole is asked many times per request; the answer
+        // cannot change within one, so remember it on the request instead
+        // of re-reading the member and branch each time.
+        ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        String key = "tnal.countryStaff." + user.getId();
+        Object cached = attributes.getAttribute(
+                key,
+                RequestAttributes.SCOPE_REQUEST
+        );
+
+        if (cached instanceof Boolean value) {
+            return value;
+        }
+
+        boolean result = isCountryStaff(user);
+        attributes.setAttribute(key, result, RequestAttributes.SCOPE_REQUEST);
+
+        return result;
+    }
+
+    private Long homeBranchIdOf(User user) {
+        if (user.getMemberId() != null) {
+            return memberRepository.findById(user.getMemberId())
+                    .map(Member::getBranchId)
+                    .orElse(user.getBranchId());
+        }
+
+        return user.getBranchId();
+    }
+
+    /**
+     * The country branch the signed-in account staffs, or empty when they
+     * are not country-level staff -- the frontend uses this to offer the
+     * "all branches" / "my branch" switch.
+     */
+    public java.util.Optional<Branch> currentUserCountryBranch() {
+        User principal = SecurityUtil.getCurrentUser();
+
+        if (principal == null || principal.getId() == null) {
+            return java.util.Optional.empty();
+        }
+
+        User user = userRepository.findById(principal.getId()).orElse(null);
+
+        if (!isCountryStaff(user)) {
+            return java.util.Optional.empty();
+        }
+
+        return branchRepository.findById(homeBranchIdOf(user));
+    }
+
+    /**
+     * For services that decide branch scope from the raw role string rather
+     * than {@link ViewerAccessService#effectiveReadRole}: whether the
+     * signed-in account is country-level staff on a read request, who read
+     * organization-wide like an admin.
+     */
+    public boolean isCurrentUserCountryStaffReading() {
+        if (!isReadOnlyRequest()) {
+            return false;
+        }
+
+        User principal = SecurityUtil.getCurrentUser();
+
+        if (principal == null || principal.getId() == null) {
+            return false;
+        }
+
+        return userRepository.findById(principal.getId())
+                .map(this::isCountryStaffReading)
+                .orElse(false);
+    }
+
+    public boolean isCurrentUserCountryStaff() {
+        User principal = SecurityUtil.getCurrentUser();
+
+        if (principal == null || principal.getId() == null) {
+            return false;
+        }
+
+        return userRepository.findById(principal.getId())
+                .map(this::isCountryStaff)
+                .orElse(false);
     }
 
     public void requireStaffBranchAccess(User user, Long branchId) {

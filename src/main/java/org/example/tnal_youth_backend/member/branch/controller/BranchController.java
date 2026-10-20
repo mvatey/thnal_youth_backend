@@ -64,7 +64,7 @@ public class BranchController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
+    @PreAuthorize("hasAnyRole('ADMIN','VIEWER') or @staffBranchScopeService.isCurrentUserCountryStaff()")
     public ResponseEntity<BranchResponse>
     getBranchById(
             @PathVariable Long id
@@ -92,8 +92,10 @@ public class BranchController {
         );
     }
 
+    // Staff of the country-level branch may also create and edit branches
+    // (not delete them), like an admin.
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or @staffBranchScopeService.isCurrentUserCountryStaff()")
     public ResponseEntity<BranchResponse>
     createBranch(
             @Valid
@@ -110,7 +112,7 @@ public class BranchController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or @staffBranchScopeService.isCurrentUserCountryStaff()")
     public ResponseEntity<BranchResponse>
     updateBranch(
             @PathVariable Long id,

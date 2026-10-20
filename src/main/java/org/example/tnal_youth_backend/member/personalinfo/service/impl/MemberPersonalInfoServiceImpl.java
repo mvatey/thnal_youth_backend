@@ -300,6 +300,12 @@ public class MemberPersonalInfoServiceImpl
             );
         }
 
+        if ("SECRETARY_REGIONAL".equals(position.getMappedRole())) {
+            staffBranchScopeService.forbidRegionalAtCountryBranch(
+                    member.getBranchId()
+            );
+        }
+
         User currentUser =
                 SecurityUtil.getCurrentUser();
 

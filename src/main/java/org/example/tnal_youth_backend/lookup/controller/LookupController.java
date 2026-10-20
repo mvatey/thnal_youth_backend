@@ -132,6 +132,11 @@ public class LookupController {
         return ResponseEntity.ok(lookupService.getRegionalAnchorBranchOptions());
     }
 
+    @GetMapping("/country-scope")
+    public ResponseEntity<CountryScopeResponse> getCountryScope() {
+        return ResponseEntity.ok(lookupService.getCountryScope());
+    }
+
     @GetMapping("/branch-areas")
     public ResponseEntity<List<BranchAreaOptionResponse>> getBranchAreaOptions() {
         return ResponseEntity.ok(lookupService.getBranchAreaOptions());

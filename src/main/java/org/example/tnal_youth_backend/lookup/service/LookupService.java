@@ -16,6 +16,9 @@ public interface LookupService {
     /** Accessible branches with level + parent ids, for "this area and everything under it" filters. */
     List<BranchAreaOptionResponse> getBranchAreaOptions();
 
+    /** Whether the caller staffs the country-level branch, and which one. */
+    org.example.tnal_youth_backend.lookup.dto.CountryScopeResponse getCountryScope();
+
     List<LookupOptionResponse<Long>>
     getActivityInvitableBranchOptions();
 
