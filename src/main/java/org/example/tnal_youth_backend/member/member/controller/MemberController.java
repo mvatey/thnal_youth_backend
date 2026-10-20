@@ -91,11 +91,18 @@ public class MemberController {
             """)
     public ResponseEntity<MemberSummaryResponse>
     getMemberSummary(
-            @RequestParam(required = false) Long branchId
+            @RequestParam(required = false) Long branchId,
+
+            // A set of branches counted together (a province or district
+            // and everything under it, for the member page's branch-level
+            // filter). Wins over branchId when given.
+            @RequestParam(required = false) java.util.List<Long> branchIds
     ) {
 
         return ResponseEntity.ok(
-                memberService.getMemberSummary(branchId)
+                branchIds != null && !branchIds.isEmpty()
+                        ? memberService.getMemberSummary(branchIds)
+                        : memberService.getMemberSummary(branchId)
         );
     }
 

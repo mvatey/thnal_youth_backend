@@ -187,6 +187,80 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional(readOnly = true)
+    public MemberSummaryResponse getMemberSummary(
+            java.util.Collection<Long> branchIds
+    ) {
+        User currentUser = getCurrentUser();
+
+        UserRole role =
+                viewerAccessService.effectiveReadRole(currentUser);
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Authenticated user does not have a role"
+            );
+        }
+
+        // Admin (and country-level staff reading, who read as admin) may
+        // count any branches; everyone else only their own.
+        if (role != UserRole.ADMIN) {
+            if (role != UserRole.SECRETARY
+                    && role != UserRole.BRANCH_LEADER) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not allowed to view members"
+                );
+            }
+
+            Set<Long> accessible =
+                    staffBranchScopeService.staffBranchIds(currentUser);
+
+            if (!accessible.containsAll(branchIds)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You cannot access members from another branch"
+                );
+            }
+        }
+
+        LocalDate currentMonthStart =
+                LocalDate.now()
+                        .with(TemporalAdjusters.firstDayOfMonth());
+
+        var now = memberRepository.summaryCountsForBranches(
+                branchIds, null, BUDDHISM_CODE, ISLAM_CODE
+        );
+        var before = memberRepository.summaryCountsForBranches(
+                branchIds, currentMonthStart, BUDDHISM_CODE, ISLAM_CODE
+        );
+
+        return new MemberSummaryResponse(
+                now.getTotal(),
+                percentageCalculator.calculate(
+                        now.getTotal(), before.getTotal()
+                ),
+                now.getFemale(),
+                percentageCalculator.calculate(
+                        now.getFemale(), before.getFemale()
+                ),
+                now.getMonk(),
+                percentageCalculator.calculate(
+                        now.getMonk(), before.getMonk()
+                ),
+                now.getBuddhist(),
+                percentageCalculator.calculate(
+                        now.getBuddhist(), before.getBuddhist()
+                ),
+                now.getIslam(),
+                percentageCalculator.calculate(
+                        now.getIslam(), before.getIslam()
+                )
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public MemberSummaryResponse getMemberSummary(Long requestedBranchId) {
 
         Long effectiveBranchId =

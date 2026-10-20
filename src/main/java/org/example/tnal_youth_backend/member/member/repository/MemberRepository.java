@@ -992,6 +992,64 @@ public interface MemberRepository
             @Param("branchIds") Iterable<Long> branchIds
     );
 
+    /** The member summary cards' five counts. */
+    interface MemberSummaryCounts {
+        long getTotal();
+
+        long getFemale();
+
+        long getMonk();
+
+        long getBuddhist();
+
+        long getIslam();
+    }
+
+    /*
+     * The same rules as the per-branch counts above (a member counts for a
+     * branch through their home branch or an active branch_staff row;
+     * inactive accounts are left out), over a whole set of branches in one
+     * pass. A null cutoff counts everyone; a date counts only members who
+     * joined before it (the "previous month" comparison).
+     */
+    @Query(
+            value = """
+                    SELECT COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE UPPER(m.gender) = 'FEMALE') AS female,
+                           COUNT(*) FILTER (WHERE UPPER(m.gender) = 'MONK') AS monk,
+                           COUNT(*) FILTER (WHERE UPPER(r.code) = UPPER(:buddhismCode)) AS buddhist,
+                           COUNT(*) FILTER (WHERE UPPER(r.code) = UPPER(:islamCode)) AS islam
+                    FROM members m
+                    LEFT JOIN religions r ON r.id = m.religion_id
+                    WHERE (
+                        m.branch_id IN (:branchIds)
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id IN (:branchIds)
+                              AND bs.ended_on IS NULL
+                        )
+                    )
+                      AND (
+                          CAST(:exclusiveEndDate AS date) IS NULL
+                          OR COALESCE(m.joined_on, m.created_at::date)
+                             < CAST(:exclusiveEndDate AS date)
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'INACTIVE'
+                      )
+                    """,
+            nativeQuery = true
+    )
+    MemberSummaryCounts summaryCountsForBranches(
+            @Param("branchIds") Iterable<Long> branchIds,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate,
+            @Param("buddhismCode") String buddhismCode,
+            @Param("islamCode") String islamCode
+    );
+
     @Query("""
     SELECT
         m AS member,

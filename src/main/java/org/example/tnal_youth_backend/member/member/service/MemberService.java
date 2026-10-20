@@ -32,6 +32,9 @@ public interface MemberService {
 
     MemberSummaryResponse getMemberSummary(Long branchId);
 
+    /** The same cards counted over a set of branches (a branch level pick). */
+    MemberSummaryResponse getMemberSummary(java.util.Collection<Long> branchIds);
+
     MemberDetailSummaryResponse getMemberDetailSummary(
             Long memberId
     );
