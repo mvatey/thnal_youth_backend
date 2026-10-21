@@ -89,6 +89,15 @@ public record UpdateMyPersonalInfoRequest(
         @Size(max = 50, message = "Voter card number must not exceed 50 characters")
         String voterCardNumber,
 
+        /** Optional; null leaves the stored value unchanged. */
+        @JsonProperty("from_other_party")
+        Boolean fromOtherParty,
+
+        /** Optional; null leaves it unchanged, blank clears it. Cleared when not from another party. */
+        @JsonProperty("former_party")
+        @Size(max = 255, message = "Former party must not exceed 255 characters")
+        String formerParty,
+
         /**
          * Optional; null leaves the stored value unchanged. The account
          * owner may update their own life status (staff can too, through

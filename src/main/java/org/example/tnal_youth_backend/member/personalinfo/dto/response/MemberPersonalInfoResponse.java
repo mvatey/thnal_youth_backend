@@ -92,6 +92,12 @@ public record MemberPersonalInfoResponse(
         String nationalIdNumber,
 
         @JsonProperty("voter_card_number")
-        String voterCardNumber
+        String voterCardNumber,
+
+        @JsonProperty("from_other_party")
+        boolean fromOtherParty,
+
+        @JsonProperty("former_party")
+        String formerParty
 ) {
 }

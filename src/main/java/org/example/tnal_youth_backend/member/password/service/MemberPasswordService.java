@@ -23,6 +23,17 @@ public interface MemberPasswordService {
             Long memberId
     );
 
+    /**
+     * Turns a deceased member's login off the way disabling an account does
+     * (identifiers freed, sessions ended), but without the admin-only
+     * permission check: leaders and secretaries who record a death are not
+     * the ones allowed to disable accounts in general. Does nothing when the
+     * member has no account, or it is already inactive or still pending.
+     */
+    void disableLoginForDeceasedMember(
+            Long memberId
+    );
+
     MemberPasswordStatusResponse enableAccount(
             Long memberId
     );

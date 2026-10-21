@@ -18,6 +18,7 @@ import org.example.tnal_youth_backend.member.ethnicity.entity.Ethnicity;
 import org.example.tnal_youth_backend.member.ethnicity.repository.EthnicityRepository;
 import org.example.tnal_youth_backend.member.level.entity.MemberLevel;
 import org.example.tnal_youth_backend.member.level.repository.MemberLevelRepository;
+import org.example.tnal_youth_backend.member.member.entity.LifeStatus;
 import org.example.tnal_youth_backend.member.member.entity.Member;
 import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
 import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
@@ -76,6 +77,8 @@ public class MemberPersonalInfoServiceImpl
     private final BranchStaffRepository branchStaffRepository;
 
     private final StaffBranchScopeService staffBranchScopeService;
+
+    private final org.example.tnal_youth_backend.member.password.service.MemberPasswordService memberPasswordService;
 
     private final PositionRepository positionRepository;
 
@@ -155,13 +158,31 @@ public class MemberPersonalInfoServiceImpl
                 request.voterCardNumber()
         );
 
+        applyFormerParty(
+                member,
+                request.fromOtherParty(),
+                request.formerParty()
+        );
+
         // Any admin, branch leader or secretary who can access this member
         // (validateAccessibleMember above) may record that they are alive
         // or deceased -- deliberately NOT the stricter sensitive-fields
         // permission that role and status changes need, since leaders and
         // secretaries are the ones who learn of a member's passing.
         if (request.lifeStatus() != null) {
+            boolean newlyDeceased =
+                    request.lifeStatus() == LifeStatus.DECEASED
+                            && member.getLifeStatus() != LifeStatus.DECEASED;
+
             member.setLifeStatus(request.lifeStatus());
+
+            // A member who has passed away no longer signs in -- the same
+            // as marking them inactive (see MemberPasswordService).
+            if (newlyDeceased) {
+                memberPasswordService.disableLoginForDeceasedMember(
+                        member.getId()
+                );
+            }
         }
 
         boolean branchChanged =
@@ -821,7 +842,11 @@ public class MemberPersonalInfoServiceImpl
 
                 member.getNationalIdNumber(),
 
-                member.getVoterCardNumber()
+                member.getVoterCardNumber(),
+
+                member.isFromOtherParty(),
+
+                member.getFormerParty()
         );
     }
 
@@ -934,6 +959,27 @@ public class MemberPersonalInfoServiceImpl
      * a member who is on the voter list, so it is dropped when they are
      * not.
      */
+    /*
+     * A member who came from another political party records which one;
+     * everyone else is of the Cambodian party by default, so the former
+     * party's name is dropped when the box is not ticked.
+     */
+    private void applyFormerParty(
+            Member member,
+            Boolean fromOtherParty,
+            String formerParty
+    ) {
+        if (fromOtherParty != null) {
+            member.setFromOtherParty(fromOtherParty);
+        }
+
+        if (!member.isFromOtherParty()) {
+            member.setFormerParty(null);
+        } else if (formerParty != null) {
+            member.setFormerParty(normalizeText(formerParty));
+        }
+    }
+
     private void applyIdentityNumbers(
             Member member,
             String nationalIdNumber,
@@ -1222,8 +1268,26 @@ public class MemberPersonalInfoServiceImpl
                 request.voterCardNumber()
         );
 
+        applyFormerParty(
+                member,
+                request.fromOtherParty(),
+                request.formerParty()
+        );
+
         if (request.lifeStatus() != null) {
+            boolean newlyDeceased =
+                    request.lifeStatus() == LifeStatus.DECEASED
+                            && member.getLifeStatus() != LifeStatus.DECEASED;
+
             member.setLifeStatus(request.lifeStatus());
+
+            // A member who has passed away no longer signs in -- the same
+            // as marking them inactive (see MemberPasswordService).
+            if (newlyDeceased) {
+                memberPasswordService.disableLoginForDeceasedMember(
+                        member.getId()
+                );
+            }
         }
 
         Member savedMember =

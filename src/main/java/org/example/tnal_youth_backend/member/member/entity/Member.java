@@ -129,6 +129,14 @@ public class Member {
     @Column(name = "voter_card_number", length = 50)
     private String voterCardNumber;
 
+    // Came from another political party (false = the Cambodian party, the
+    // default); the former party's name is only kept while true.
+    @Column(name = "from_other_party", nullable = false)
+    private boolean fromOtherParty;
+
+    @Column(name = "former_party", length = 255)
+    private String formerParty;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "life_status", nullable = false, length = 20)
     @Builder.Default

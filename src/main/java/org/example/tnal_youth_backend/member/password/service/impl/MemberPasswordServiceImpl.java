@@ -672,6 +672,43 @@ public class MemberPasswordServiceImpl
             );
         }
 
+        return toResponse(
+                deactivate(
+                        member,
+                        user
+                )
+        );
+    }
+
+    @Override
+    @Transactional
+    public void disableLoginForDeceasedMember(
+            Long memberId
+    ) {
+        Member member =
+                requireMember(
+                        memberId
+                );
+
+        userRepository
+                .findByMemberId(memberId)
+                .filter(user ->
+                        user.getStatus() != UserStatus.INACTIVE
+                                && user.getStatus()
+                                != UserStatus.PENDING_ACTIVATION
+                )
+                .ifPresent(user ->
+                        deactivate(
+                                member,
+                                user
+                        )
+                );
+    }
+
+    private User deactivate(
+            Member member,
+            User user
+    ) {
         user.freeIdentifiersForReuse();
 
         user.setStatus(
@@ -707,9 +744,7 @@ public class MemberPasswordServiceImpl
                 savedUser
         );
 
-        return toResponse(
-                savedUser
-        );
+        return savedUser;
     }
 
     /*
