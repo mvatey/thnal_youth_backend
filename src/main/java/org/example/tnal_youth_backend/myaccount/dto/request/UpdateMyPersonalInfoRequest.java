@@ -99,10 +99,8 @@ public record UpdateMyPersonalInfoRequest(
         String formerParty,
 
         /**
-         * Optional; null leaves the stored value unchanged. The account
-         * owner may update their own life status (staff can too, through
-         * the personal-info endpoint, which additionally requires the
-         * sensitive-fields permission).
+         * Ignored: life status is recorded by staff from the member's
+         * personal-info page, not by the account owner.
          */
         @JsonProperty("life_status")
         LifeStatus lifeStatus

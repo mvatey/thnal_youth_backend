@@ -1274,21 +1274,9 @@ public class MemberPersonalInfoServiceImpl
                 request.formerParty()
         );
 
-        if (request.lifeStatus() != null) {
-            boolean newlyDeceased =
-                    request.lifeStatus() == LifeStatus.DECEASED
-                            && member.getLifeStatus() != LifeStatus.DECEASED;
-
-            member.setLifeStatus(request.lifeStatus());
-
-            // A member who has passed away no longer signs in -- the same
-            // as marking them inactive (see MemberPasswordService).
-            if (newlyDeceased) {
-                memberPasswordService.disableLoginForDeceasedMember(
-                        member.getId()
-                );
-            }
-        }
+        // Life status is deliberately not changed here: an account owner
+        // does not record their own death. Staff do, from the member's
+        // personal-info page.
 
         Member savedMember =
                 memberRepository
