@@ -29,6 +29,7 @@ public class ReportController {
 
     private final MemberRegisterReportService memberRegisterReportService;
     private final NationalSummaryReportService nationalSummaryReportService;
+    private final BranchReportService branchReportService;
 
     // The whole-country summary: administrators, and the central branch on
     // "all branches" (the service refuses anyone who does not read every
@@ -45,6 +46,32 @@ public class ReportController {
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()
                                 .filename(file.title() + ".xlsx", StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(file.content());
+    }
+
+    // The Word branch report (see BranchReportService): the branch's own
+    // staff and anyone who can open the branch; the service decides what the
+    // caller's file contains.
+    @GetMapping("/branch-report")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
+    public ResponseEntity<byte[]> branchReport(
+            @RequestParam Long branchId,
+            @RequestParam(required = false) Integer year
+    ) {
+        BranchReportService.ReportFile file =
+                branchReportService.build(branchId, year);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                ))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(file.title() + ".docx", StandardCharsets.UTF_8)
                                 .build()
                                 .toString()
                 )

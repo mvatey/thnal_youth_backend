@@ -75,6 +75,7 @@ public class MemberRegisterReportService {
     @Transactional(readOnly = true)
     public RegisterFile build(Long branchId) {
         User user = currentUser();
+        requireReportRole(user);
 
         boolean allBranches = false;
         Set<Long> branchIds;
@@ -354,6 +355,24 @@ public class MemberRegisterReportService {
         }
 
         return LocalDate.parse(value.toString().substring(0, 10));
+    }
+
+    /*
+     * Reports are for administrators, branch leaders and secretaries -- and a
+     * viewer scoped as one of them -- never for an ordinary member (a viewer
+     * scoped as a member reads as a member here).
+     */
+    private void requireReportRole(User user) {
+        UserRole role = viewerAccessService.effectiveReadRole(user);
+
+        if (role != UserRole.ADMIN
+                && role != UserRole.SECRETARY
+                && role != UserRole.BRANCH_LEADER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Reports are for administrators, branch leaders and secretaries"
+            );
+        }
     }
 
     private User currentUser() {
