@@ -28,6 +28,28 @@ public class ReportController {
     );
 
     private final MemberRegisterReportService memberRegisterReportService;
+    private final NationalSummaryReportService nationalSummaryReportService;
+
+    // The whole-country summary: administrators, and the central branch on
+    // "all branches" (the service refuses anyone who does not read every
+    // branch).
+    @GetMapping("/national-summary")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
+    public ResponseEntity<byte[]> nationalSummary() {
+        NationalSummaryReportService.SummaryFile file =
+                nationalSummaryReportService.build();
+
+        return ResponseEntity.ok()
+                .contentType(XLSX)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(file.title() + ".xlsx", StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(file.content());
+    }
 
     @GetMapping("/member-register")
     @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
