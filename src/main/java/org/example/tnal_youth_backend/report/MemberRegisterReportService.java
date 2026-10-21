@@ -245,12 +245,15 @@ public class MemberRegisterReportService {
         setText(row, 5, member[4]);
         setText(row, 6, member[5]);
 
-        // Marital status in words: single unless they are recorded as
-        // married (on the family info tab).
+        // Marital status in words, as recorded on the family info tab; a
+        // dash when nothing was entered there.
+        String marital = text(member[6]);
         row.getCell(7).setCellValue(
-                "MARRIED".equalsIgnoreCase(text(member[6]))
+                "MARRIED".equalsIgnoreCase(marital)
                         ? "រៀបការ"
-                        : "នៅលីវ"
+                        : "SINGLE".equalsIgnoreCase(marital)
+                                ? "នៅលីវ"
+                                : NONE
         );
 
         // Monk / Khmer-Islam / from another party: "មាន" when it applies,
