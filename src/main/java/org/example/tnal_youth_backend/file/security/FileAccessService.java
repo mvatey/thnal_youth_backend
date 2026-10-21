@@ -201,6 +201,9 @@ public class FileAccessService {
                           )
                       )
                     UNION ALL
+                    SELECT 1 FROM branches b
+                    WHERE b.id IN (:branchIds) AND b.legal_document_file_id = :fileId
+                    UNION ALL
                     SELECT 1 FROM donations d
                     WHERE d.branch_id IN (:branchIds) AND d.receipt_file_id = :fileId
                     UNION ALL

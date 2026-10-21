@@ -92,6 +92,11 @@ public class Branch {
     @Column(name = "legally_registered", nullable = false)
     private boolean legallyRegistered = true;
 
+    // The registration document, optional, kept only while the branch is
+    // registered by law.
+    @Column(name = "legal_document_file_id")
+    private Long legalDocumentFileId;
+
     @Column(
             name = "phone",
             length = 30

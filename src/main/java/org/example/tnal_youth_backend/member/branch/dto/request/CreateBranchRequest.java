@@ -59,6 +59,10 @@ public record CreateBranchRequest(
         @JsonProperty("legally_registered")
         Boolean legallyRegistered,
 
+        /** Optional registration document (an uploaded file's id); dropped when not registered by law. */
+        @JsonProperty("legal_document_file_id")
+        Long legalDocumentFileId,
+
         @JsonProperty("phone")
         @Size(
                 max = 30,

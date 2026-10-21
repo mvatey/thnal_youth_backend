@@ -47,6 +47,7 @@ import java.util.Set;
 public class BranchServiceImpl implements BranchService {
 
     private final BranchRepository branchRepository;
+    private final org.example.tnal_youth_backend.file.repository.FileRepository fileRepository;
     private final BranchMapper branchMapper;
 
     private final UserRepository userRepository;
@@ -286,6 +287,12 @@ public class BranchServiceImpl implements BranchService {
                 .googleMapUrl(trimToNull(request.googleMapUrl()))
                 .hasLocation(!Boolean.FALSE.equals(request.hasLocation()))
                 .legallyRegistered(!Boolean.FALSE.equals(request.legallyRegistered()))
+                .legalDocumentFileId(
+                        resolveLegalDocumentFileId(
+                                !Boolean.FALSE.equals(request.legallyRegistered()),
+                                request.legalDocumentFileId()
+                        )
+                )
                 .phone(trimToNull(request.phone()))
                 .email(normalizeEmail(request.email()))
                 .createdById(requireCurrentUserId())
@@ -373,6 +380,15 @@ public class BranchServiceImpl implements BranchService {
         if (request.legallyRegistered() != null) {
             branch.setLegallyRegistered(request.legallyRegistered());
         }
+
+        // The form always sends the document it wants kept (null removes
+        // it); it is dropped whenever the branch is not registered by law.
+        branch.setLegalDocumentFileId(
+                resolveLegalDocumentFileId(
+                        branch.isLegallyRegistered(),
+                        request.legalDocumentFileId()
+                )
+        );
         branch.setPhone(trimToNull(request.phone()));
         branch.setEmail(normalizeEmail(request.email()));
 
@@ -447,6 +463,24 @@ public class BranchServiceImpl implements BranchService {
      * The country level is found by its code, not a hard-coded id, since
      * it was added after the original three levels.
      */
+    private Long resolveLegalDocumentFileId(
+            boolean legallyRegistered,
+            Long fileId
+    ) {
+        if (!legallyRegistered || fileId == null) {
+            return null;
+        }
+
+        if (!fileRepository.existsById(fileId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The registration document was not found"
+            );
+        }
+
+        return fileId;
+    }
+
     private boolean isCountryLevel(Short branchLevelId) {
         return branchLevelId != null
                 && branchRepository

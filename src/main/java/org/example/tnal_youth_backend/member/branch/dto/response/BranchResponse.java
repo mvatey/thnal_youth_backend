@@ -57,6 +57,9 @@ public record BranchResponse(
         boolean hasLocation,
 
         @JsonProperty("legally_registered")
-        boolean legallyRegistered
+        boolean legallyRegistered,
+
+        @JsonProperty("legal_document_file_id")
+        Long legalDocumentFileId
 ) {
 }
