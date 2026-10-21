@@ -536,7 +536,7 @@ public interface MemberRepository
             SELECT COUNT(member)
             FROM Member member
             JOIN member.status status
-            WHERE UPPER(status.code) = 'INACTIVE'
+            WHERE UPPER(status.code) IN ('INACTIVE', 'RESIGNED', 'FIRED')
             """)
     long countInactiveMembers();
 
