@@ -179,8 +179,11 @@ public class BranchReportService {
         jdbcTemplate.query(
                 """
                 SELECT COUNT(*) AS total,
-                       COUNT(*) FILTER (WHERE has_location) AS located,
-                       COUNT(*) FILTER (WHERE legally_registered) AS registered
+                       -- -1 means nobody has answered yet (shown as a dash).
+                       CASE WHEN COUNT(has_location) = 0 THEN -1
+                            ELSE COUNT(*) FILTER (WHERE has_location) END AS located,
+                       CASE WHEN COUNT(legally_registered) = 0 THEN -1
+                            ELSE COUNT(*) FILTER (WHERE legally_registered) END AS registered
                 FROM branches
                 WHERE id IN (:ids)
                 """,
@@ -201,9 +204,13 @@ public class BranchReportService {
                        COUNT(*) FILTER (WHERE active AND UPPER(r.code) = 'ISLAM') AS islam,
                        COUNT(*) FILTER (WHERE active AND UPPER(r.code) = 'ISLAM'
                            AND UPPER(m.gender) = 'FEMALE') AS islam_female,
-                       COUNT(*) FILTER (WHERE active AND m.from_other_party) AS other_party,
-                       COUNT(*) FILTER (WHERE active AND m.from_other_party
-                           AND UPPER(m.gender) = 'FEMALE') AS other_party_female
+                       CASE WHEN COUNT(*) FILTER (WHERE active AND m.from_other_party IS NOT NULL) = 0
+                            THEN -1
+                            ELSE COUNT(*) FILTER (WHERE active AND m.from_other_party) END AS other_party,
+                       CASE WHEN COUNT(*) FILTER (WHERE active AND m.from_other_party IS NOT NULL) = 0
+                            THEN -1
+                            ELSE COUNT(*) FILTER (WHERE active AND m.from_other_party
+                                AND UPPER(m.gender) = 'FEMALE') END AS other_party_female
                 FROM (
                     SELECT m2.*,
                            (UPPER(COALESCE(s2.code, '')) NOT IN ('INACTIVE', 'RESIGNED', 'FIRED')
@@ -532,7 +539,8 @@ public class BranchReportService {
         };
 
         for (int cell = 0; cell < values.length; cell++) {
-            fill(row.getCell(cell), String.valueOf(values[cell]), false);
+            // A negative count means nobody has answered: a dash.
+            fill(row.getCell(cell), values[cell] < 0 ? "-" : String.valueOf(values[cell]), false);
         }
     }
 
@@ -594,7 +602,7 @@ public class BranchReportService {
     }
 
     private boolean isZero(String text) {
-        return "0".equals(text);
+        return "0".equals(text) || "-".equals(text);
     }
 
     private String khmerDigits(int number) {

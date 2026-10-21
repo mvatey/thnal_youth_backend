@@ -51,10 +51,10 @@ public record BranchDetailResponse(
         OffsetDateTime updatedAt,
 
         @JsonProperty("has_location")
-        boolean hasLocation,
+        Boolean hasLocation,
 
         @JsonProperty("legally_registered")
-        boolean legallyRegistered,
+        Boolean legallyRegistered,
 
         @JsonProperty("legal_document_file_id")
         Long legalDocumentFileId

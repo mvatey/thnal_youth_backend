@@ -34,8 +34,8 @@ public class BranchMapper {
                 branch.getCreatedById(),
                 branch.getCreatedAt(),
                 branch.getUpdatedAt(),
-                branch.isHasLocation(),
-                branch.isLegallyRegistered(),
+                branch.getHasLocation(),
+                branch.getLegallyRegistered(),
                 branch.getLegalDocumentFileId()
         );
     }
@@ -64,8 +64,8 @@ public class BranchMapper {
                 branch.getEmail(),
                 branch.getCreatedAt(),
                 branch.getUpdatedAt(),
-                branch.isHasLocation(),
-                branch.isLegallyRegistered(),
+                branch.getHasLocation(),
+                branch.getLegallyRegistered(),
                 branch.getLegalDocumentFileId()
         );
     }

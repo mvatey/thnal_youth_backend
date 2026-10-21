@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The national summary ("សរុបរួមសកម្មភាពទាំង១៩ ទីតាំងរាជធានី ខេត្ត", sheet
@@ -61,6 +62,9 @@ public class NationalSummaryReportService {
 
     // Counted columns C..Q, in order.
     private static final int VALUES = 15;
+    // The columns that are a dash until someone has answered: 18 and over,
+    // registered voters, new members (indexes among the counted ones).
+    private static final Set<Integer> UNANSWERABLE = Set.of(3, 4, 7);
     private static final String CENTRAL = "C";
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -70,9 +74,17 @@ public class NationalSummaryReportService {
     public record SummaryFile(byte[] content, String title) {
     }
 
+    private static long[] fresh() {
+        long[] values = new long[VALUES];
+        for (int column : UNANSWERABLE) {
+            values[column] = -1;
+        }
+        return values;
+    }
+
     private static final class Line {
         final String name;
-        final long[] values = new long[VALUES];
+        final long[] values = fresh();
 
         Line(String name) {
             this.name = name;
@@ -133,7 +145,7 @@ public class NationalSummaryReportService {
                 GROUP BY 1
                 """,
                 rs -> {
-                    counts.computeIfAbsent(rs.getString("grp"), key -> new long[VALUES])[0] =
+                    counts.computeIfAbsent(rs.getString("grp"), key -> fresh())[0] =
                             rs.getLong("n");
                 }
         );
@@ -144,14 +156,20 @@ public class NationalSummaryReportService {
                 SELECT COALESCE(b.province_id::text, 'C') AS grp,
                        COUNT(*) AS total,
                        COUNT(*) FILTER (WHERE UPPER(m.gender) = 'FEMALE') AS female,
-                       COUNT(*) FILTER (WHERE active AND (m.date_of_birth IS NULL
-                           OR m.date_of_birth <= CURRENT_DATE - INTERVAL '18 years')) AS adult,
-                       COUNT(*) FILTER (WHERE active AND m.registered_voter) AS voters,
+                       -- -1 means nobody in the group has answered yet (a dash).
+                       CASE WHEN COUNT(*) FILTER (WHERE active AND m.date_of_birth IS NOT NULL) = 0
+                            THEN -1
+                            ELSE COUNT(*) FILTER (WHERE active
+                                AND m.date_of_birth <= CURRENT_DATE - INTERVAL '18 years') END AS adult,
+                       CASE WHEN COUNT(*) FILTER (WHERE active AND m.registered_voter IS NOT NULL) = 0
+                            THEN -1
+                            ELSE COUNT(*) FILTER (WHERE active AND m.registered_voter) END AS voters,
                        COUNT(*) FILTER (WHERE active AND UPPER(m.gender) = 'MONK') AS monks,
                        COUNT(*) FILTER (WHERE active AND UPPER(r.code) = 'ISLAM') AS islam,
-                       COUNT(*) FILTER (WHERE active
-                           AND COALESCE(m.joined_on, m.created_at::date)
-                               >= date_trunc('month', CURRENT_DATE)::date) AS new_members,
+                       CASE WHEN COUNT(*) FILTER (WHERE active AND m.joined_on IS NOT NULL) = 0
+                            THEN -1
+                            ELSE COUNT(*) FILTER (WHERE active AND m.joined_on IS NOT NULL
+                                AND CURRENT_DATE < m.joined_on + INTERVAL '3 months') END AS new_members,
                        COUNT(*) FILTER (WHERE UPPER(m.life_status) = 'DECEASED') AS deceased,
                        COUNT(*) FILTER (WHERE UPPER(COALESCE(s.code, '')) IN ('RESIGNED', 'FIRED')) AS removed
                 FROM (
@@ -177,7 +195,7 @@ public class NationalSummaryReportService {
                 """,
                 rs -> {
                     long[] values =
-                            counts.computeIfAbsent(rs.getString("grp"), key -> new long[VALUES]);
+                            counts.computeIfAbsent(rs.getString("grp"), key -> fresh());
                     values[1] = rs.getLong("total");
                     values[2] = rs.getLong("female");
                     values[3] = rs.getLong("adult");
@@ -215,7 +233,7 @@ public class NationalSummaryReportService {
                     };
 
                     if (column >= 0) {
-                        counts.computeIfAbsent(rs.getString("grp"), key -> new long[VALUES])[column] =
+                        counts.computeIfAbsent(rs.getString("grp"), key -> fresh())[column] =
                                 rs.getLong("n");
                     }
                 }
@@ -355,6 +373,8 @@ public class NationalSummaryReportService {
             }
 
             long[] totals = new long[VALUES];
+            // Whether any row had an answer for the column; none -> a dash.
+            boolean[] known = new boolean[VALUES];
 
             for (int index = 0; index < lines.size(); index++) {
                 Line line = lines.get(index);
@@ -372,8 +392,13 @@ public class NationalSummaryReportService {
                 row.getCell(1).setCellValue(line.name);
 
                 for (int value = 0; value < VALUES; value++) {
-                    row.getCell(2 + value).setCellValue(line.values[value]);
-                    totals[value] += line.values[value];
+                    if (line.values[value] < 0) {
+                        row.getCell(2 + value).setCellValue("-");
+                    } else {
+                        row.getCell(2 + value).setCellValue(line.values[value]);
+                        totals[value] += line.values[value];
+                        known[value] = true;
+                    }
                 }
             }
 
@@ -392,7 +417,11 @@ public class NationalSummaryReportService {
             sheet.addMergedRegion(new CellRangeAddress(totalIndex, totalIndex, 0, 1));
 
             for (int value = 0; value < VALUES; value++) {
-                totalRow.getCell(2 + value).setCellValue(totals[value]);
+                if (!known[value] && UNANSWERABLE.contains(value)) {
+                    totalRow.getCell(2 + value).setCellValue("-");
+                } else {
+                    totalRow.getCell(2 + value).setCellValue(totals[value]);
+                }
             }
 
             workbook.write(out);

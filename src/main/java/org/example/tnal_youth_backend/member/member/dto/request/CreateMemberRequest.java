@@ -73,7 +73,7 @@ public record CreateMemberRequest(
         @JsonProperty("profile_photo_id")
         Long profilePhotoId,
 
-        /** Optional; null is stored as not registered. */
+        /** Optional; null means not answered. */
         @JsonProperty("registered_voter")
         Boolean registeredVoter
 ) {

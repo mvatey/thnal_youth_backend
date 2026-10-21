@@ -83,7 +83,7 @@ public record MemberPersonalInfoResponse(
         UserStatus accountStatus,
 
         @JsonProperty("registered_voter")
-        boolean registeredVoter,
+        Boolean registeredVoter,
 
         @JsonProperty("life_status")
         LifeStatus lifeStatus,
@@ -95,7 +95,7 @@ public record MemberPersonalInfoResponse(
         String voterCardNumber,
 
         @JsonProperty("from_other_party")
-        boolean fromOtherParty,
+        Boolean fromOtherParty,
 
         @JsonProperty("former_party")
         String formerParty,

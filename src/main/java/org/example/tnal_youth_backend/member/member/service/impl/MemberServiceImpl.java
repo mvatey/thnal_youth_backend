@@ -796,9 +796,7 @@ public class MemberServiceImpl implements MemberService {
                 Member.builder()
 
                         .registeredVoter(
-                                Boolean.TRUE.equals(
-                                        request.registeredVoter()
-                                )
+                                request.registeredVoter()
                         )
 
                         .branchId(

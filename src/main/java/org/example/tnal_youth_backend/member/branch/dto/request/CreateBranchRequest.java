@@ -51,11 +51,11 @@ public record CreateBranchRequest(
         @JsonProperty("google_map_url")
         String googleMapUrl,
 
-        /** Optional; null means "has a location" on create and "unchanged" on update. */
+        /** Yes / no; null means not answered. */
         @JsonProperty("has_location")
         Boolean hasLocation,
 
-        /** Optional; null means "legally registered" on create and "unchanged" on update. */
+        /** Yes / no; null means not answered. */
         @JsonProperty("legally_registered")
         Boolean legallyRegistered,
 

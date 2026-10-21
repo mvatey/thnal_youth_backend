@@ -117,8 +117,9 @@ public class Member {
     private MaritalStatus maritalStatus;
 
     // "មានឈ្មោះបោះឆ្នោត" -- whether this member is on the voter list.
-    @Column(name = "registered_voter", nullable = false)
-    private boolean registeredVoter;
+    // Null means not answered yet.
+    @Column(name = "registered_voter")
+    private Boolean registeredVoter;
 
     // Optional identity numbers for the member register: the national ID
     // card number, and the voter card number (only kept while the member is
@@ -129,10 +130,10 @@ public class Member {
     @Column(name = "voter_card_number", length = 50)
     private String voterCardNumber;
 
-    // Came from another political party (false = the Cambodian party, the
-    // default); the former party's name is only kept while true.
-    @Column(name = "from_other_party", nullable = false)
-    private boolean fromOtherParty;
+    // Came from another political party: yes / no / null (not answered
+    // yet, the default); the former party's name is only kept on yes.
+    @Column(name = "from_other_party")
+    private Boolean fromOtherParty;
 
     @Column(name = "former_party", length = 255)
     private String formerParty;

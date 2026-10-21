@@ -148,9 +148,8 @@ public class MemberPersonalInfoServiceImpl
         updateNationality(member, request.nationalityId());
         updateMemberLevel(member, request.memberLevelId());
 
-        if (request.registeredVoter() != null) {
-            member.setRegisteredVoter(request.registeredVoter());
-        }
+        // The form always sends the answer; null is "not answered".
+        member.setRegisteredVoter(request.registeredVoter());
 
         applyIdentityNumbers(
                 member,
@@ -843,7 +842,7 @@ public class MemberPersonalInfoServiceImpl
                         ? user.getStatus()
                         : null,
 
-                member.isRegisteredVoter(),
+                member.getRegisteredVoter(),
 
                 member.getLifeStatus(),
 
@@ -851,7 +850,7 @@ public class MemberPersonalInfoServiceImpl
 
                 member.getVoterCardNumber(),
 
-                member.isFromOtherParty(),
+                member.getFromOtherParty(),
 
                 member.getFormerParty(),
 
@@ -1025,11 +1024,10 @@ public class MemberPersonalInfoServiceImpl
             Boolean fromOtherParty,
             String formerParty
     ) {
-        if (fromOtherParty != null) {
-            member.setFromOtherParty(fromOtherParty);
-        }
+        // The form always sends the answer; null is "not answered".
+        member.setFromOtherParty(fromOtherParty);
 
-        if (!member.isFromOtherParty()) {
+        if (!Boolean.TRUE.equals(member.getFromOtherParty())) {
             member.setFormerParty(null);
         } else if (formerParty != null) {
             member.setFormerParty(normalizeText(formerParty));
@@ -1047,7 +1045,7 @@ public class MemberPersonalInfoServiceImpl
             );
         }
 
-        if (!member.isRegisteredVoter()) {
+        if (!Boolean.TRUE.equals(member.getRegisteredVoter())) {
             member.setVoterCardNumber(null);
         } else if (voterCardNumber != null) {
             member.setVoterCardNumber(
@@ -1314,9 +1312,8 @@ public class MemberPersonalInfoServiceImpl
 
           member.setJoinedOn(request.joinedOn());
 
-        if (request.registeredVoter() != null) {
-            member.setRegisteredVoter(request.registeredVoter());
-        }
+        // The form always sends the answer; null is "not answered".
+        member.setRegisteredVoter(request.registeredVoter());
 
         applyIdentityNumbers(
                 member,

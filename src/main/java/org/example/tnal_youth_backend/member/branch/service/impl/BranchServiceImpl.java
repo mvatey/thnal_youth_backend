@@ -285,11 +285,11 @@ public class BranchServiceImpl implements BranchService {
                 .statusId(request.statusId())
                 .address(trimToNull(request.address()))
                 .googleMapUrl(trimToNull(request.googleMapUrl()))
-                .hasLocation(!Boolean.FALSE.equals(request.hasLocation()))
-                .legallyRegistered(!Boolean.FALSE.equals(request.legallyRegistered()))
+                .hasLocation(request.hasLocation())
+                .legallyRegistered(request.legallyRegistered())
                 .legalDocumentFileId(
                         resolveLegalDocumentFileId(
-                                !Boolean.FALSE.equals(request.legallyRegistered()),
+                                Boolean.TRUE.equals(request.legallyRegistered()),
                                 request.legalDocumentFileId()
                         )
                 )
@@ -373,19 +373,15 @@ public class BranchServiceImpl implements BranchService {
         branch.setAddress(trimToNull(request.address()));
         branch.setGoogleMapUrl(trimToNull(request.googleMapUrl()));
 
-        if (request.hasLocation() != null) {
-            branch.setHasLocation(request.hasLocation());
-        }
-
-        if (request.legallyRegistered() != null) {
-            branch.setLegallyRegistered(request.legallyRegistered());
-        }
+        // The form always sends both answers; null is "not answered".
+        branch.setHasLocation(request.hasLocation());
+        branch.setLegallyRegistered(request.legallyRegistered());
 
         // The form always sends the document it wants kept (null removes
         // it); it is dropped whenever the branch is not registered by law.
         branch.setLegalDocumentFileId(
                 resolveLegalDocumentFileId(
-                        branch.isLegallyRegistered(),
+                        Boolean.TRUE.equals(branch.getLegallyRegistered()),
                         request.legalDocumentFileId()
                 )
         );

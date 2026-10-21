@@ -115,13 +115,32 @@ public class MemberRegisterReportService {
                         memberRepository.findRegisterRows(allBranches, branchIds)
                 );
 
-        // Khmer alphabetical order by name (the consonants, vowels and
-        // subscripts of the Khmer block follow the alphabet in code order).
+        // A branch's own register opens with its leaders, then its
+        // secretaries (there can be several of each); everyone else follows.
+        // Each group is in Khmer alphabetical order by name (the consonants,
+        // vowels and subscripts of the Khmer block follow the alphabet in
+        // code order). The "all branches" register is simply alphabetical.
+        java.util.Map<Long, Integer> rank = new java.util.HashMap<>();
+        if (!allBranches) {
+            for (Object[] row : memberRepository.findBranchLeadersAndSecretaries(branchId)) {
+                int position = "BRANCH_LEADER".equals(String.valueOf(row[1])) ? 0 : 1;
+                rank.merge(((Number) row[0]).longValue(), position, Math::min);
+            }
+        }
+
         java.text.Collator collator =
                 java.text.Collator.getInstance(java.util.Locale.forLanguageTag("km"));
         members.sort(
-                (first, second) ->
-                        collator.compare(text(first[0]), text(second[0]))
+                (first, second) -> {
+                    int byRole = Integer.compare(
+                            rank.getOrDefault(((Number) first[15]).longValue(), 2),
+                            rank.getOrDefault(((Number) second[15]).longValue(), 2)
+                    );
+
+                    return byRole != 0
+                            ? byRole
+                            : collator.compare(text(first[0]), text(second[0]));
+                }
         );
 
         String title = titleFor(branchName);
@@ -222,7 +241,7 @@ public class MemberRegisterReportService {
      * 3 joined on, 4 national ID, 5 voter card, 6 marital status,
      * 7 religion code, 8 from another party, 9 member status code,
      * 10 life status, 11 resigned/fired on, 12 deceased on,
-     * 13 status last changed, 14 former party.
+     * 13 status last changed, 14 former party, 15 member id (for ordering).
      */
     private void fill(Row row, int number, Object[] member) {
         row.getCell(0).setCellValue(number);
