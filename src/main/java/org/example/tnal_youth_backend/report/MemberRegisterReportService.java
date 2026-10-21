@@ -1,0 +1,346 @@
+package org.example.tnal_youth_backend.report;
+
+import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.example.tnal_youth_backend.authentication.model.entity.User;
+import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
+import org.example.tnal_youth_backend.authentication.repository.UserRepository;
+import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.branch.entity.Branch;
+import org.example.tnal_youth_backend.member.branch.repository.BranchRepository;
+import org.example.tnal_youth_backend.member.member.entity.Gender;
+import org.example.tnal_youth_backend.member.member.repository.MemberRepository;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
+import org.example.tnal_youth_backend.security.StaffBranchScopeService;
+import org.example.tnal_youth_backend.security.ViewerAccessService;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * The member register ("សៀវភៅកំណត់ត្រាសមាជិក", sheet "សាខា"): one row per member
+ * of a branch -- or of a province/district branch together with everything
+ * under it -- filled into the association's own template so its headers,
+ * merged cells and styling stay exactly as designed.
+ *
+ * Columns (A..O): No., name, gender, date of birth ("N/A" when unknown),
+ * joined date, national ID number, voter card number; then 1-or-blank flags
+ * for married, monk, Khmer-Islam, from another party, resigned, fired and
+ * deceased; and a blank remarks column.
+ *
+ * Members who are no longer active (resigned, fired, deceased) are listed on
+ * purpose -- the register is where they are recorded.
+ */
+@Service
+@RequiredArgsConstructor
+public class MemberRegisterReportService {
+
+    private static final String TEMPLATE = "report-templates/member-register.xlsx";
+
+    // The template's data rows start under its three header rows.
+    private static final int FIRST_DATA_ROW = 3;
+    private static final int COLUMNS = 15;
+    private static final float DATA_ROW_HEIGHT = 42.5f;
+
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    private final MemberRepository memberRepository;
+    private final BranchRepository branchRepository;
+    private final UserRepository userRepository;
+    private final MemberAccessValidator memberAccessValidator;
+    private final StaffBranchScopeService staffBranchScopeService;
+    private final ViewerAccessService viewerAccessService;
+
+    /** The file's content and its title (also the file name and the sheet's page header). */
+    public record RegisterFile(byte[] content, String title) {
+    }
+
+    @Transactional(readOnly = true)
+    public RegisterFile build(Long branchId) {
+        User user = currentUser();
+
+        boolean allBranches = false;
+        Set<Long> branchIds;
+        String branchName = null;
+
+        if (branchId == null) {
+            // Only someone who reads every branch may ask for all of them.
+            if (viewerAccessService.effectiveReadRole(user) != UserRole.ADMIN) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Choose a branch for the register"
+                );
+            }
+
+            allBranches = true;
+            branchIds = Set.of(-1L);
+        } else {
+            Branch branch = branchRepository.findById(branchId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Branch not found with ID: " + branchId
+                    ));
+
+            memberAccessValidator.validateBranchAccess(branchId);
+
+            branchName = branch.getNameKm();
+
+            // The branch plus everything under it (a province covers its
+            // districts and communes); the country branch covers all.
+            if (staffBranchScopeService.isCountryBranch(branchId)) {
+                allBranches = true;
+                branchIds = Set.of(-1L);
+            } else {
+                branchIds = staffBranchScopeService.computeRegionalCoverage(branchId);
+            }
+        }
+
+        List<Object[]> members =
+                memberRepository.findRegisterRows(allBranches, branchIds);
+
+        String title = titleFor(branchName);
+
+        return new RegisterFile(render(members, title), title);
+    }
+
+    /*
+     * "សៀវភៅកំណត់ត្រាសមាជិករបស់សាខា…" followed by the branch's name. Branch
+     * names are inconsistent -- some already read "សាខាកំពង់ចាម", others are
+     * the bare name -- so "សាខា" is only added when it is not already there.
+     */
+    private String titleFor(String branchName) {
+        String base = "សៀវភៅកំណត់ត្រាសមាជិករបស់";
+
+        if (branchName == null || branchName.isBlank()) {
+            return base + "សាខា";
+        }
+
+        String name = branchName.trim();
+
+        return base + (name.startsWith("សាខា") ? name : "សាខា" + name);
+    }
+
+    private byte[] render(List<Object[]> members, String title) {
+        try (
+                InputStream in = new ClassPathResource(TEMPLATE).getInputStream();
+                XSSFWorkbook workbook = new XSSFWorkbook(in);
+                ByteArrayOutputStream out = new ByteArrayOutputStream()
+        ) {
+            // The workbook also carries the national summary sheet; this
+            // download is the register only, so keep just the second sheet.
+            while (workbook.getNumberOfSheets() > 1) {
+                workbook.removeSheetAt(0);
+            }
+            workbook.setActiveSheet(0);
+
+            XSSFSheet sheet = workbook.getSheetAt(0);
+
+            // The sheet's page header (blank in the template) carries the
+            // register's title.
+            sheet.getHeader().setCenter(title);
+
+            // Every data row copies the look of the template's first one.
+            CellStyle[] styles = new CellStyle[COLUMNS];
+            Row styleRow = sheet.getRow(FIRST_DATA_ROW);
+            for (int column = 0; column < COLUMNS; column++) {
+                Cell cell = styleRow == null ? null : styleRow.getCell(column);
+                styles[column] = cell == null ? null : cell.getCellStyle();
+            }
+
+            for (int index = 0; index < members.size(); index++) {
+                Object[] member = members.get(index);
+
+                Row row = sheet.getRow(FIRST_DATA_ROW + index);
+                if (row == null) {
+                    row = sheet.createRow(FIRST_DATA_ROW + index);
+                }
+                row.setHeightInPoints(DATA_ROW_HEIGHT);
+
+                for (int column = 0; column < COLUMNS; column++) {
+                    Cell cell = row.getCell(column);
+                    if (cell == null) {
+                        cell = row.createCell(column);
+                    }
+                    if (styles[column] != null) {
+                        cell.setCellStyle(styles[column]);
+                    }
+                }
+
+                fill(row, index + 1, member);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "The member register could not be generated"
+            );
+        }
+    }
+
+    /*
+     * Row layout of findRegisterRows: 0 name, 1 gender, 2 date of birth,
+     * 3 joined on, 4 national ID, 5 voter card, 6 marital status,
+     * 7 religion code, 8 from another party, 9 member status code,
+     * 10 life status, 11 resigned/fired on, 12 deceased on,
+     * 13 status last changed.
+     */
+    private void fill(Row row, int number, Object[] member) {
+        row.getCell(0).setCellValue(number);
+        row.getCell(1).setCellValue(text(member[0]));
+
+        String genderCode = text(member[1]);
+        row.getCell(2).setCellValue(genderLabel(genderCode));
+
+        // "Age or date of birth": the date of birth, N/A when unknown.
+        LocalDate dateOfBirth = date(member[2]);
+        row.getCell(3).setCellValue(
+                dateOfBirth == null ? "N/A" : DATE.format(dateOfBirth)
+        );
+
+        LocalDate joinedOn = date(member[3]);
+        if (joinedOn != null) {
+            row.getCell(4).setCellValue(DATE.format(joinedOn));
+        }
+
+        setText(row, 5, member[4]);
+        setText(row, 6, member[5]);
+
+        // Marital status in words.
+        String marital = text(member[6]);
+        row.getCell(7).setCellValue(
+                "MARRIED".equalsIgnoreCase(marital)
+                        ? "រៀបការ"
+                        : "SINGLE".equalsIgnoreCase(marital)
+                        ? "នៅលីវ"
+                        : NOT_AVAILABLE
+        );
+
+        // Monk / Khmer-Islam / from another party: 1 when it applies (so the
+        // column can be added up), otherwise "no" in words.
+        yesOrNo(row, 8, "MONK".equalsIgnoreCase(genderCode), "ទេ");
+        yesOrNo(row, 9, "ISLAM".equalsIgnoreCase(text(member[7])), "ទេ");
+        yesOrNo(row, 10, Boolean.TRUE.equals(member[8]), "គ្មាន");
+
+        // Left the association: the date they resigned / were fired /
+        // passed away, "no" for everyone else. A date that was never entered
+        // falls back to the day the status was saved (N/A if there is none).
+        String status = text(member[9]);
+        LocalDate statusChanged = date(member[13]);
+        LocalDate endedOn = date(member[11]);
+        LocalDate deceasedOn = date(member[12]);
+
+        endDate(row, 11, "RESIGNED".equalsIgnoreCase(status), endedOn, statusChanged);
+        endDate(row, 12, "FIRED".equalsIgnoreCase(status), endedOn, statusChanged);
+        endDate(
+                row,
+                13,
+                "DECEASED".equalsIgnoreCase(text(member[10])),
+                deceasedOn,
+                statusChanged
+        );
+        // Column 14 (remarks) stays blank.
+    }
+
+    private static final String NOT_AVAILABLE = "N/A";
+
+    private void yesOrNo(Row row, int column, boolean applies, String noText) {
+        if (applies) {
+            row.getCell(column).setCellValue(1);
+        } else {
+            row.getCell(column).setCellValue(noText);
+        }
+    }
+
+    private void endDate(
+            Row row,
+            int column,
+            boolean applies,
+            LocalDate entered,
+            LocalDate fallback
+    ) {
+        if (!applies) {
+            row.getCell(column).setCellValue("ទេ");
+            return;
+        }
+
+        LocalDate shown = entered != null ? entered : fallback;
+
+        row.getCell(column).setCellValue(
+                shown == null ? NOT_AVAILABLE : DATE.format(shown)
+        );
+    }
+
+    private void setText(Row row, int column, Object value) {
+        String text = text(value);
+
+        if (!text.isBlank()) {
+            row.getCell(column).setCellValue(text);
+        }
+    }
+
+    private String genderLabel(String code) {
+        if (code == null || code.isBlank()) {
+            return "";
+        }
+
+        try {
+            return Gender.valueOf(code.toUpperCase()).getLabelKm();
+        } catch (IllegalArgumentException exception) {
+            return code;
+        }
+    }
+
+    private String text(Object value) {
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private LocalDate date(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+
+        return LocalDate.parse(value.toString().substring(0, 10));
+    }
+
+    private User currentUser() {
+        User principal = SecurityUtil.getCurrentUser();
+
+        if (principal == null || principal.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved"
+            );
+        }
+
+        return userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Authenticated user was not found"
+                ));
+    }
+}

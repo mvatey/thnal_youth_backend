@@ -98,6 +98,12 @@ public record MemberPersonalInfoResponse(
         boolean fromOtherParty,
 
         @JsonProperty("former_party")
-        String formerParty
+        String formerParty,
+
+        @JsonProperty("membership_ended_on")
+        java.time.LocalDate membershipEndedOn,
+
+        @JsonProperty("deceased_on")
+        java.time.LocalDate deceasedOn
 ) {
 }

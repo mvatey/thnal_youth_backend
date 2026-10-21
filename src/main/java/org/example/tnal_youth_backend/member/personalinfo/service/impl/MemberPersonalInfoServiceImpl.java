@@ -164,6 +164,13 @@ public class MemberPersonalInfoServiceImpl
                 request.formerParty()
         );
 
+        applyEndDates(
+                member,
+                request.membershipEndedOn(),
+                request.deceasedOn(),
+                request.lifeStatus()
+        );
+
         // Any admin, branch leader or secretary who can access this member
         // (validateAccessibleMember above) may record that they are alive
         // or deceased -- deliberately NOT the stricter sensitive-fields
@@ -846,7 +853,11 @@ public class MemberPersonalInfoServiceImpl
 
                 member.isFromOtherParty(),
 
-                member.getFormerParty()
+                member.getFormerParty(),
+
+                member.getMembershipEndedOn(),
+
+                member.getDeceasedOn()
         );
     }
 
@@ -964,6 +975,51 @@ public class MemberPersonalInfoServiceImpl
      * everyone else is of the Cambodian party by default, so the former
      * party's name is dropped when the box is not ticked.
      */
+    /*
+     * The date a member resigned / was fired, and the date they passed away.
+     * null leaves the stored value alone, blank clears it, otherwise an ISO
+     * date. The date of death only belongs to a deceased member, so it is
+     * dropped when the life status is not DECEASED.
+     */
+    private void applyEndDates(
+            Member member,
+            String membershipEndedOn,
+            String deceasedOn,
+            LifeStatus requestedLifeStatus
+    ) {
+        if (membershipEndedOn != null) {
+            member.setMembershipEndedOn(parseDate(membershipEndedOn));
+        }
+
+        if (deceasedOn != null) {
+            member.setDeceasedOn(parseDate(deceasedOn));
+        }
+
+        LifeStatus effective =
+                requestedLifeStatus != null
+                        ? requestedLifeStatus
+                        : member.getLifeStatus();
+
+        if (effective != LifeStatus.DECEASED) {
+            member.setDeceasedOn(null);
+        }
+    }
+
+    private java.time.LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return java.time.LocalDate.parse(value.trim());
+        } catch (java.time.format.DateTimeParseException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Date must be in the form yyyy-MM-dd"
+            );
+        }
+    }
+
     private void applyFormerParty(
             Member member,
             Boolean fromOtherParty,

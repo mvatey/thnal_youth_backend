@@ -81,6 +81,14 @@ public record UpdateMemberPersonalInfoRequest(
         @Size(max = 255, message = "Former party must not exceed 255 characters")
         String formerParty,
 
+        /** ISO date (yyyy-MM-dd). Optional; null leaves it unchanged, blank clears it. */
+        @JsonProperty("membership_ended_on")
+        String membershipEndedOn,
+
+        /** ISO date (yyyy-MM-dd). Optional; null leaves it unchanged, blank clears it. Cleared when not deceased. */
+        @JsonProperty("deceased_on")
+        String deceasedOn,
+
         /** Optional; null leaves the stored value unchanged. */
         @JsonProperty("life_status")
         LifeStatus lifeStatus

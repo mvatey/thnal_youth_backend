@@ -992,6 +992,54 @@ public interface MemberRepository
             @Param("branchIds") Iterable<Long> branchIds
     );
 
+    /*
+     * The member register's rows (see MemberRegisterReportService): every
+     * member of the branches -- by home branch or an active branch_staff
+     * row -- INCLUDING those who resigned, were fired or have passed away,
+     * which every other list leaves out. Columns: name, gender code, date of
+     * birth, joined on, national ID, voter card, marital status, religion
+     * code, from another party, member status code, life status, the date
+     * they resigned/were fired, the date they passed away, and when the
+     * status last changed (the fallback when no date was entered).
+     */
+    @Query(
+            value = """
+                    SELECT m.full_name_km,
+                           m.gender,
+                           m.date_of_birth,
+                           m.joined_on,
+                           m.national_id_number,
+                           m.voter_card_number,
+                           m.marital_status,
+                           r.code,
+                           m.from_other_party,
+                           s.code,
+                           m.life_status,
+                           m.membership_ended_on,
+                           m.deceased_on,
+                           m.status_changed_at
+                    FROM members m
+                    LEFT JOIN religions r ON r.id = m.religion_id
+                    LEFT JOIN member_statuses s ON s.id = m.status_id
+                    WHERE (
+                        :allBranches = TRUE
+                        OR m.branch_id IN (:branchIds)
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id IN (:branchIds)
+                              AND bs.ended_on IS NULL
+                        )
+                    )
+                    ORDER BY m.branch_id, m.id
+                    """,
+            nativeQuery = true
+    )
+    List<Object[]> findRegisterRows(
+            @Param("allBranches") boolean allBranches,
+            @Param("branchIds") Iterable<Long> branchIds
+    );
+
     /** The member summary cards' five counts. */
     interface MemberSummaryCounts {
         long getTotal();

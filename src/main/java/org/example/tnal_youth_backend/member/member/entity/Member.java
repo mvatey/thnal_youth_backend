@@ -137,6 +137,14 @@ public class Member {
     @Column(name = "former_party", length = 255)
     private String formerParty;
 
+    // When the member resigned or was fired (the member's status says
+    // which), and when they passed away. Both optional.
+    @Column(name = "membership_ended_on")
+    private LocalDate membershipEndedOn;
+
+    @Column(name = "deceased_on")
+    private LocalDate deceasedOn;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "life_status", nullable = false, length = 20)
     @Builder.Default
