@@ -3,6 +3,8 @@ package org.example.tnal_youth_backend.report;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -101,17 +103,25 @@ public class MemberRegisterReportService {
             branchName = branch.getNameKm();
 
             // The branch plus everything under it (a province covers its
-            // districts and communes); the country branch covers all.
-            if (staffBranchScopeService.isCountryBranch(branchId)) {
-                allBranches = true;
-                branchIds = Set.of(-1L);
-            } else {
-                branchIds = staffBranchScopeService.computeRegionalCoverage(branchId);
-            }
+            // districts and communes). The country branch is just itself
+            // here -- its own members; the whole country is the "all
+            // branches" register, asked for without a branch.
+            branchIds = staffBranchScopeService.computeRegionalCoverage(branchId);
         }
 
         List<Object[]> members =
-                memberRepository.findRegisterRows(allBranches, branchIds);
+                new java.util.ArrayList<>(
+                        memberRepository.findRegisterRows(allBranches, branchIds)
+                );
+
+        // Khmer alphabetical order by name (the consonants, vowels and
+        // subscripts of the Khmer block follow the alphabet in code order).
+        java.text.Collator collator =
+                java.text.Collator.getInstance(java.util.Locale.forLanguageTag("km"));
+        members.sort(
+                (first, second) ->
+                        collator.compare(text(first[0]), text(second[0]))
+        );
 
         String title = titleFor(branchName);
 
@@ -152,14 +162,26 @@ public class MemberRegisterReportService {
 
             // The sheet's page header (blank in the template) carries the
             // register's title.
-            sheet.getHeader().setCenter(title);
+            // Excel header codes: &18 = size 18, &B = bold on.
+            sheet.getHeader().setCenter("&18&B" + title);
 
             // Every data row copies the look of the template's first one.
+            // From gender to the end the text is centred, dashes included.
             CellStyle[] styles = new CellStyle[COLUMNS];
             Row styleRow = sheet.getRow(FIRST_DATA_ROW);
             for (int column = 0; column < COLUMNS; column++) {
                 Cell cell = styleRow == null ? null : styleRow.getCell(column);
-                styles[column] = cell == null ? null : cell.getCellStyle();
+                CellStyle base = cell == null ? null : cell.getCellStyle();
+
+                if (base != null && column >= 2) {
+                    CellStyle centred = workbook.createCellStyle();
+                    centred.cloneStyleFrom(base);
+                    centred.setAlignment(HorizontalAlignment.CENTER);
+                    centred.setVerticalAlignment(VerticalAlignment.CENTER);
+                    base = centred;
+                }
+
+                styles[column] = base;
             }
 
             for (int index = 0; index < members.size(); index++) {
@@ -199,7 +221,7 @@ public class MemberRegisterReportService {
      * 3 joined on, 4 national ID, 5 voter card, 6 marital status,
      * 7 religion code, 8 from another party, 9 member status code,
      * 10 life status, 11 resigned/fired on, 12 deceased on,
-     * 13 status last changed.
+     * 13 status last changed, 14 former party.
      */
     private void fill(Row row, int number, Object[] member) {
         row.getCell(0).setCellValue(number);
@@ -215,21 +237,19 @@ public class MemberRegisterReportService {
         );
 
         LocalDate joinedOn = date(member[3]);
-        if (joinedOn != null) {
-            row.getCell(4).setCellValue(DATE.format(joinedOn));
-        }
+        row.getCell(4).setCellValue(
+                joinedOn == null ? NONE : DATE.format(joinedOn)
+        );
 
         setText(row, 5, member[4]);
         setText(row, 6, member[5]);
 
-        // Marital status in words, a dash when it is not recorded.
-        String marital = text(member[6]);
+        // Marital status in words: single unless they are recorded as
+        // married (on the family info tab).
         row.getCell(7).setCellValue(
-                "MARRIED".equalsIgnoreCase(marital)
+                "MARRIED".equalsIgnoreCase(text(member[6]))
                         ? "រៀបការ"
-                        : "SINGLE".equalsIgnoreCase(marital)
-                        ? "នៅលីវ"
-                        : NONE
+                        : "នៅលីវ"
         );
 
         // Monk / Khmer-Islam / from another party: "មាន" when it applies,
@@ -237,7 +257,16 @@ public class MemberRegisterReportService {
         // COUNTIF).
         yesOrNone(row, 8, "MONK".equalsIgnoreCase(genderCode));
         yesOrNone(row, 9, "ISLAM".equalsIgnoreCase(text(member[7])));
-        yesOrNone(row, 10, Boolean.TRUE.equals(member[8]));
+
+        // Former party: the party's name when one was entered, "មាន" when the
+        // box is ticked but no name was given, a dash when not from another
+        // party.
+        String formerParty = member.length > 14 ? text(member[14]) : "";
+        row.getCell(10).setCellValue(
+                !Boolean.TRUE.equals(member[8])
+                        ? NONE
+                        : formerParty.isBlank() ? YES : formerParty
+        );
 
         // Left the association: the date they resigned / were fired /
         // passed away, a dash for everyone else. A date that was never
@@ -292,9 +321,7 @@ public class MemberRegisterReportService {
     private void setText(Row row, int column, Object value) {
         String text = text(value);
 
-        if (!text.isBlank()) {
-            row.getCell(column).setCellValue(text);
-        }
+        row.getCell(column).setCellValue(text.isBlank() ? NONE : text);
     }
 
     private String genderLabel(String code) {

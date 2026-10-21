@@ -1000,7 +1000,8 @@ public interface MemberRepository
      * birth, joined on, national ID, voter card, marital status, religion
      * code, from another party, member status code, life status, the date
      * they resigned/were fired, the date they passed away, and when the
-     * status last changed (the fallback when no date was entered).
+     * status last changed (the fallback when no date was entered), and the
+     * former party's name.
      */
     @Query(
             value = """
@@ -1017,7 +1018,8 @@ public interface MemberRepository
                            m.life_status,
                            m.membership_ended_on,
                            m.deceased_on,
-                           m.status_changed_at
+                           m.status_changed_at,
+                           m.former_party
                     FROM members m
                     LEFT JOIN religions r ON r.id = m.religion_id
                     LEFT JOIN member_statuses s ON s.id = m.status_id
