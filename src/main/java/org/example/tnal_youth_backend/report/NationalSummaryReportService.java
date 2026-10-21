@@ -39,9 +39,10 @@ import java.util.Map;
  *
  * Members are counted once, under their own branch's province (so the total
  * row is a plain sum with nobody counted twice); the central office row is
- * the country branch's own members. A member still in the association is
- * not resigned, fired or inactive and not deceased -- those are counted in
- * their own columns instead.
+ * the country branch's own members. Every member column is counted from the
+ * same group -- every member on record, including those who resigned, were
+ * fired or died -- so the columns agree with the total; the deceased and
+ * removed columns show how many of them are no longer active.
  */
 @Service
 @RequiredArgsConstructor
@@ -139,25 +140,18 @@ public class NationalSummaryReportService {
         jdbcTemplate.query(
                 """
                 SELECT COALESCE(b.province_id::text, 'C') AS grp,
-                       COUNT(*) FILTER (WHERE active) AS total,
-                       COUNT(*) FILTER (WHERE active AND UPPER(m.gender) = 'FEMALE') AS female,
-                       COUNT(*) FILTER (WHERE active AND (m.date_of_birth IS NULL
-                           OR m.date_of_birth <= CURRENT_DATE - INTERVAL '18 years')) AS adult,
-                       COUNT(*) FILTER (WHERE active AND m.registered_voter) AS voters,
-                       COUNT(*) FILTER (WHERE active AND UPPER(m.gender) = 'MONK') AS monks,
-                       COUNT(*) FILTER (WHERE active AND UPPER(r.code) = 'ISLAM') AS islam,
-                       COUNT(*) FILTER (WHERE active
-                           AND COALESCE(m.joined_on, m.created_at::date)
+                       COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE UPPER(m.gender) = 'FEMALE') AS female,
+                       COUNT(*) FILTER (WHERE m.date_of_birth IS NULL
+                           OR m.date_of_birth <= CURRENT_DATE - INTERVAL '18 years') AS adult,
+                       COUNT(*) FILTER (WHERE m.registered_voter) AS voters,
+                       COUNT(*) FILTER (WHERE UPPER(m.gender) = 'MONK') AS monks,
+                       COUNT(*) FILTER (WHERE UPPER(r.code) = 'ISLAM') AS islam,
+                       COUNT(*) FILTER (WHERE COALESCE(m.joined_on, m.created_at::date)
                                >= date_trunc('month', CURRENT_DATE)::date) AS new_members,
                        COUNT(*) FILTER (WHERE UPPER(m.life_status) = 'DECEASED') AS deceased,
                        COUNT(*) FILTER (WHERE UPPER(COALESCE(s.code, '')) IN ('RESIGNED', 'FIRED')) AS removed
-                FROM (
-                    SELECT m2.*,
-                           (UPPER(COALESCE(s2.code, '')) NOT IN ('INACTIVE', 'RESIGNED', 'FIRED')
-                            AND UPPER(m2.life_status) <> 'DECEASED') AS active
-                    FROM members m2
-                    LEFT JOIN member_statuses s2 ON s2.id = m2.status_id
-                ) m
+                FROM members m
                 JOIN branches b ON b.id = m.branch_id
                 LEFT JOIN religions r ON r.id = m.religion_id
                 LEFT JOIN member_statuses s ON s.id = m.status_id
