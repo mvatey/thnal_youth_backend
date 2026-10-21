@@ -1,13 +1,14 @@
 package org.example.tnal_youth_backend.report;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTParaRPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTOnOff;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
@@ -129,10 +130,12 @@ public class BranchReportService {
                 .findLevelCodeById(branch.getBranchLevelId())
                 .orElse("");
 
-        if (!"PROVINCE".equals(level) && !"DISTRICT".equals(level) && !"COMMUNE".equals(level)) {
+        boolean ownReportOnly = "COMMUNE".equals(level) || "COUNTRY".equals(level);
+
+        if (!ownReportOnly && !"PROVINCE".equals(level) && !"DISTRICT".equals(level)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "This report is for province, district and commune branches"
+                    "This report is for province, district, commune and central branches"
             );
         }
 
@@ -145,7 +148,9 @@ public class BranchReportService {
 
         List<Page> pages = new ArrayList<>();
 
-        if ("COMMUNE".equals(level)) {
+        // A commune -- and the central branch, treated the same -- has only
+        // its own report.
+        if (ownReportOnly) {
             pages.add(new Page(name, figures(Set.of(branchId), year)));
         } else {
             pages.add(new Page(
@@ -293,7 +298,7 @@ public class BranchReportService {
     byte[] render(List<Page> pages, int year) {
         try {
             byte[] template = readTemplate();
-            byte[] source = pages.size() > 1 ? duplicateBody(template, pages.size()) : template;
+            byte[] source = prepareTemplate(template, pages.size());
 
             try (
                     XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(source));
@@ -341,7 +346,7 @@ public class BranchReportService {
      * Word does not see duplicates. Done on the document's XML before it is
      * opened for filling.
      */
-    private byte[] duplicateBody(byte[] template, int copies) throws IOException {
+    private byte[] prepareTemplate(byte[] template, int copies) throws IOException {
         java.nio.file.Path temp = java.nio.file.Files.createTempFile("branch-report-", ".docx");
 
         try {
@@ -359,8 +364,10 @@ public class BranchReportService {
                     byte[] data = zip.getInputStream(entry).readAllBytes();
 
                     if ("word/document.xml".equals(entry.getName())) {
-                        data = repeat(new String(data, StandardCharsets.UTF_8), copies)
-                                .getBytes(StandardCharsets.UTF_8);
+                        data = repeat(
+                                restyleTemplate(new String(data, StandardCharsets.UTF_8)),
+                                copies
+                        ).getBytes(StandardCharsets.UTF_8);
                     }
 
                     target.putNextEntry(new ZipEntry(entry.getName()));
@@ -376,7 +383,42 @@ public class BranchReportService {
         }
     }
 
+    /*
+     * Template touch-ups made on the raw XML. The decorative "3" line (the
+     * Tacteing ornament, which shows as a plain "3" without that font) is
+     * dropped, and one blank line is added above the addressee. Every "Khmer Muol" -- the "សូមគោរពជូន" lines and the titles
+     * under the signature dates -- becomes "Khmer OS Muol Light", the face
+     * of the document's top headings.
+     */
+    private String restyleTemplate(String xml) {
+        int font = xml.indexOf("w:ascii=\"Tacteing\"");
+
+        while (font >= 0) {
+            int start = xml.lastIndexOf("<w:p ", font);
+            int end = xml.indexOf("</w:p>", font) + "</w:p>".length();
+            xml = xml.substring(0, start) + xml.substring(end);
+            font = xml.indexOf("w:ascii=\"Tacteing\"");
+        }
+
+        // One more blank line above "សូមគោរពជូន" so the two lines clear the logo.
+        String addressee = "<w:p w14:paraId=\"5D11D13E\"";
+        int at = xml.indexOf(addressee);
+        if (at >= 0) {
+            xml = xml.substring(0, at)
+                    + "<w:p><w:pPr><w:spacing w:after=\"0\" w:line=\"276\" w:lineRule=\"auto\"/>"
+                    + "<w:jc w:val=\"center\"/><w:rPr><w:sz w:val=\"26\"/><w:szCs w:val=\"26\"/>"
+                    + "</w:rPr></w:pPr></w:p>"
+                    + xml.substring(at);
+        }
+
+        return xml.replace("Khmer Muol", "Khmer OS Muol Light");
+    }
+
     private String repeat(String xml, int copies) {
+        if (copies < 2) {
+            return xml;
+        }
+
         int bodyStart = xml.indexOf("<w:body>") + "<w:body>".length();
         int sectionStart = xml.lastIndexOf("<w:sectPr");
         String content = xml.substring(bodyStart, sectionStart);
@@ -384,8 +426,13 @@ public class BranchReportService {
         StringBuilder body = new StringBuilder(content);
 
         for (int copy = 1; copy < copies; copy++) {
-            body.append("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>");
-            body.append(withUniqueIds(content, copy));
+            // The copy's first paragraph starts a new page itself; a separate
+            // page-break paragraph would spill onto a blank page whenever the
+            // previous page is full.
+            body.append(
+                    withUniqueIds(content, copy)
+                            .replaceFirst("<w:pPr>", "<w:pPr><w:pageBreakBefore/>")
+            );
         }
 
         return xml.substring(0, bodyStart) + body + xml.substring(sectionStart);
@@ -420,28 +467,48 @@ public class BranchReportService {
     }
 
     // "សាខា/អនុសាខារាជធានី ខេត្ត………ប្រចាំ……… មានដូចខាងក្រោម៖": the two dotted
-    // gaps become the branch's name and the year. All its runs share one look,
-    // so the text is rebuilt in the first run.
+    // gaps become the branch's name and the year, in bold so they stand out.
+    // All the paragraph's runs share one look, so it is rebuilt from the
+    // first run's formatting.
     private void fillHeading(XWPFParagraph paragraph, String name, int year) {
         String text = paragraph.getText();
         Matcher dots = DOTS.matcher(text);
-        StringBuilder out = new StringBuilder();
+
+        List<String> pieces = new ArrayList<>();
+        List<Boolean> bold = new ArrayList<>();
+        int last = 0;
         int gap = 0;
 
         while (dots.find()) {
-            dots.appendReplacement(
-                    out,
-                    Matcher.quoteReplacement(gap == 0 ? " " + name + " " : " ឆ្នាំ" + khmerDigits(year))
-            );
+            pieces.add(text.substring(last, dots.start()));
+            bold.add(false);
+            pieces.add(gap == 0 ? " " + name + " " : " ឆ្នាំ" + khmerDigits(year) + " ");
+            bold.add(true);
+            last = dots.end();
             gap++;
         }
 
-        dots.appendTail(out);
+        pieces.add(text.substring(last));
+        bold.add(false);
 
         List<XWPFRun> runs = paragraph.getRuns();
+        CTRPr look = runs.get(0).getCTR().isSetRPr()
+                ? (CTRPr) runs.get(0).getCTR().getRPr().copy()
+                : null;
 
-        for (int index = 0; index < runs.size(); index++) {
-            runs.get(index).setText(index == 0 ? out.toString() : "", 0);
+        for (XWPFRun run : runs) {
+            run.setText("", 0);
+        }
+
+        for (int index = 0; index < pieces.size(); index++) {
+            XWPFRun run = paragraph.createRun();
+
+            if (look != null) {
+                run.getCTR().setRPr((CTRPr) look.copy());
+            }
+
+            run.setText(pieces.get(index));
+            setBold(run, bold.get(index));
         }
     }
 
@@ -456,7 +523,7 @@ public class BranchReportService {
         };
 
         for (int cell = 0; cell < values.length; cell++) {
-            fill(row.getCell(cell), String.valueOf(values[cell]));
+            fill(row.getCell(cell), String.valueOf(values[cell]), false);
         }
     }
 
@@ -467,7 +534,7 @@ public class BranchReportService {
             XWPFTableRow row = table.getRow(2 + month);
 
             for (int column = 0; column < 9; column++) {
-                fill(row.getCell(column + 1), cell(column, f.months()[month][column]));
+                fill(row.getCell(column + 1), cell(column, f.months()[month][column]), false);
                 totals[column] += f.months()[month][column];
             }
         }
@@ -475,7 +542,7 @@ public class BranchReportService {
         XWPFTableRow totalRow = table.getRow(14);
 
         for (int column = 0; column < 9; column++) {
-            fill(totalRow.getCell(column + 1), cell(column, totals[column]));
+            fill(totalRow.getCell(column + 1), cell(column, totals[column]), true);
         }
     }
 
@@ -492,30 +559,33 @@ public class BranchReportService {
                 : String.format("%,.2f $", value / 100.0);
     }
 
-    // Writes into the cell's empty paragraph, in the font, colour and size the
-    // template set on that paragraph.
-    private void fill(XWPFTableCell cell, String text) {
+    // Writes into the cell's paragraph: centred, in the template's body font
+    // (Khmer OS Siemreap, 12pt), black -- and a paler grey for a zero -- so
+    // every row reads alike whatever the template's row happened to hold.
+    private void fill(XWPFTableCell cell, String text, boolean bold) {
         XWPFParagraph paragraph = cell.getParagraphs().get(0);
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
+
         XWPFRun run = paragraph.createRun();
         run.setText(text);
+        run.setFontFamily("Khmer OS Siemreap");
+        run.setFontFamily("Khmer OS Siemreap", XWPFRun.FontCharRange.cs);
+        run.setFontSize(12);
+        setBold(run, bold);
+        run.setColor(isZero(text) ? "8C8C8C" : "000000");
+    }
 
-        if (paragraph.getCTP().isSetPPr() && paragraph.getCTP().getPPr().isSetRPr()) {
-            CTParaRPr mark = paragraph.getCTP().getPPr().getRPr();
-            CTRPr rPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+    // Khmer is a complex script: Word bolds it from <w:bCs>, not <w:b>.
+    private void setBold(XWPFRun run, boolean on) {
+        run.setBold(on);
 
-            if (mark.sizeOfRFontsArray() > 0) {
-                rPr.addNewRFonts().set(mark.getRFontsArray(0));
-            }
-            if (mark.sizeOfColorArray() > 0) {
-                rPr.addNewColor().set(mark.getColorArray(0));
-            }
-            if (mark.sizeOfSzArray() > 0) {
-                rPr.addNewSz().set(mark.getSzArray(0));
-            }
-            if (mark.sizeOfSzCsArray() > 0) {
-                rPr.addNewSzCs().set(mark.getSzCsArray(0));
-            }
-        }
+        CTRPr rPr = run.getCTR().getRPr();
+        CTOnOff complex = rPr.sizeOfBCsArray() > 0 ? rPr.getBCsArray(0) : rPr.addNewBCs();
+        complex.setVal(on);
+    }
+
+    private boolean isZero(String text) {
+        return "0".equals(text);
     }
 
     private String khmerDigits(int number) {
