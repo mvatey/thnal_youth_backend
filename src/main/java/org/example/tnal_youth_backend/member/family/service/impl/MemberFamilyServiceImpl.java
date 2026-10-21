@@ -118,15 +118,9 @@ public class MemberFamilyServiceImpl
                         memberId
                 );
 
+        // Null means the member prefers not to say.
         MaritalStatus maritalStatus =
                 request.maritalStatus();
-
-        if (maritalStatus == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Marital status is required"
-            );
-        }
 
         member.setMaritalStatus(
                 maritalStatus
@@ -146,20 +140,21 @@ public class MemberFamilyServiceImpl
 
         if (
                 maritalStatus
-                        == MaritalStatus.SINGLE
+                        == MaritalStatus.MARRIED
         ) {
-            /*
-             * SINGLE members should not retain a spouse record.
-             */
-            deleteFamilyByRelationship(
-                    memberId,
-                    FamilyRelationship.SPOUSE
-            );
-        } else {
             upsertFamilyPerson(
                     member,
                     FamilyRelationship.SPOUSE,
                     request.spouse()
+            );
+        } else {
+            /*
+             * Only MARRIED members keep a spouse record (single, or
+             * prefer-not-to-say, do not).
+             */
+            deleteFamilyByRelationship(
+                    memberId,
+                    FamilyRelationship.SPOUSE
             );
         }
 
