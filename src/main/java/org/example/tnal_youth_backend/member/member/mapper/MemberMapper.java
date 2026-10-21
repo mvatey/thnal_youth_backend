@@ -88,7 +88,9 @@ public class MemberMapper {
 
                 toOffsetDateTime(
                         row.length > 24 ? row[24] : null
-                )
+                ),
+
+                java.util.List.of()
         );
     }
 

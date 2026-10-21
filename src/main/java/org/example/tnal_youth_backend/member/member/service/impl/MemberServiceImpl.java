@@ -529,14 +529,16 @@ public class MemberServiceImpl implements MemberService {
                         );
 
         List<MemberListResponse> content =
-                memberPage
-                        .getContent()
-                        .stream()
-                        .map(
-                                memberMapper
-                                        ::toListResponse
-                        )
-                        .toList();
+                withAdditionalBranches(
+                        memberPage
+                                .getContent()
+                                .stream()
+                                .map(
+                                        memberMapper
+                                                ::toListResponse
+                                )
+                                .toList()
+                );
 
         return MemberPageResponse
                 .builder()
@@ -2132,6 +2134,61 @@ public class MemberServiceImpl implements MemberService {
                     "You do not have access to this member's branch"
             );
         }
+    }
+
+    /*
+     * A member who staffs more than one branch (a multi-branch secretary)
+     * is listed once, under their own branch; this adds the others so the
+     * list can say "branch +N" and a branch filter can match any of them.
+     * One query for the whole page, not one per member.
+     */
+    private List<MemberListResponse> withAdditionalBranches(
+            List<MemberListResponse> items
+    ) {
+        if (items.isEmpty()) {
+            return items;
+        }
+
+        java.util.Map<Long, List<Long>> staffedBranchIds =
+                branchStaffRepository.findActiveBranchIdsByMemberIds(
+                        items.stream()
+                                .map(MemberListResponse::id)
+                                .toList()
+                );
+
+        Set<Long> wanted = new java.util.HashSet<>();
+        staffedBranchIds.values().forEach(wanted::addAll);
+
+        java.util.Map<Long, Branch> branchById = new java.util.HashMap<>();
+        branchRepository.findAllById(wanted)
+                .forEach(branch -> branchById.put(branch.getId(), branch));
+
+        return items.stream()
+                .map(item -> {
+                    Long homeId =
+                            item.branch() != null ? item.branch().id() : null;
+
+                    List<MemberListResponse.BranchResponse> others =
+                            staffedBranchIds
+                                    .getOrDefault(item.id(), List.of())
+                                    .stream()
+                                    .filter(id -> !id.equals(homeId))
+                                    .map(branchById::get)
+                                    .filter(java.util.Objects::nonNull)
+                                    .map(branch ->
+                                            new MemberListResponse.BranchResponse(
+                                                    branch.getId(),
+                                                    branch.getNameKm(),
+                                                    branch.getNameEn()
+                                            )
+                                    )
+                                    .toList();
+
+                    return others.isEmpty()
+                            ? item
+                            : item.withAdditionalBranches(others);
+                })
+                .toList();
     }
 
     private Long resolveMemberListBranchId(

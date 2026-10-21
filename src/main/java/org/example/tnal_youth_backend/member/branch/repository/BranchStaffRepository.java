@@ -301,6 +301,41 @@ public class BranchStaffRepository {
     }
 
     /**
+     * Active branch assignments for a whole page of members in one query:
+     * member id -> the branch ids they are staff of (ended_on IS NULL).
+     */
+    public java.util.Map<Long, List<Long>> findActiveBranchIdsByMemberIds(
+            java.util.Collection<Long> memberIds
+    ) {
+        java.util.Map<Long, List<Long>> result = new java.util.HashMap<>();
+
+        if (memberIds == null || memberIds.isEmpty()) {
+            return result;
+        }
+
+        jdbcTemplate.query(
+                """
+                SELECT DISTINCT bs.member_id, bs.branch_id
+                FROM branch_staff bs
+                WHERE bs.member_id IN (:memberIds)
+                  AND bs.ended_on IS NULL
+                ORDER BY bs.member_id, bs.branch_id
+                """,
+                new MapSqlParameterSource().addValue("memberIds", memberIds),
+                resultSet -> {
+                    result
+                            .computeIfAbsent(
+                                    resultSet.getLong("member_id"),
+                                    key -> new java.util.ArrayList<>()
+                            )
+                            .add(resultSet.getLong("branch_id"));
+                }
+        );
+
+        return result;
+    }
+
+    /**
      * Returns all active branch assignments for one member.
      *
      * Active assignment:

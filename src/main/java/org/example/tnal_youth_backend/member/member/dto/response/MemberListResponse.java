@@ -73,8 +73,38 @@ public record MemberListResponse(
          * the member went inactive, and only block the newer case.
          */
         @JsonProperty("status_changed_at")
-        OffsetDateTime statusChangedAt
+        OffsetDateTime statusChangedAt,
+
+        /*
+         * The branches this member also staffs beyond their own branch
+         * (a multi-branch secretary), so a list can show "branch +N" and a
+         * branch filter can match on any of them. Empty for everyone else.
+         */
+        @JsonProperty("additional_branches")
+        java.util.List<BranchResponse> additionalBranches
 ) {
+
+    public MemberListResponse withAdditionalBranches(
+            java.util.List<BranchResponse> branches
+    ) {
+        return new MemberListResponse(
+                id,
+                fullNameKm,
+                fullNameEn,
+                gender,
+                branch,
+                status,
+                level,
+                profilePhoto,
+                joinedOn,
+                email,
+                accountRole,
+                accountStatus,
+                position,
+                statusChangedAt,
+                branches
+        );
+    }
 
     public record GenderResponse(
 
