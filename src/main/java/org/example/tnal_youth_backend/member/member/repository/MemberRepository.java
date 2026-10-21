@@ -996,7 +996,9 @@ public interface MemberRepository
      * The member register's rows (see MemberRegisterReportService): every
      * member of the branches -- by home branch or an active branch_staff
      * row -- INCLUDING those who resigned, were fired or have passed away,
-     * which every other list leaves out. Columns: name, gender code, date of
+     * which every other list leaves out. Members whose account was deleted
+     * (a linked INACTIVE user) are left out, unless they are deceased,
+     * resigned or fired -- their login is off too, but they still count. Columns: name, gender code, date of
      * birth, joined on, national ID, voter card, marital status, religion
      * code, from another party, member status code, life status, the date
      * they resigned/were fired, the date they passed away, and when the
@@ -1032,6 +1034,15 @@ public interface MemberRepository
                               AND bs.branch_id IN (:branchIds)
                               AND bs.ended_on IS NULL
                         )
+                    )
+                    AND (
+                        NOT EXISTS (
+                            SELECT 1 FROM users u
+                            WHERE u.member_id = m.id
+                              AND u.status = 'INACTIVE'
+                        )
+                        OR UPPER(m.life_status) = 'DECEASED'
+                        OR UPPER(COALESCE(s.code, '')) IN ('RESIGNED', 'FIRED')
                     )
                     ORDER BY m.branch_id, m.id
                     """,

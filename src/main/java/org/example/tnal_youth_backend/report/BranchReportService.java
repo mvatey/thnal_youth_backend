@@ -210,6 +210,15 @@ public class BranchReportService {
                             AND UPPER(m2.life_status) <> 'DECEASED') AS active
                     FROM members m2
                     LEFT JOIN member_statuses s2 ON s2.id = m2.status_id
+                    -- A deleted account (a linked INACTIVE user) takes the member out of
+                    -- the count; deceased, resigned and fired members stay in even though
+                    -- their login is off.
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM users u
+                        WHERE u.member_id = m2.id AND u.status = 'INACTIVE'
+                    )
+                       OR UPPER(m2.life_status) = 'DECEASED'
+                       OR UPPER(COALESCE(s2.code, '')) IN ('RESIGNED', 'FIRED')
                 ) m
                 LEFT JOIN religions r ON r.id = m.religion_id
                 WHERE m.branch_id IN (:ids)
