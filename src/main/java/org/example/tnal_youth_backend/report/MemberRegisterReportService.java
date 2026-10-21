@@ -208,10 +208,10 @@ public class MemberRegisterReportService {
         String genderCode = text(member[1]);
         row.getCell(2).setCellValue(genderLabel(genderCode));
 
-        // "Age or date of birth": the date of birth, N/A when unknown.
+        // "Age or date of birth": the date of birth, a dash when unknown.
         LocalDate dateOfBirth = date(member[2]);
         row.getCell(3).setCellValue(
-                dateOfBirth == null ? "N/A" : DATE.format(dateOfBirth)
+                dateOfBirth == null ? NONE : DATE.format(dateOfBirth)
         );
 
         LocalDate joinedOn = date(member[3]);
@@ -222,25 +222,27 @@ public class MemberRegisterReportService {
         setText(row, 5, member[4]);
         setText(row, 6, member[5]);
 
-        // Marital status in words.
+        // Marital status in words, a dash when it is not recorded.
         String marital = text(member[6]);
         row.getCell(7).setCellValue(
                 "MARRIED".equalsIgnoreCase(marital)
                         ? "រៀបការ"
                         : "SINGLE".equalsIgnoreCase(marital)
                         ? "នៅលីវ"
-                        : NOT_AVAILABLE
+                        : NONE
         );
 
-        // Monk / Khmer-Islam / from another party: 1 when it applies (so the
-        // column can be added up), otherwise "no" in words.
-        yesOrNo(row, 8, "MONK".equalsIgnoreCase(genderCode), "ទេ");
-        yesOrNo(row, 9, "ISLAM".equalsIgnoreCase(text(member[7])), "ទេ");
-        yesOrNo(row, 10, Boolean.TRUE.equals(member[8]), "គ្មាន");
+        // Monk / Khmer-Islam / from another party: "មាន" when it applies,
+        // a dash when it does not (so the column can be counted with
+        // COUNTIF).
+        yesOrNone(row, 8, "MONK".equalsIgnoreCase(genderCode));
+        yesOrNone(row, 9, "ISLAM".equalsIgnoreCase(text(member[7])));
+        yesOrNone(row, 10, Boolean.TRUE.equals(member[8]));
 
         // Left the association: the date they resigned / were fired /
-        // passed away, "no" for everyone else. A date that was never entered
-        // falls back to the day the status was saved (N/A if there is none).
+        // passed away, a dash for everyone else. A date that was never
+        // entered falls back to the day the status was saved, and "មាន" when
+        // there is not even that.
         String status = text(member[9]);
         LocalDate statusChanged = date(member[13]);
         LocalDate endedOn = date(member[11]);
@@ -258,14 +260,14 @@ public class MemberRegisterReportService {
         // Column 14 (remarks) stays blank.
     }
 
-    private static final String NOT_AVAILABLE = "N/A";
+    // What a cell says when the information is absent or does not apply.
+    private static final String NONE = "-";
 
-    private void yesOrNo(Row row, int column, boolean applies, String noText) {
-        if (applies) {
-            row.getCell(column).setCellValue(1);
-        } else {
-            row.getCell(column).setCellValue(noText);
-        }
+    // What a flag cell says when the information is positive.
+    private static final String YES = "មាន";
+
+    private void yesOrNone(Row row, int column, boolean applies) {
+        row.getCell(column).setCellValue(applies ? YES : NONE);
     }
 
     private void endDate(
@@ -276,14 +278,14 @@ public class MemberRegisterReportService {
             LocalDate fallback
     ) {
         if (!applies) {
-            row.getCell(column).setCellValue("ទេ");
+            row.getCell(column).setCellValue(NONE);
             return;
         }
 
         LocalDate shown = entered != null ? entered : fallback;
 
         row.getCell(column).setCellValue(
-                shown == null ? NOT_AVAILABLE : DATE.format(shown)
+                shown == null ? YES : DATE.format(shown)
         );
     }
 
