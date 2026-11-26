@@ -80,7 +80,7 @@ public class UserManagementServiceImpl
         List<User> users =
                 userRepository.findAllByOrderByCreatedAtDescIdDesc()
                         .stream()
-                        .filter(user -> user.getStatus() != UserStatus.INACTIVE)
+                        .filter(user -> user.getStatus() != UserStatus.DELETED)
                         .toList();
 
         long total = users.size();
@@ -134,10 +134,10 @@ public class UserManagementServiceImpl
                 .findAllByOrderByCreatedAtDescIdDesc()
                 .stream()
                 // A "deleted" account (see deleteUser) is users.status ==
-                // INACTIVE -- excluded here unconditionally, even from an
+                // DELETED -- excluded here unconditionally, even from an
                 // explicit status=INACTIVE filter, so it's gone from the
                 // Users page for good rather than just hidden by default.
-                .filter(user -> user.getStatus() != UserStatus.INACTIVE)
+                .filter(user -> user.getStatus() != UserStatus.DELETED)
                 .filter(user ->
                         normalizedRole == null
                                 || (user.getRole() != null
@@ -420,12 +420,12 @@ public class UserManagementServiceImpl
                         "User not found with ID: " + id
                 ));
 
-        if (user.getStatus() == UserStatus.INACTIVE) {
+        if (user.getStatus() == UserStatus.DELETED) {
             return;
         }
 
         user.freeIdentifiersForReuse();
-        user.setStatus(UserStatus.INACTIVE);
+        user.setStatus(UserStatus.DELETED);
         userRepository.saveAndFlush(user);
     }
 

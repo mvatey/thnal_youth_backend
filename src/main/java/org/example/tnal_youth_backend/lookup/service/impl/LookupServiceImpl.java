@@ -405,6 +405,12 @@ public class LookupServiceImpl
                     "បានចាក់សោ",
                     "Locked"
             );
+            case DELETED -> new LookupOptionResponse<>(
+                    status.name(),
+                    status.name(),
+                    "បានលុប",
+                    "Deleted"
+            );
         };
     }
 

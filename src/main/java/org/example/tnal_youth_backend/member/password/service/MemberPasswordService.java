@@ -34,6 +34,15 @@ public interface MemberPasswordService {
             Long memberId
     );
 
+    /**
+     * Deletes the member's login account: identifiers freed, sessions ended,
+     * and the member disappears from the lists and counts. Same permission as
+     * disabling an account.
+     */
+    MemberPasswordStatusResponse deleteAccount(
+            Long memberId
+    );
+
     MemberPasswordStatusResponse enableAccount(
             Long memberId
     );

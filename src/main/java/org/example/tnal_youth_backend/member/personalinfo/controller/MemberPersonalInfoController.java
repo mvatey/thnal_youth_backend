@@ -185,6 +185,27 @@ public class MemberPersonalInfoController {
         );
     }
 
+    @DeleteMapping("/account")
+    @PreAuthorize("""
+            hasAnyRole(
+                'ADMIN',
+                'SECRETARY',
+                'BRANCH_LEADER'
+            )
+            """)
+    public ResponseEntity<MemberPasswordStatusResponse>
+    deleteAccount(
+            @PathVariable
+            Long memberId
+    ) {
+        return ResponseEntity.ok(
+                memberPasswordService
+                        .deleteAccount(
+                                memberId
+                        )
+        );
+    }
+
     @PutMapping(
             value = "/cv",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE

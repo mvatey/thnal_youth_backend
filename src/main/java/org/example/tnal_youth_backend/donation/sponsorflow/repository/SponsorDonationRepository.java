@@ -620,7 +620,7 @@ public interface SponsorDonationRepository {
           AND NOT EXISTS (
               SELECT 1 FROM users u
               WHERE u.member_id = m.id
-                AND u.status = 'INACTIVE'
+                AND u.status = 'DELETED'
           )
           AND (
               CAST(#{search} AS TEXT) IS NULL

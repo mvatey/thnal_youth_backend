@@ -408,6 +408,27 @@ public class MonthlyDonationServiceImpl implements MonthlyDonationService {
         }
     }
 
+    @Override
+    @Transactional
+    public int deleteMonthlyDonationsForPeriod(
+            Long branchId,
+            LocalDate donationPeriod
+    ) {
+        if (branchId == null || branchId < 1 || donationPeriod == null) {
+            throw new BusinessException(
+                    "MONTHLY_DONATION_PERIOD_REQUIRED",
+                    "branchId and donationPeriod are required"
+            );
+        }
+
+        enforceBranchAccess(branchId);
+
+        return monthlyDonationRepository.deleteMonthlyDonationsForPeriod(
+                branchId,
+                donationPeriod.withDayOfMonth(1)
+        );
+    }
+
     private void validateRequiredMonthYear(
             Integer month,
             Integer year

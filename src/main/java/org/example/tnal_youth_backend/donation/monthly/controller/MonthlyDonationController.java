@@ -110,6 +110,24 @@ public class MonthlyDonationController {
         return ApiResponse.ok(Boolean.TRUE);
     }
 
+    // The whole month's list for one branch. A literal path, so it never
+    // clashes with the single-donation delete below.
+    @DeleteMapping("/period")
+    @PreAuthorize(DONATION_ENTRY)
+    public ApiResponse<Integer> deleteMonthlyDonationsForPeriod(
+            @RequestParam Long branchId,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate donationPeriod
+    ) {
+        return ApiResponse.ok(
+                monthlyDonationService.deleteMonthlyDonationsForPeriod(
+                        branchId,
+                        donationPeriod
+                )
+        );
+    }
+
     @DeleteMapping("/{donationId}")
     @PreAuthorize(DONATION_ENTRY)
     public ResponseEntity<Void> deleteMonthlyDonation(

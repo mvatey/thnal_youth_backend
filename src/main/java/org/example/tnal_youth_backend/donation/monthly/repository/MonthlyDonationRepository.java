@@ -99,7 +99,7 @@ public interface MonthlyDonationRepository {
             // stays visible so that record isn't lost.
             "  AND (",
             "    (ms.code = 'ACTIVE' AND NOT EXISTS (",
-            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'INACTIVE'",
+            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'DELETED'",
             "    ))",
             "    OR d.id IS NOT NULL",
             "  )",
@@ -139,7 +139,7 @@ public interface MonthlyDonationRepository {
             // otherwise the count and the actual page of rows disagree.
             "  AND (",
             "    (ms.code = 'ACTIVE' AND NOT EXISTS (",
-            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'INACTIVE'",
+            "      SELECT 1 FROM users u WHERE u.member_id = m.id AND u.status = 'DELETED'",
             "    ))",
             "    OR EXISTS (",
             "      SELECT 1",
@@ -434,5 +434,23 @@ public interface MonthlyDonationRepository {
         """)
     int deleteMonthlyDonation(
             @Param("donationId") Long donationId
+    );
+
+    // Every monthly donation of one branch for one month (the whole month's
+    // list), returning how many were removed.
+    @Delete("""
+        DELETE FROM donations
+        WHERE branch_id = #{branchId}
+          AND donation_period = #{donationPeriod}
+          AND donation_type_id = (
+              SELECT id
+              FROM donation_types
+              WHERE code = 'MONTHLY_DONATION'
+              LIMIT 1
+          )
+        """)
+    int deleteMonthlyDonationsForPeriod(
+            @Param("branchId") Long branchId,
+            @Param("donationPeriod") LocalDate donationPeriod
     );
 }

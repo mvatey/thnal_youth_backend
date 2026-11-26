@@ -41,7 +41,7 @@ public class AccountStatusServiceImpl
          * Avoid returning detailed account information
          * for unknown identifiers.
          */
-        if (user == null) {
+        if (user == null || user.getStatus() == UserStatus.DELETED) {
             return new AccountStatusResponse(
                     false,
                     null,

@@ -51,7 +51,7 @@ public class DashboardRepository {
                   AND NOT EXISTS (
                         SELECT 1 FROM users u
                         WHERE u.member_id = m.id
-                          AND u.status = 'INACTIVE'
+                          AND u.status = 'DELETED'
                   )
                 """;
 
@@ -96,7 +96,7 @@ public class DashboardRepository {
                   AND NOT EXISTS (
                         SELECT 1 FROM users u
                         WHERE u.member_id = m.id
-                          AND u.status = 'INACTIVE'
+                          AND u.status = 'DELETED'
                   )
                 """;
 

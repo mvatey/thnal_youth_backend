@@ -1382,7 +1382,7 @@ public class BranchServiceImpl implements BranchService {
                                         UserRole.BRANCH_LEADER,
                                         UserRole.SECRETARY
                                 ),
-                                UserStatus.INACTIVE
+                                UserStatus.DELETED
                         )
                         .stream()
                         .map(item ->
@@ -1496,7 +1496,7 @@ public class BranchServiceImpl implements BranchService {
                                         ? Set.of(-1L)
                                         : branchStaffMemberIds,
                                 UserRole.BRANCH_LEADER,
-                                UserStatus.INACTIVE,
+                                UserStatus.DELETED,
                                 normalizedSearch,
                                 gender,
                                 statusId,

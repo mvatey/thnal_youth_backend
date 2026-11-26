@@ -198,7 +198,12 @@ public class SecurityConfig {
                         )
 
                         /*
-                         * Delete activities.
+                         * Delete activities, and the things tied to one
+                         * (participants, expenses, photos, invitations).
+                         * Branch leaders manage activities like secretaries
+                         * do, so they are included; each controller's own
+                         * @PreAuthorize and the host-branch check still
+                         * decide who may delete what.
                          */
                         .requestMatchers(
                                 HttpMethod.DELETE,
@@ -206,7 +211,8 @@ public class SecurityConfig {
                         )
                         .hasAnyRole(
                                 "ADMIN",
-                                "SECRETARY"
+                                "SECRETARY",
+                                "BRANCH_LEADER"
                         )
 
                         /*

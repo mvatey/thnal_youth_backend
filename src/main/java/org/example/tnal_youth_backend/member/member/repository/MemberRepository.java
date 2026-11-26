@@ -409,7 +409,7 @@ public interface MemberRepository
                     WHERE NOT EXISTS (
                         SELECT 1 FROM users u
                         WHERE u.member_id = m.id
-                          AND u.status = 'INACTIVE'
+                          AND u.status = 'DELETED'
                     )
                     """,
             nativeQuery = true
@@ -424,7 +424,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -449,7 +449,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -475,7 +475,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -494,7 +494,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -522,7 +522,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -549,7 +549,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -576,7 +576,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -596,7 +596,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -625,7 +625,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -647,7 +647,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -677,7 +677,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -749,6 +749,7 @@ public interface MemberRepository
                     WHEN 'PENDING_ACTIVATION' THEN 'រង់ចាំដំណើរការ'
                     WHEN 'ACTIVE' THEN 'សកម្ម'
                     WHEN 'INACTIVE' THEN 'អសកម្ម'
+                    WHEN 'DELETED' THEN 'បានលុប'
                     WHEN 'LOCKED' THEN 'បានចាក់សោ'
                     ELSE u.status
                 END AS account_status_label_km,
@@ -870,7 +871,7 @@ public interface MemberRepository
              */
             AND (
                 u.status IS NULL
-                OR u.status <> 'INACTIVE'
+                OR u.status <> 'DELETED'
             )
 
             AND (
@@ -939,7 +940,7 @@ public interface MemberRepository
 
             AND (
                 u.status IS NULL
-                OR u.status <> 'INACTIVE'
+                OR u.status <> 'DELETED'
             )
 
             AND (
@@ -983,7 +984,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true
@@ -997,8 +998,8 @@ public interface MemberRepository
      * member of the branches -- by home branch or an active branch_staff
      * row -- INCLUDING those who resigned, were fired or have passed away,
      * which every other list leaves out. Members whose account was deleted
-     * (a linked INACTIVE user) are left out, unless they are deceased,
-     * resigned or fired -- their login is off too, but they still count. Columns: name, gender code, date of
+     * (a linked DELETED user) are left out; an inactive, resigned, fired or
+     * deceased member's login is only switched off, so they stay in. Columns: name, gender code, date of
      * birth, joined on, national ID, voter card, marital status, religion
      * code, from another party, member status code, life status, the date
      * they resigned/were fired, the date they passed away, and when the
@@ -1040,9 +1041,8 @@ public interface MemberRepository
                         NOT EXISTS (
                             SELECT 1 FROM users u
                             WHERE u.member_id = m.id
-                              AND u.status = 'INACTIVE'
+                              AND u.status = 'DELETED'
                         )
-                        OR UPPER(m.life_status) = 'DECEASED'
                         OR UPPER(COALESCE(s.code, '')) IN ('RESIGNED', 'FIRED')
                     )
                     ORDER BY m.branch_id, m.id
@@ -1065,7 +1065,7 @@ public interface MemberRepository
                     SELECT m.id, u.role
                     FROM members m
                     JOIN users u ON u.member_id = m.id
-                    WHERE u.status <> 'INACTIVE'
+                    WHERE u.status <> 'DELETED'
                       AND u.role IN ('BRANCH_LEADER', 'SECRETARY')
                       AND (
                           m.branch_id = :branchId
@@ -1129,7 +1129,7 @@ public interface MemberRepository
                       AND NOT EXISTS (
                           SELECT 1 FROM users u
                           WHERE u.member_id = m.id
-                            AND u.status = 'INACTIVE'
+                            AND u.status = 'DELETED'
                       )
                     """,
             nativeQuery = true

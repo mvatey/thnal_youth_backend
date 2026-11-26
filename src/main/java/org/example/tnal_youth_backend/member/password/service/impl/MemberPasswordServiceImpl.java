@@ -663,9 +663,17 @@ public class MemberPasswordServiceImpl
             );
         }
 
+        // Resigned and fired members are gone: their login is deleted, which
+        // also takes them out of the lists and counts. An inactive member's
+        // login is only switched off, and they stay listed and counted.
+        UserStatus target =
+                isGoneMemberStatus(member)
+                        ? UserStatus.DELETED
+                        : UserStatus.INACTIVE;
+
         if (
                 user.getStatus()
-                        == UserStatus.INACTIVE
+                        == target
         ) {
             return toResponse(
                     user
@@ -675,7 +683,69 @@ public class MemberPasswordServiceImpl
         return toResponse(
                 deactivate(
                         member,
-                        user
+                        user,
+                        target
+                )
+        );
+    }
+
+    /** Resigned or fired: the member has left for good. */
+    private boolean isGoneMemberStatus(
+            Member member
+    ) {
+        String code =
+                member.getStatus() != null
+                        && member.getStatus().getCode() != null
+                        ? member.getStatus().getCode().trim().toUpperCase()
+                        : "";
+
+        return code.equals("RESIGNED")
+                || code.equals("FIRED");
+    }
+
+    @Override
+    @Transactional
+    public MemberPasswordStatusResponse deleteAccount(
+            Long memberId
+    ) {
+        memberAccessValidator
+                .validateAccessibleMember(
+                        memberId
+                );
+
+        memberAccessValidator
+                .validateCanManageSensitiveFields(
+                        memberId
+                );
+
+        Member member =
+                requireMember(
+                        memberId
+                );
+
+        User user =
+                requireUserAccount(
+                        memberId
+                );
+
+        validateCanManageTargetAccount(
+                user
+        );
+
+        if (
+                user.getStatus()
+                        == UserStatus.DELETED
+        ) {
+            return toResponse(
+                    user
+            );
+        }
+
+        return toResponse(
+                deactivate(
+                        member,
+                        user,
+                        UserStatus.DELETED
                 )
         );
     }
@@ -694,25 +764,28 @@ public class MemberPasswordServiceImpl
                 .findByMemberId(memberId)
                 .filter(user ->
                         user.getStatus() != UserStatus.INACTIVE
+                                && user.getStatus() != UserStatus.DELETED
                                 && user.getStatus()
                                 != UserStatus.PENDING_ACTIVATION
                 )
                 .ifPresent(user ->
                         deactivate(
                                 member,
-                                user
+                                user,
+                                UserStatus.INACTIVE
                         )
                 );
     }
 
     private User deactivate(
             Member member,
-            User user
+            User user,
+            UserStatus target
     ) {
         user.freeIdentifiersForReuse();
 
         user.setStatus(
-                UserStatus.INACTIVE
+                target
         );
 
         user.setLockedUntil(null);
@@ -879,6 +952,21 @@ public class MemberPasswordServiceImpl
         if (user.getActivatedAt() == null) {
             throw new MemberPasswordException(
                     "This account has not completed OTP activation yet"
+            );
+        }
+
+        // A resigned or fired member's login stays deleted; anyone else's
+        // deleted login comes back when staff switch it on again (e.g. a
+        // member put back to Active).
+        if (
+                user.getStatus()
+                        == UserStatus.DELETED
+                        && isGoneMemberStatus(
+                                requireMember(memberId)
+                        )
+        ) {
+            throw new MemberPasswordException(
+                    "This account was deleted"
             );
         }
 

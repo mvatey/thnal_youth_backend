@@ -44,4 +44,7 @@ public interface MonthlyDonationService {
     );
 
     void deleteMonthlyDonation(Long donationId);
+
+    /** Deletes every monthly donation of a branch for one month; returns how many. */
+    int deleteMonthlyDonationsForPeriod(Long branchId, LocalDate donationPeriod);
 }

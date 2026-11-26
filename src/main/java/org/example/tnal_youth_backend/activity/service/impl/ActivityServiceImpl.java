@@ -1,5 +1,7 @@
 package org.example.tnal_youth_backend.activity.service.impl;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.example.tnal_youth_backend.activity.attendance.entity.AttendanceStatus;
 import org.example.tnal_youth_backend.activity.attendance.repository.AttendanceStatusRepository;
@@ -64,6 +66,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ActivityServiceImpl implements ActivityService {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final StaffBranchScopeService staffBranchScopeService;
 
@@ -1076,6 +1081,16 @@ public class ActivityServiceImpl implements ActivityService {
          */
         donationRepository.deleteAllByActivityId(activityId);
         memberCredentialRepository.deleteByActivity_Id(activityId);
+
+        /*
+         * The participants and invited branches loaded above are still
+         * managed and still point at this activity. The database removes
+         * them with it (ON DELETE CASCADE), but Hibernate would otherwise
+         * find them referencing a deleted activity at commit and fail with
+         * TransientObjectException. Detach them so the delete can commit.
+         */
+        participants.forEach(entityManager::detach);
+        invitedBranches.forEach(entityManager::detach);
 
         activityRepository.delete(activity);
     }
