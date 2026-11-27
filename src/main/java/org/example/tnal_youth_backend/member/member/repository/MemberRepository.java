@@ -1055,35 +1055,6 @@ public interface MemberRepository
             @Param("branchIds") Iterable<Long> branchIds
     );
 
-    /*
-     * The members who lead or are secretary of one branch -- by home branch
-     * or an active branch_staff row, with a live account holding the role
-     * (there can be several of each). Columns: member id, role code. The
-     * register lists these first.
-     */
-    @Query(
-            value = """
-                    SELECT m.id, u.role
-                    FROM members m
-                    JOIN users u ON u.member_id = m.id
-                    WHERE u.status <> 'DELETED'
-                      AND u.role IN ('BRANCH_LEADER', 'SECRETARY')
-                      AND (
-                          m.branch_id = :branchId
-                          OR EXISTS (
-                              SELECT 1 FROM branch_staff bs
-                              WHERE bs.member_id = m.id
-                                AND bs.branch_id = :branchId
-                                AND bs.ended_on IS NULL
-                          )
-                      )
-                    """,
-            nativeQuery = true
-    )
-    List<Object[]> findBranchLeadersAndSecretaries(
-            @Param("branchId") Long branchId
-    );
-
     /** The member summary cards' five counts. */
     interface MemberSummaryCounts {
         long getTotal();

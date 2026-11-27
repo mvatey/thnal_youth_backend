@@ -122,34 +122,14 @@ public class MemberRegisterReportService {
             );
         }
 
-        // A register of ONE branch opens with its leaders, then its
-        // secretaries (there can be several of each); everyone else follows.
-        // Each group is in Khmer alphabetical order by name (the consonants,
-        // vowels and subscripts of the Khmer block follow the alphabet in
-        // code order). A register spanning several branches (a province with
-        // its districts and communes, or every branch) is simply
-        // alphabetical: every branch's leaders on top would bury the rest.
-        java.util.Map<Long, Integer> rank = new java.util.HashMap<>();
-        if (!allBranches && branchIds.size() == 1) {
-            for (Object[] row : memberRepository.findBranchLeadersAndSecretaries(branchId)) {
-                int position = "BRANCH_LEADER".equals(String.valueOf(row[1])) ? 0 : 1;
-                rank.merge(((Number) row[0]).longValue(), position, Math::min);
-            }
-        }
-
+        // Everyone is in plain Khmer alphabetical order by name (the
+        // consonants, vowels and subscripts of the Khmer block follow the
+        // alphabet in code order); leaders and secretaries get no special
+        // place at the top.
         java.text.Collator collator =
                 java.text.Collator.getInstance(java.util.Locale.forLanguageTag("km"));
         members.sort(
-                (first, second) -> {
-                    int byRole = Integer.compare(
-                            rank.getOrDefault(((Number) first[15]).longValue(), 2),
-                            rank.getOrDefault(((Number) second[15]).longValue(), 2)
-                    );
-
-                    return byRole != 0
-                            ? byRole
-                            : collator.compare(text(first[0]), text(second[0]));
-                }
+                (first, second) -> collator.compare(text(first[0]), text(second[0]))
         );
 
         String title = titleFor(branchName);
