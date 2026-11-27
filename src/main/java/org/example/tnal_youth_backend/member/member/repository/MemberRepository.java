@@ -999,8 +999,9 @@ public interface MemberRepository
      * row -- INCLUDING those who resigned, were fired or have passed away,
      * which every other list leaves out. Members whose account was deleted
      * (a linked DELETED user) are left out; an inactive, resigned, fired or
-     * deceased member's login is only switched off, so they stay in. Columns: name, gender code, date of
-     * birth, joined on, national ID, voter card, marital status, religion
+     * deceased member's login is only switched off, so they stay in; a resigned or fired
+     * member's login is deleted but they stay in here too. Columns: name, gender code,
+     * date of birth, joined on, national ID, voter card, marital status, religion
      * code, from another party, member status code, life status, the date
      * they resigned/were fired, the date they passed away, and when the
      * status last changed (the fallback when no date was entered), and the

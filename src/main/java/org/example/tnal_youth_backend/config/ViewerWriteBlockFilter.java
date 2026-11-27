@@ -61,6 +61,14 @@ public class ViewerWriteBlockFilter extends OncePerRequestFilter {
             return;
         }
 
+        // Downloading the member register for a filtered list is a POST only
+        // because the list of member ids is too long for a URL; it reads and
+        // changes nothing, so a viewer may still ask for it.
+        if ("POST".equals(request.getMethod()) && uri.equals("/api/reports/member-register")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication != null

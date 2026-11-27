@@ -7,11 +7,15 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.List;
 
 /*
  * Downloadable reports filled into the association's own Excel/Word
@@ -83,9 +87,37 @@ public class ReportController {
     public ResponseEntity<byte[]> memberRegister(
             @RequestParam(required = false) Long branchId
     ) {
-        MemberRegisterReportService.RegisterFile file =
-                memberRegisterReportService.build(branchId);
+        return registerResponse(
+                memberRegisterReportService.build(branchId, null)
+        );
+    }
 
+    /**
+     * The register for a filtered member list: the same file, but only the
+     * members whose ids are sent (the rows still have to be inside the
+     * caller's branch scope, so an id from elsewhere adds nothing).
+     */
+    @PostMapping("/member-register")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
+    public ResponseEntity<byte[]> memberRegisterForMembers(
+            @RequestBody MemberRegisterRequest request
+    ) {
+        return registerResponse(
+                memberRegisterReportService.build(
+                        request.branchId(),
+                        request.memberIds() == null
+                                ? null
+                                : new HashSet<>(request.memberIds())
+                )
+        );
+    }
+
+    public record MemberRegisterRequest(Long branchId, List<Long> memberIds) {
+    }
+
+    private ResponseEntity<byte[]> registerResponse(
+            MemberRegisterReportService.RegisterFile file
+    ) {
         return ResponseEntity.ok()
                 .contentType(XLSX)
                 .header(

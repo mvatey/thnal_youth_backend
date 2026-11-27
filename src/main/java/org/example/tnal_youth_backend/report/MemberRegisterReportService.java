@@ -73,7 +73,7 @@ public class MemberRegisterReportService {
     }
 
     @Transactional(readOnly = true)
-    public RegisterFile build(Long branchId) {
+    public RegisterFile build(Long branchId, Set<Long> memberIds) {
         User user = currentUser();
         requireReportRole(user);
 
@@ -115,13 +115,22 @@ public class MemberRegisterReportService {
                         memberRepository.findRegisterRows(allBranches, branchIds)
                 );
 
-        // A branch's own register opens with its leaders, then its
+        // A filtered list asks for just those members.
+        if (memberIds != null) {
+            members.removeIf(
+                    row -> !memberIds.contains(((Number) row[15]).longValue())
+            );
+        }
+
+        // A register of ONE branch opens with its leaders, then its
         // secretaries (there can be several of each); everyone else follows.
         // Each group is in Khmer alphabetical order by name (the consonants,
         // vowels and subscripts of the Khmer block follow the alphabet in
-        // code order). The "all branches" register is simply alphabetical.
+        // code order). A register spanning several branches (a province with
+        // its districts and communes, or every branch) is simply
+        // alphabetical: every branch's leaders on top would bury the rest.
         java.util.Map<Long, Integer> rank = new java.util.HashMap<>();
-        if (!allBranches) {
+        if (!allBranches && branchIds.size() == 1) {
             for (Object[] row : memberRepository.findBranchLeadersAndSecretaries(branchId)) {
                 int position = "BRANCH_LEADER".equals(String.valueOf(row[1])) ? 0 : 1;
                 rank.merge(((Number) row[0]).longValue(), position, Math::min);
