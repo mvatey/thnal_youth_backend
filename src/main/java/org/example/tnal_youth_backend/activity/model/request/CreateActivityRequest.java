@@ -65,7 +65,7 @@ public class CreateActivityRequest {
 
     private String address;
 
-    @NotBlank(message = "Map link is required")
+    // Optional.
     private String googleMapUrl;
 
     @Positive(message = "Capacity must be greater than zero")
