@@ -1113,6 +1113,69 @@ public interface MemberRepository
             @Param("islamCode") String islamCode
     );
 
+    /*
+     * The same five counts for the member page's filters: the branches (or
+     * every branch), narrowed by member status, gender code, the member's
+     * current position in their own branch, and the day they joined. Any
+     * filter left null does not narrow.
+     */
+    @Query(
+            value = """
+                    SELECT COUNT(*) AS total,
+                           COUNT(*) FILTER (WHERE UPPER(m.gender) = 'FEMALE') AS female,
+                           COUNT(*) FILTER (WHERE UPPER(m.gender) = 'MONK') AS monk,
+                           COUNT(*) FILTER (WHERE UPPER(r.code) = UPPER(:buddhismCode)) AS buddhist,
+                           COUNT(*) FILTER (WHERE UPPER(r.code) = UPPER(:islamCode)) AS islam
+                    FROM members m
+                    LEFT JOIN religions r ON r.id = m.religion_id
+                    WHERE (
+                        :allBranches = TRUE
+                        OR m.branch_id IN (:branchIds)
+                        OR EXISTS (
+                            SELECT 1 FROM branch_staff bs
+                            WHERE bs.member_id = m.id
+                              AND bs.branch_id IN (:branchIds)
+                              AND bs.ended_on IS NULL
+                        )
+                    )
+                      AND (
+                          CAST(:exclusiveEndDate AS date) IS NULL
+                          OR COALESCE(m.joined_on, m.created_at::date)
+                             < CAST(:exclusiveEndDate AS date)
+                      )
+                      AND (CAST(:statusId AS bigint) IS NULL OR m.status_id = CAST(:statusId AS bigint))
+                      AND (CAST(:gender AS text) IS NULL OR UPPER(m.gender) = UPPER(CAST(:gender AS text)))
+                      AND (CAST(:joinedOn AS date) IS NULL OR m.joined_on = CAST(:joinedOn AS date))
+                      AND (
+                          CAST(:positionId AS bigint) IS NULL
+                          OR EXISTS (
+                              SELECT 1 FROM branch_staff bsp
+                              WHERE bsp.member_id = m.id
+                                AND bsp.branch_id = m.branch_id
+                                AND bsp.ended_on IS NULL
+                                AND bsp.position_id = CAST(:positionId AS bigint)
+                          )
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM users u
+                          WHERE u.member_id = m.id
+                            AND u.status = 'DELETED'
+                      )
+                    """,
+            nativeQuery = true
+    )
+    MemberSummaryCounts summaryCountsFiltered(
+            @Param("allBranches") boolean allBranches,
+            @Param("branchIds") Iterable<Long> branchIds,
+            @Param("exclusiveEndDate") LocalDate exclusiveEndDate,
+            @Param("buddhismCode") String buddhismCode,
+            @Param("islamCode") String islamCode,
+            @Param("statusId") Long statusId,
+            @Param("gender") String gender,
+            @Param("positionId") Long positionId,
+            @Param("joinedOn") LocalDate joinedOn
+    );
+
     @Query("""
     SELECT
         m AS member,

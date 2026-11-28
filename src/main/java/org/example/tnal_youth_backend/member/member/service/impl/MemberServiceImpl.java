@@ -202,27 +202,7 @@ public class MemberServiceImpl implements MemberService {
             );
         }
 
-        // Admin (and country-level staff reading, who read as admin) may
-        // count any branches; everyone else only their own.
-        if (role != UserRole.ADMIN) {
-            if (role != UserRole.SECRETARY
-                    && role != UserRole.BRANCH_LEADER) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "You are not allowed to view members"
-                );
-            }
-
-            Set<Long> accessible =
-                    staffBranchScopeService.staffBranchIds(currentUser);
-
-            if (!accessible.containsAll(branchIds)) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "You cannot access members from another branch"
-                );
-            }
-        }
+        requireAccessibleBranches(currentUser, role, branchIds);
 
         LocalDate currentMonthStart =
                 LocalDate.now()
@@ -256,6 +236,100 @@ public class MemberServiceImpl implements MemberService {
                 percentageCalculator.calculate(
                         now.getIslam(), before.getIslam()
                 )
+        );
+    }
+
+    // Admin (and country-level staff reading, who read as admin) may count
+    // any branches; everyone else only their own.
+    private void requireAccessibleBranches(
+            User currentUser,
+            UserRole role,
+            java.util.Collection<Long> branchIds
+    ) {
+        if (role != UserRole.ADMIN) {
+            if (role != UserRole.SECRETARY
+                    && role != UserRole.BRANCH_LEADER) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not allowed to view members"
+                );
+            }
+
+            Set<Long> accessible =
+                    staffBranchScopeService.staffBranchIds(currentUser);
+
+            if (!accessible.containsAll(branchIds)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You cannot access members from another branch"
+                );
+            }
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberSummaryResponse getFilteredMemberSummary(
+            Long branchId,
+            java.util.Collection<Long> branchIds,
+            Long statusId,
+            String gender,
+            Long positionId,
+            LocalDate joinedOn
+    ) {
+        String genderCode =
+                gender == null || gender.isBlank() ? null : gender.trim();
+
+        boolean allBranches = false;
+        java.util.Collection<Long> scope;
+
+        if (branchIds != null && !branchIds.isEmpty()) {
+            User currentUser = getCurrentUser();
+            UserRole role = viewerAccessService.effectiveReadRole(currentUser);
+
+            if (role == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Authenticated user does not have a role"
+                );
+            }
+
+            requireAccessibleBranches(currentUser, role, branchIds);
+            scope = branchIds;
+        } else {
+            Long effective = resolveMemberListBranchId(branchId);
+
+            if (effective == null) {
+                allBranches = true;
+                scope = List.of(-1L);
+            } else {
+                scope = List.of(effective);
+            }
+        }
+
+        LocalDate currentMonthStart =
+                LocalDate.now().with(TemporalAdjusters.firstDayOfMonth());
+
+        var now = memberRepository.summaryCountsFiltered(
+                allBranches, scope, null, BUDDHISM_CODE, ISLAM_CODE,
+                statusId, genderCode, positionId, joinedOn
+        );
+        var before = memberRepository.summaryCountsFiltered(
+                allBranches, scope, currentMonthStart, BUDDHISM_CODE, ISLAM_CODE,
+                statusId, genderCode, positionId, joinedOn
+        );
+
+        return new MemberSummaryResponse(
+                now.getTotal(),
+                percentageCalculator.calculate(now.getTotal(), before.getTotal()),
+                now.getFemale(),
+                percentageCalculator.calculate(now.getFemale(), before.getFemale()),
+                now.getMonk(),
+                percentageCalculator.calculate(now.getMonk(), before.getMonk()),
+                now.getBuddhist(),
+                percentageCalculator.calculate(now.getBuddhist(), before.getBuddhist()),
+                now.getIslam(),
+                percentageCalculator.calculate(now.getIslam(), before.getIslam())
         );
     }
 

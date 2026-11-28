@@ -35,6 +35,20 @@ public interface MemberService {
     /** The same cards counted over a set of branches (a branch level pick). */
     MemberSummaryResponse getMemberSummary(java.util.Collection<Long> branchIds);
 
+    /**
+     * The cards for the member page's current filters: a branch or set of
+     * branches (or everyone the caller may read) narrowed by member status,
+     * gender code, position and joined date. Any of the filters may be null.
+     */
+    MemberSummaryResponse getFilteredMemberSummary(
+            Long branchId,
+            java.util.Collection<Long> branchIds,
+            Long statusId,
+            String gender,
+            Long positionId,
+            java.time.LocalDate joinedOn
+    );
+
     MemberDetailSummaryResponse getMemberDetailSummary(
             Long memberId
     );

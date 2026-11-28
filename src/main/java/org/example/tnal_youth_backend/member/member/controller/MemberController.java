@@ -96,8 +96,38 @@ public class MemberController {
             // A set of branches counted together (a province or district
             // and everything under it, for the member page's branch-level
             // filter). Wins over branchId when given.
-            @RequestParam(required = false) java.util.List<Long> branchIds
+            @RequestParam(required = false) java.util.List<Long> branchIds,
+
+            // The member page's other filters, so the cards follow the list.
+            // Without any of them the cards count the whole branch (or set of
+            // branches) as before.
+            @RequestParam(required = false) Long statusId,
+            @RequestParam(required = false) String gender,
+            @RequestParam(required = false) Long positionId,
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE
+            )
+            java.time.LocalDate joinedOn
     ) {
+        boolean narrowed =
+                statusId != null
+                        || (gender != null && !gender.isBlank())
+                        || positionId != null
+                        || joinedOn != null;
+
+        if (narrowed) {
+            return ResponseEntity.ok(
+                    memberService.getFilteredMemberSummary(
+                            branchId,
+                            branchIds,
+                            statusId,
+                            gender,
+                            positionId,
+                            joinedOn
+                    )
+            );
+        }
 
         return ResponseEntity.ok(
                 branchIds != null && !branchIds.isEmpty()
