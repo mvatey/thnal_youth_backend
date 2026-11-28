@@ -56,6 +56,35 @@ public class ReportController {
                 .body(file.content());
     }
 
+    // The same summary for just the chosen branches (the branch list's
+    // filter); a POST only because the list of ids can be long.
+    @PostMapping("/national-summary")
+    @PreAuthorize("hasAnyRole('ADMIN','SECRETARY','BRANCH_LEADER','VIEWER')")
+    public ResponseEntity<byte[]> nationalSummaryForBranches(
+            @RequestBody BranchesRequest request
+    ) {
+        NationalSummaryReportService.SummaryFile file =
+                nationalSummaryReportService.build(
+                        request.branchIds() == null
+                                ? null
+                                : new HashSet<>(request.branchIds())
+                );
+
+        return ResponseEntity.ok()
+                .contentType(XLSX)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(file.title() + ".xlsx", StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(file.content());
+    }
+
+    public record BranchesRequest(List<Long> branchIds) {
+    }
+
     // The Word branch report (see BranchReportService): the branch's own
     // staff and anyone who can open the branch; the service decides what the
     // caller's file contains.

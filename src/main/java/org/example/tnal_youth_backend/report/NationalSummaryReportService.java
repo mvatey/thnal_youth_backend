@@ -7,12 +7,15 @@ import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.tnal_youth_backend.authentication.model.entity.User;
 import org.example.tnal_youth_backend.authentication.model.enums.UserRole;
 import org.example.tnal_youth_backend.authentication.repository.UserRepository;
 import org.example.tnal_youth_backend.authentication.security.SecurityUtil;
+import org.example.tnal_youth_backend.member.member.security.MemberAccessValidator;
 import org.example.tnal_youth_backend.security.ViewerAccessService;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
@@ -70,6 +73,7 @@ public class NationalSummaryReportService {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
     private final ViewerAccessService viewerAccessService;
+    private final MemberAccessValidator memberAccessValidator;
 
     public record SummaryFile(byte[] content, String title) {
     }
@@ -104,13 +108,89 @@ public class NationalSummaryReportService {
             );
         }
 
-        return new SummaryFile(render(lines()), "សរុបរួមសកម្មភាពរាជធានី ខេត្ត");
+        return new SummaryFile(render(lines(null), null), "សរុបរួមសកម្មភាពរាជធានី ខេត្ត");
     }
 
-    private List<Line> lines() {
+    /**
+     * The same summary for just the chosen branches: one row per branch (its
+     * own members, activities it hosts), the total row summing them, and the
+     * sheet's heading reworded for what was chosen. Anyone who can open each
+     * branch may ask, so a secretary or leader gets their own branches.
+     */
+    @Transactional(readOnly = true)
+    public SummaryFile build(Set<Long> branchIds) {
+        User user = currentUser();
+
+        if (branchIds == null || branchIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Choose at least one branch for the summary"
+            );
+        }
+
+        for (Long branchId : branchIds) {
+            memberAccessValidator.validateBranchAccess(branchId);
+        }
+
+        List<Line> lines = lines(branchIds);
+        String heading = headingFor(branchIds);
+
+        return new SummaryFile(render(lines, heading), "សរុបរួមសកម្មភាពសាខាដែលបានជ្រើសរើស");
+    }
+
+    /*
+     * "IV. សរុបរួមសកម្មភាពទាំង<N> ទីតាំង<kind>": N is how many branches were
+     * chosen; the kind follows their level when they all share one, else
+     * just "សាខា".
+     */
+    private String headingFor(Set<Long> branchIds) {
+        List<String> levels = new ArrayList<>();
+
+        jdbcTemplate.query(
+                """
+                SELECT DISTINCT UPPER(bl.code) AS code
+                FROM branches b
+                JOIN branch_levels bl ON bl.id = b.branch_level_id
+                WHERE b.id IN (:ids)
+                """,
+                Map.of("ids", branchIds),
+                rs -> {
+                    levels.add(rs.getString("code"));
+                }
+        );
+
+        String kind = levels.size() == 1
+                ? switch (levels.get(0)) {
+                    case "PROVINCE" -> "រាជធានី ខេត្ត";
+                    case "DISTRICT" -> "ក្រុង ស្រុក ខណ្ឌ";
+                    case "COMMUNE" -> "ឃុំ សង្កាត់";
+                    default -> "សាខា";
+                }
+                : "សាខា";
+
+        return " សរុបរួមសកម្មភាពទាំង" + khmerDigits(branchIds.size()) + " ទីតាំង" + kind;
+    }
+
+    private static String khmerDigits(long number) {
+        StringBuilder out = new StringBuilder();
+
+        for (char digit : Long.toString(number).toCharArray()) {
+            out.append((char) ('០' + (digit - '0')));
+        }
+
+        return out.toString();
+    }
+
+    private List<Line> lines(Set<Long> branchIds) {
+        boolean chosen = branchIds != null;
+        // Rows are provinces (the whole country), or one per chosen branch.
+        String groupExpr = chosen ? "b.id::text" : "COALESCE(b.province_id::text, 'C')";
+        Map<String, Object> params = chosen ? Map.of("ids", branchIds) : Map.of();
         // group -> display name ("C" = the central office, else the province id)
         Map<String, String> names = new LinkedHashMap<>();
-        names.put(CENTRAL, "ស្នាក់ការកណ្តាល");
+        if (!chosen) {
+            names.put(CENTRAL, "ស្នាក់ការកណ្តាល");
+        }
 
         // A province's row is named after its province-level branch, or the
         // province itself when it has none.
@@ -139,11 +219,18 @@ public class NationalSummaryReportService {
 
         // Locations: every branch and sub-branch of the province.
         jdbcTemplate.query(
-                """
-                SELECT COALESCE(province_id::text, 'C') AS grp, COUNT(*) AS n
-                FROM branches
-                GROUP BY 1
-                """,
+                chosen
+                        ? """
+                        SELECT b.id::text AS grp, 1 AS n
+                        FROM branches b
+                        WHERE b.id IN (:ids)
+                        """
+                        : """
+                        SELECT COALESCE(province_id::text, 'C') AS grp, COUNT(*) AS n
+                        FROM branches
+                        GROUP BY 1
+                        """,
+                params,
                 rs -> {
                     counts.computeIfAbsent(rs.getString("grp"), key -> fresh())[0] =
                             rs.getLong("n");
@@ -153,7 +240,7 @@ public class NationalSummaryReportService {
         // Members, by their own branch's province.
         jdbcTemplate.query(
                 """
-                SELECT COALESCE(b.province_id::text, 'C') AS grp,
+                SELECT %s AS grp,
                        COUNT(*) AS total,
                        COUNT(*) FILTER (WHERE UPPER(m.gender) = 'FEMALE') AS female,
                        -- -1 means nobody in the group has answered yet (a dash).
@@ -190,8 +277,10 @@ public class NationalSummaryReportService {
                 JOIN branches b ON b.id = m.branch_id
                 LEFT JOIN religions r ON r.id = m.religion_id
                 LEFT JOIN member_statuses s ON s.id = m.status_id
+                %s
                 GROUP BY 1
-                """,
+                """.formatted(groupExpr, chosen ? "WHERE b.id IN (:ids)" : ""),
+                params,
                 rs -> {
                     long[] values =
                             counts.computeIfAbsent(rs.getString("grp"), key -> fresh());
@@ -211,7 +300,7 @@ public class NationalSummaryReportService {
         // happened, so they are left out), by the hosting branch's province.
         jdbcTemplate.query(
                 """
-                SELECT COALESCE(b.province_id::text, 'C') AS grp,
+                SELECT %s AS grp,
                        UPPER(t.code) AS type_code,
                        COUNT(*) AS n
                 FROM activities a
@@ -219,8 +308,10 @@ public class NationalSummaryReportService {
                 JOIN activity_types t ON t.id = a.type_id
                 LEFT JOIN activity_statuses st ON st.id = a.status_id
                 WHERE UPPER(COALESCE(st.code, '')) <> 'CANCELLED'
+                %s
                 GROUP BY 1, 2
-                """,
+                """.formatted(groupExpr, chosen ? "AND b.id IN (:ids)" : ""),
+                params,
                 rs -> {
                     int column = switch (rs.getString("type_code")) {
                         case "INTERNAL" -> 10;
@@ -237,6 +328,56 @@ public class NationalSummaryReportService {
                     }
                 }
         );
+
+        if (chosen) {
+            // One row per chosen branch: the country branch first, then
+            // provinces, districts and communes, each in Khmer alphabetical
+            // order.
+            List<String[]> picked = new ArrayList<>();
+            jdbcTemplate.query(
+                    """
+                    SELECT b.id::text AS id, b.name_km, UPPER(bl.code) AS code
+                    FROM branches b
+                    JOIN branch_levels bl ON bl.id = b.branch_level_id
+                    WHERE b.id IN (:ids)
+                    """,
+                    params,
+                    rs -> {
+                        picked.add(new String[] {
+                                rs.getString("id"),
+                                rs.getString("name_km"),
+                                rs.getString("code")
+                        });
+                    }
+            );
+
+            List<String> levelOrder = List.of("COUNTRY", "PROVINCE", "DISTRICT", "COMMUNE");
+            Collator collator = Collator.getInstance(Locale.forLanguageTag("km"));
+            picked.sort((first, second) -> {
+                int byLevel = Integer.compare(
+                        levelOrder.indexOf(first[2]) < 0 ? levelOrder.size() : levelOrder.indexOf(first[2]),
+                        levelOrder.indexOf(second[2]) < 0 ? levelOrder.size() : levelOrder.indexOf(second[2])
+                );
+
+                return byLevel != 0
+                        ? byLevel
+                        : collator.compare(first[1], second[1]);
+            });
+
+            List<Line> chosenLines = new ArrayList<>();
+            for (String[] branch : picked) {
+                Line line = new Line(branch[1]);
+                long[] values = counts.get(branch[0]);
+
+                if (values != null) {
+                    System.arraycopy(values, 0, line.values, 0, VALUES);
+                }
+
+                chosenLines.add(line);
+            }
+
+            return chosenLines;
+        }
 
         // Every province that has any branch or member gets a row.
         for (String group : counts.keySet()) {
@@ -336,7 +477,7 @@ public class NationalSummaryReportService {
                 .replace("ះ", "");
     }
 
-    private byte[] render(List<Line> lines) {
+    private byte[] render(List<Line> lines, String heading) {
         try (
                 InputStream in = new ClassPathResource(TEMPLATE).getInputStream();
                 XSSFWorkbook workbook = new XSSFWorkbook(in);
@@ -349,6 +490,10 @@ public class NationalSummaryReportService {
             workbook.setActiveSheet(0);
 
             XSSFSheet sheet = workbook.getSheetAt(0);
+
+            if (heading != null) {
+                reword(sheet, heading);
+            }
 
             // Remember the template's look before its rows are replaced.
             CellStyle[] dataStyles = styles(workbook, sheet.getRow(FIRST_DATA_ROW), true);
@@ -431,6 +576,33 @@ public class NationalSummaryReportService {
                     "The national summary could not be generated"
             );
         }
+    }
+
+    // The sheet's heading ("IV." in bold, then the title) with a new title,
+    // keeping the template's two fonts.
+    private void reword(XSSFSheet sheet, String title) {
+        Row row = sheet.getRow(0);
+        Cell cell = row == null ? null : row.getCell(0);
+
+        if (cell == null) {
+            return;
+        }
+
+        XSSFRichTextString old = (XSSFRichTextString) cell.getRichStringCellValue();
+        XSSFRichTextString text = new XSSFRichTextString("IV." + title);
+
+        XSSFFont numberFont = old.numFormattingRuns() > 0 ? old.getFontOfFormattingRun(0) : null;
+        XSSFFont titleFont = old.numFormattingRuns() > 1 ? old.getFontOfFormattingRun(1) : null;
+
+        if (numberFont != null) {
+            text.applyFont(0, 3, numberFont);
+        }
+
+        if (titleFont != null) {
+            text.applyFont(3, text.length(), titleFont);
+        }
+
+        cell.setCellValue(text);
     }
 
     // The template row's cell styles; from the third column on the text is
