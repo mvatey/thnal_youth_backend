@@ -55,7 +55,7 @@ public class DashboardController {
     public ResponseEntity<ParticipationTrendResponse>
     getParticipationTrend(
                     @RequestParam(required = false)
-                    Integer year,
+                    String year,
                     @RequestParam(required = false) Long branchId
             ) {
         return ResponseEntity.ok(

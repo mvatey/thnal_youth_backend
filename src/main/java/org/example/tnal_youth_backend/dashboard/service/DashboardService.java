@@ -19,7 +19,7 @@ public interface DashboardService {
 
     ParticipationTrendResponse
     getParticipationTrend(
-            Integer year,
+            String year,
             Long branchId
     );
 

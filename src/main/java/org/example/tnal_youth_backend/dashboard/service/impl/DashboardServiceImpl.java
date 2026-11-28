@@ -40,6 +40,32 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardYearResolver dashboardYearResolver;
     private final BranchRepository branchRepository;
 
+    // The "All" choice on the pie and line charts: a range wide enough to
+    // hold every activity.
+    private static final OffsetDateTime ALL_TIME_START =
+            LocalDate.of(1900, 1, 1)
+                    .atStartOfDay(CAMBODIA_ZONE)
+                    .toOffsetDateTime();
+
+    private static final OffsetDateTime ALL_TIME_END =
+            LocalDate.of(9999, 1, 1)
+                    .atStartOfDay(CAMBODIA_ZONE)
+                    .toOffsetDateTime();
+
+    private static Integer parseYear(String value) {
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid dashboard year."
+            );
+        }
+    }
+
+    private static boolean isAll(String value) {
+        return value != null && "all".equalsIgnoreCase(value.trim());
+    }
+
     // =========================================================
     // SUMMARY
     // =========================================================
@@ -428,11 +454,22 @@ public class DashboardServiceImpl implements DashboardService {
             String month,
             Long branchId
     ) {
+        // "all" counts every activity ever, not one month.
+        boolean allTime = isAll(month);
+
         DashboardScope scope =
-                dashboardScopeResolver.resolve(month);
+                dashboardScopeResolver.resolve(
+                        allTime ? null : month
+                );
 
         DashboardMonthRange range =
                 scope.monthRange();
+
+        OffsetDateTime periodStart =
+                allTime ? ALL_TIME_START : range.selectedMonthStart();
+
+        OffsetDateTime periodEnd =
+                allTime ? ALL_TIME_END : range.nextMonthStart();
 
         List<ActivityTypeCountRow> rows;
 
@@ -444,8 +481,8 @@ public class DashboardServiceImpl implements DashboardService {
             rows =
                     dashboardRepository
                             .findActivityTypeBreakdown(
-                                    range.selectedMonthStart(),
-                                    range.nextMonthStart()
+                                    periodStart,
+                                    periodEnd
                             );
 
         } else {
@@ -459,14 +496,14 @@ public class DashboardServiceImpl implements DashboardService {
                             ? dashboardRepository
                                     .findActivityTypeBreakdownByBranches(
                                             branchIds,
-                                            range.selectedMonthStart(),
-                                            range.nextMonthStart()
+                                            periodStart,
+                                            periodEnd
                                     )
                             : dashboardRepository
                                     .findActivityTypeBreakdownByBranchesIncludingAcceptedInvites(
                                             branchIds,
-                                            range.selectedMonthStart(),
-                                            range.nextMonthStart()
+                                            periodStart,
+                                            periodEnd
                                     );
         }
 
@@ -525,7 +562,7 @@ public class DashboardServiceImpl implements DashboardService {
                         .sum();
 
         return ActivityTypeBreakdownResponse.builder()
-                .period(range.period())
+                .period(allTime ? "all" : range.period())
                 .internal(internal)
                 .external(external)
                 .total(total)
@@ -540,29 +577,43 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public ParticipationTrendResponse
     getParticipationTrend(
-            Integer year,
+            String year,
             Long branchId
     ) {
+        // "all" adds every year together, month by month (all the Januaries,
+        // all the Februaries, ...). Reported as year 0.
+        boolean allTime = isAll(year);
+
         int selectedYear =
-                dashboardYearResolver.resolve(year);
+                allTime
+                        ? 0
+                        : dashboardYearResolver.resolve(
+                                year == null || year.isBlank()
+                                        ? null
+                                        : parseYear(year)
+                        );
 
         OffsetDateTime start =
-                LocalDate.of(
-                                selectedYear,
-                                1,
-                                1
-                        )
-                        .atStartOfDay(CAMBODIA_ZONE)
-                        .toOffsetDateTime();
+                allTime
+                        ? ALL_TIME_START
+                        : LocalDate.of(
+                                        selectedYear,
+                                        1,
+                                        1
+                                )
+                                .atStartOfDay(CAMBODIA_ZONE)
+                                .toOffsetDateTime();
 
         OffsetDateTime end =
-                LocalDate.of(
-                                selectedYear + 1,
-                                1,
-                                1
-                        )
-                        .atStartOfDay(CAMBODIA_ZONE)
-                        .toOffsetDateTime();
+                allTime
+                        ? ALL_TIME_END
+                        : LocalDate.of(
+                                        selectedYear + 1,
+                                        1,
+                                        1
+                                )
+                                .atStartOfDay(CAMBODIA_ZONE)
+                                .toOffsetDateTime();
 
         DashboardScope scope =
                 dashboardScopeResolver.resolve(null);
@@ -621,11 +672,16 @@ public class DashboardServiceImpl implements DashboardService {
                                         .builder()
                                         .month(monthNumber)
                                         .period(
-                                                String.format(
-                                                        "%d-%02d",
-                                                        selectedYear,
-                                                        monthNumber
-                                                )
+                                                allTime
+                                                        ? String.format(
+                                                                "all-%02d",
+                                                                monthNumber
+                                                        )
+                                                        : String.format(
+                                                                "%d-%02d",
+                                                                selectedYear,
+                                                                monthNumber
+                                                        )
                                         )
                                         .participationCount(
                                                 countsByMonth
