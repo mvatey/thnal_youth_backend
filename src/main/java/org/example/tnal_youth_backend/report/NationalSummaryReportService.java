@@ -118,7 +118,7 @@ public class NationalSummaryReportService {
      * branch may ask, so a secretary or leader gets their own branches.
      */
     @Transactional(readOnly = true)
-    public SummaryFile build(Set<Long> branchIds) {
+    public SummaryFile build(Set<Long> branchIds, Long scopeBranchId) {
         User user = currentUser();
 
         if (branchIds == null || branchIds.isEmpty()) {
@@ -132,8 +132,12 @@ public class NationalSummaryReportService {
             memberAccessValidator.validateBranchAccess(branchId);
         }
 
+        if (scopeBranchId != null) {
+            memberAccessValidator.validateBranchAccess(scopeBranchId);
+        }
+
         List<Line> lines = lines(branchIds);
-        String heading = headingFor(branchIds);
+        String heading = headingFor(branchIds, scopeBranchId);
 
         return new SummaryFile(render(lines, heading), "សរុបរួមសកម្មភាពសាខាដែលបានជ្រើសរើស");
     }
@@ -143,7 +147,7 @@ public class NationalSummaryReportService {
      * chosen; the kind follows their level when they all share one, else
      * just "សាខា".
      */
-    private String headingFor(Set<Long> branchIds) {
+    private String headingFor(Set<Long> branchIds, Long scopeBranchId) {
         List<String> levels = new ArrayList<>();
 
         jdbcTemplate.query(
@@ -168,7 +172,54 @@ public class NationalSummaryReportService {
                 }
                 : "សាខា";
 
-        return " សរុបរួមសកម្មភាពទាំង" + khmerDigits(branchIds.size()) + " ទីតាំង" + kind;
+        return " សរុបរួមសកម្មភាពទាំង" + khmerDigits(branchIds.size()) + " ទីតាំង" + kind
+                + scopeOf(scopeBranchId);
+    }
+
+    /*
+     * " របស់ថ្នាក់ខេត្ត/ស្រុក/ឃុំ<name>": the level and name of the branch the
+     * list was narrowed to (a province, district or commune picked in the
+     * branch/level filter), or nothing when no such branch was picked.
+     */
+    private String scopeOf(Long scopeBranchId) {
+        if (scopeBranchId == null) {
+            return "";
+        }
+
+        List<String[]> found = new ArrayList<>();
+
+        jdbcTemplate.query(
+                """
+                SELECT b.name_km, UPPER(bl.code) AS code
+                FROM branches b
+                JOIN branch_levels bl ON bl.id = b.branch_level_id
+                WHERE b.id = :id
+                """,
+                Map.of("id", scopeBranchId),
+                rs -> {
+                    found.add(new String[] {rs.getString("name_km"), rs.getString("code")});
+                }
+        );
+
+        if (found.isEmpty()) {
+            return "";
+        }
+
+        String level = switch (found.get(0)[1]) {
+            case "PROVINCE" -> "ខេត្ត";
+            case "DISTRICT" -> "ស្រុក";
+            case "COMMUNE" -> "ឃុំ";
+            default -> "";
+        };
+
+        // Branch names are inconsistent: some already start with "សាខា".
+        String name = found.get(0)[0] == null
+                ? ""
+                : found.get(0)[0].trim().replaceFirst("^សាខា\\s*", "");
+
+        return level.isEmpty() || name.isEmpty()
+                ? ""
+                : " របស់ថ្នាក់" + level + name;
     }
 
     private static String khmerDigits(long number) {

@@ -67,7 +67,8 @@ public class ReportController {
                 nationalSummaryReportService.build(
                         request.branchIds() == null
                                 ? null
-                                : new HashSet<>(request.branchIds())
+                                : new HashSet<>(request.branchIds()),
+                        request.scopeBranchId()
                 );
 
         return ResponseEntity.ok()
@@ -82,7 +83,9 @@ public class ReportController {
                 .body(file.content());
     }
 
-    public record BranchesRequest(List<Long> branchIds) {
+    // scopeBranchId: the province/district/commune the list was narrowed to,
+    // named in the sheet's heading (optional).
+    public record BranchesRequest(List<Long> branchIds, Long scopeBranchId) {
     }
 
     // The Word branch report (see BranchReportService): the branch's own
